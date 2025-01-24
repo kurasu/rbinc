@@ -17,6 +17,10 @@ fn main() -> eframe::Result {
     eframe::run_simple_native(app_name, options, move |ctx, _frame| {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading(app_name);
+            if (ui.button("ok").clicked())
+            {
+                println!("ok");
+            }
         });
     })
 }

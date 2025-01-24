@@ -1,0 +1,9 @@
+[package]
+name = "demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bid-rs = { path = "../bid-rs" }
+eframe = "0.30.0"
+env_logger = "0.11.6"
