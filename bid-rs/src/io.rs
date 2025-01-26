@@ -69,8 +69,24 @@ pub trait WriteExt: Write {
         self.write_byte(if value { 1 } else { 0 })
     }
 
-    fn write_uuid(&mut self, value: Uuid) -> io::Result<()> {
+    fn write_uuid(&mut self, value: &Uuid) -> io::Result<()> {
         self.write_all(value.as_bytes())
+    }
+
+    fn write_uuid_array(&mut self, value: &Vec<Uuid>) -> io::Result<()> {
+        self.write_length(value.len() as u64)?;
+        for id in value {
+            self.write_uuid(id)?;
+        }
+        Ok(())
+    }
+
+    fn write_string_array(&mut self, value: &Vec<str>) -> io::Result<()> {
+        self.write_length(value.len() as u64)?;
+        for s in value {
+            self.write_string(s)?;
+        }
+        Ok(())
     }
 }
 
@@ -227,7 +243,7 @@ mod tests {
     fn test_write_and_read_uuid() {
         let mut buffer = Vec::new();
         let id = Uuid::new_v4();
-        buffer.write_uuid(id).unwrap();
+        buffer.write_uuid(&id).unwrap();
 
         // Read
         let mut cursor = &buffer[..];
