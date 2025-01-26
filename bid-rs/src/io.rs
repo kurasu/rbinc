@@ -68,6 +68,10 @@ pub trait WriteExt: Write {
     fn write_bool(&mut self, value: bool) -> io::Result<()> {
         self.write_byte(if value { 1 } else { 0 })
     }
+
+    fn write_uuid(&mut self, value: Uuid) -> io::Result<()> {
+        self.write_all(value.as_bytes())
+    }
 }
 
 /// Implement `WriteExt` for all types that implement `Write`.
@@ -191,7 +195,7 @@ mod tests {
         buffer.write_uint64(1234567890123456789).unwrap();
         buffer.write_int64(-1234567890123456789).unwrap();
         buffer.write_float(3.14).unwrap();
-        buffer.write_double(3.14159265359).unwrap();
+        buffer.write_double(std::f64::consts::PI).unwrap();
         buffer.write_bool(true).unwrap();
         buffer.write_bool(false).unwrap();
 
@@ -204,7 +208,7 @@ mod tests {
         assert_eq!(cursor.read_uint64().unwrap(), 1234567890123456789);
         assert_eq!(cursor.read_int64().unwrap(), -1234567890123456789);
         assert!((cursor.read_float().unwrap() - 3.14).abs() < f32::EPSILON);
-        assert!((cursor.read_double().unwrap() - 3.14159265359).abs() < f64::EPSILON);
+        assert!((cursor.read_double().unwrap() - std::f64::consts::PI).abs() < f64::EPSILON);
         assert_eq!(cursor.read_bool().unwrap(), true);
         assert_eq!(cursor.read_bool().unwrap(), false);
     }
@@ -217,5 +221,16 @@ mod tests {
         // Read
         let mut cursor = &buffer[..];
         assert_eq!(cursor.read_string().unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_write_and_read_uuid() {
+        let mut buffer = Vec::new();
+        let id = Uuid::new_v4();
+        buffer.write_uuid(id).unwrap();
+
+        // Read
+        let mut cursor = &buffer[..];
+        assert_eq!(cursor.read_uuid().unwrap(), id);
     }
 }
