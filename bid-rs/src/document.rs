@@ -2,7 +2,7 @@ use std::collections::LinkedList;
 use crate::revision::Change;
 
 struct Revision {
-    changes: Vec<dyn Change>,
+    //changes: Vec<Change>,
 }
 
 impl Revision {
