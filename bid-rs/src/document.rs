@@ -1,11 +1,12 @@
+use std::any::Any;
 use std::collections::HashMap;
 use uuid::Uuid;
 use crate::repository::Repository;
 use crate::revision::Change;
 
 pub struct Node {
-    children: Vec<Node>,
-    attributes: HashMap<String, Box<()>>,
+    pub children: Vec<Node>,
+    pub attributes: HashMap<String, Box<dyn Any>>,
 }
 
 impl Node {
@@ -16,13 +17,20 @@ impl Node {
             attributes: HashMap::new(),
         }
     }
+
+    /*pub fn set_attribute<T>(&mut self, key: String, value: T) {
+        self.attributes.insert(key, Box::new(value));
+    }*/
+
+    pub fn set_string_attribute(&mut self, key: String, value: String) {
+        self.attributes.insert(key, Box::new(value));
+    }
 }
 
-struct Document {
+pub struct Document {
     repository: Repository,
     nodes: HashMap<Uuid, Node>,
 }
-
 
 fn compute_nodes(repository: &Repository) -> HashMap<Uuid, Node> {
     let mut nodes: HashMap<Uuid, Node> = HashMap::new();
@@ -40,4 +48,7 @@ impl Document {
         Document { repository, nodes }
     }
 
+    pub fn node_count(&self) -> usize {
+        self.nodes.len()
+    }
 }

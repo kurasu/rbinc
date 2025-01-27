@@ -40,19 +40,19 @@ impl ChangeType {
 
     pub const SET_BOOL_ARRAY: u64 = 0x60;
     pub const SET_STRING_ARRAY: u64 = 0x61;
-    pub const SET_UUIDARRAY: u64 = 0x62;
-    pub const SET_UINT8ARRAY: u64 = 0x63;
-    pub const SET_UINT16ARRAY: u64 = 0x64;
-    pub const SET_UINT32ARRAY: u64 = 0x65;
-    pub const SET_UINT64ARRAY: u64 = 0x66;
-    pub const SET_INT8ARRAY: u64 = 0x67;
-    pub const SET_INT16ARRAY: u64 = 0x68;
-    pub const SET_INT32ARRAY: u64 = 0x69;
-    pub const SET_INT64ARRAY: u64 = 0x6A;
-    pub const SET_FLOAT16ARRAY: u64 = 0x6B;
-    pub const SET_FLOAT32ARRAY: u64 = 0x6C;
-    pub const SET_FLOAT64ARRAY: u64 = 0x6D;
-    pub const SET_FLOAT80ARRAY: u64 = 0x6E;
+    pub const SET_UUID_ARRAY: u64 = 0x62;
+    pub const SET_UINT8_ARRAY: u64 = 0x63;
+    pub const SET_UINT16_ARRAY: u64 = 0x64;
+    pub const SET_UINT32_ARRAY: u64 = 0x65;
+    pub const SET_UINT64_ARRAY: u64 = 0x66;
+    pub const SET_INT8_ARRAY: u64 = 0x67;
+    pub const SET_INT16_ARRAY: u64 = 0x68;
+    pub const SET_INT32_ARRAY: u64 = 0x69;
+    pub const SET_INT64_ARRAY: u64 = 0x6A;
+    pub const SET_FLOAT16_ARRAY: u64 = 0x6B;
+    pub const SET_FLOAT32_ARRAY: u64 = 0x6C;
+    pub const SET_FLOAT64_ARRAY: u64 = 0x6D;
+    pub const SET_FLOAT80_ARRAY: u64 = 0x6E;
 
     pub const UNKNOWN: u64 = 0x7FFFFE; // Only used internally
     pub const ERROR: u64 = 0x7FFFFF; // Only used internally
@@ -114,11 +114,47 @@ impl Change for RemoveNode {
     }
 }
 
+pub struct SetString {
+    pub (crate) node: Uuid,
+    pub (crate) attribute: String,
+    pub (crate) value: String,
+}
+
+impl SetString {
+    pub fn new(node: Uuid, attribute: &str, value: String) -> Self {
+        Self { node, attribute: attribute.to_string(), value }
+    }
+
+    pub fn read(mut r: &mut dyn Read) -> io::Result<Self> {
+        let node = r.read_uuid()?;
+        let attribute = r.read_string()?;
+        let value = r.read_string()?;
+        Ok(Self { node, attribute, value })
+    }
+}
+
+impl Change for SetString {
+    fn change_type(&self) -> u64 { ChangeType::SET_STRING }
+
+    fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
+        w.write_length(self.change_type() as u64)?;
+        w.write_uuid(&self.node)?;
+        w.write_string(&self.attribute)?;
+        w.write_string(&self.value)
+    }
+
+    fn apply(&self, nodes: &mut HashMap<Uuid, Node>) {
+        let x = nodes.get_mut(&self.node).unwrap();
+        x.set_string_attribute(self.attribute.clone(), self.value.clone());
+    }
+}
+
 pub(crate) fn read_change(mut r: &mut dyn Read) -> io::Result<Box<dyn Change>> {
     let change_type = r.read_length()?;
     match change_type {
         ChangeType::ADD_NODE => Ok(Box::new(AddNode::read(r)?)),
         ChangeType::REMOVE_NODE => Ok(Box::new(RemoveNode::read(r)?)),
+        ChangeType::SET_STRING => Ok(Box::new(SetString::read(r)?)),
         _ => Err(io::Error::from(io::ErrorKind::InvalidData)),
     }
 }
