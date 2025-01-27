@@ -1,8 +1,8 @@
 use std::io;
 use std::io::{Read, Write};
 use uuid::Uuid;
-use crate::io::ReadExt;
-use crate::io::WriteExt;
+use crate::iowrappers::ReadExt;
+use crate::iowrappers::WriteExt;
 use chrono::Utc;
 use whoami::username;
 
@@ -126,7 +126,7 @@ impl Revision {
     }
 
     pub(crate) fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
-        w.write_uint32(Self::CHANGE_LIST_ID)?;
+        w.write_u32(Self::CHANGE_LIST_ID)?;
         w.write_uuid(&self.id)?;
         w.write_uuid_array(&self.uuid_of_parents)?;
         w.write_string(&self.date)?;

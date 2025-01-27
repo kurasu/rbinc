@@ -5,4 +5,4 @@ edition = "2021"
 
 [dependencies]
 bid-rs = { path = "../bid-rs" }
-clap = { version = "4.0", features = ["derive"] }
+clap = { version = "4.5.27", features = ["derive"] }

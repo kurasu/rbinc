@@ -1,7 +1,6 @@
-use std::net::TcpListener;
+mod server;
 
-mod revision;
-mod io;
+use std::net::TcpListener;
 
 use clap::{arg, Command};
 
@@ -41,7 +40,7 @@ fn cli() -> Command {
 }
 
 fn main() {
-    server()
+    server::server()
     //let matches = cli().get_matches();
 
     /*let c = add(10, 4);

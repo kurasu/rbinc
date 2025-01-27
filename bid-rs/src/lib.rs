@@ -1,6 +1,6 @@
 mod revision;
 mod document;
-mod io;
+pub mod iowrappers;
 
 #[cfg(test)]
 mod tests {

@@ -1,7 +1,7 @@
 use io::Write;
 use std::io;
 use uuid::Uuid;
-use crate::io::WriteExt;
+use crate::iowrappers::WriteExt;
 use crate::revision::*;
 
 struct Document {
@@ -20,7 +20,7 @@ impl Document {
     }
 
     fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
-        w.write_uint32(Document::CONTAINER_ID)?;
+        w.write_u32(Document::CONTAINER_ID)?;
 
         for revision in &self.revisions {
             revision.write(w)?;
