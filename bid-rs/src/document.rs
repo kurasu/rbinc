@@ -18,7 +18,7 @@ impl Document {
         self.revisions.push(revision);
     }
 
-    fn write(&self, w: &mut dyn Write) -> io::Result<()> {
+    fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
         w.write_uint32(Document::CONTAINER_ID)?;
 
         for revision in &self.revisions {

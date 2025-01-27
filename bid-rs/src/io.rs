@@ -27,7 +27,13 @@ pub trait WriteExt: Write {
         self.write_uint8((value & 0x7f) as u8)
     }
 
-    fn write_string(&mut self, d: &str) -> io::Result<()> {
+    fn write_str(&mut self, d: &str) -> io::Result<()> {
+        let bytes = d.as_bytes();
+        self.write_length(bytes.len() as u64)?;
+        self.write_all(bytes)
+    }
+
+    fn write_string(&mut self, d: &String) -> io::Result<()> {
         let bytes = d.as_bytes();
         self.write_length(bytes.len() as u64)?;
         self.write_all(bytes)
@@ -81,7 +87,7 @@ pub trait WriteExt: Write {
         Ok(())
     }
 
-    fn write_string_array(&mut self, value: &Vec<str>) -> io::Result<()> {
+    fn write_string_array(&mut self, value: &Vec<String>) -> io::Result<()> {
         self.write_length(value.len() as u64)?;
         for s in value {
             self.write_string(s)?;
@@ -232,7 +238,7 @@ mod tests {
     #[test]
     fn test_write_and_read_string() {
         let mut buffer = Vec::new();
-        buffer.write_string("hello").unwrap();
+        buffer.write_str("hello").unwrap();
 
         // Read
         let mut cursor = &buffer[..];

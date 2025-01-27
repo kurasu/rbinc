@@ -57,7 +57,7 @@ impl ChangeType {
 }
 
 pub trait Change {
-    fn change_type(&self) -> ChangeType;
+    fn change_type(&self) -> u64;
     fn write(&self, w: &mut dyn Write) -> io::Result<()>;
 }
 
@@ -70,7 +70,7 @@ impl AddNode {
         Self { node }
     }
 
-    pub fn read(r: &mut dyn Read) -> io::Result<Self> {
+    pub fn read(mut r: &mut dyn Read) -> io::Result<Self> {
         let node = r.read_uuid()?;
         Ok(Self { node })
     }
@@ -78,35 +78,35 @@ impl AddNode {
 
 impl Change for AddNode {
     fn change_type(&self) -> u64 { ChangeType::ADD_NODE }
-    fn write(&self, w: &mut dyn Write) -> io::Result<()> {
+    fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
         w.write_length(self.change_type() as u64)?;
         w.write_uuid(&self.node)
     }
 }
 
-fn read_change(r: &mut dyn Read) -> io::Result<dyn Change> {
+fn read_change(mut r: &mut dyn Read) -> io::Result<Box<dyn Change>> {
     let change_type = r.read_length()?;
     match change_type {
-        ChangeType::ADD_NODE => Ok(AddNode::read(r)?),
+        ChangeType::ADD_NODE => Ok(Box::new(AddNode::read(r)?)),
         _ => Err(io::Error::from(io::ErrorKind::InvalidData)),
     }
 }
 
 pub struct Revision {
-    changes: Vec<dyn Change>,
+    changes: Vec<Box<dyn Change>>,
     id: Uuid,
     uuid_of_parents: Vec<Uuid>,
-    date: str,
-    user_name: str,
-    message: str,
-    tags: Vec<str>,
+    date: String,
+    user_name: String,
+    message: String,
+    tags: Vec<String>,
 }
 
 impl Revision {
 
     pub const CHANGE_LIST_ID: u32 = 0x43686e67;
 
-    pub(crate) fn write(&self, w: &mut dyn Write) -> io::Result<()> {
+    pub(crate) fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
         w.write_uint32(Self::CHANGE_LIST_ID)?;
         w.write_uuid(&self.id)?;
         w.write_uuid_array(&self.uuid_of_parents)?;
@@ -116,7 +116,7 @@ impl Revision {
         w.write_string_array(&self.tags)?;
 
         w.write_length(self.changes.len() as u64)?;
-        for change in self.changes {
+        for change in &self.changes {
             change.write(w)?;
         }
         Ok(())
