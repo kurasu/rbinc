@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io;
 use std::io::{Read, Write};
 use uuid::Uuid;
@@ -5,6 +6,7 @@ use crate::iowrappers::ReadExt;
 use crate::iowrappers::WriteExt;
 use chrono::Utc;
 use whoami::username;
+use crate::document::Node;
 
 struct ChangeType;
 
@@ -61,13 +63,42 @@ impl ChangeType {
 pub trait Change {
     fn change_type(&self) -> u64;
     fn write(&self, w: &mut dyn Write) -> io::Result<()>;
+    fn apply(&self, nodes: &mut HashMap<Uuid, crate::document::Node>);
 }
 
 pub struct AddNode {
-    node: Uuid
+    pub (crate) uuid: Uuid
 }
 
 impl AddNode {
+    pub fn new(node: Uuid) -> Self {
+        Self { uuid: node }
+    }
+
+    pub fn read(mut r: &mut dyn Read) -> io::Result<Self> {
+        let node = r.read_uuid()?;
+        Ok(Self { uuid: node })
+    }
+}
+
+impl Change for AddNode {
+    fn change_type(&self) -> u64 { ChangeType::ADD_NODE }
+
+    fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
+        w.write_length(self.change_type() as u64)?;
+        w.write_uuid(&self.uuid)
+    }
+
+    fn apply(&self, nodes: &mut HashMap<Uuid, Node>) {
+        nodes.insert(self.uuid, Node::new());
+    }
+}
+
+pub struct RemoveNode {
+    node: Uuid
+}
+
+impl RemoveNode {
     pub fn new(node: Uuid) -> Self {
         Self { node }
     }
@@ -78,11 +109,16 @@ impl AddNode {
     }
 }
 
-impl Change for AddNode {
-    fn change_type(&self) -> u64 { ChangeType::ADD_NODE }
+impl Change for RemoveNode {
+    fn change_type(&self) -> u64 { ChangeType::REMOVE_NODE }
+
     fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
         w.write_length(self.change_type() as u64)?;
         w.write_uuid(&self.node)
+    }
+
+    fn apply(&self, nodes: &mut HashMap<Uuid, Node>) {
+        nodes.remove(&self.node);
     }
 }
 
@@ -95,13 +131,13 @@ fn read_change(mut r: &mut dyn Read) -> io::Result<Box<dyn Change>> {
 }
 
 pub struct Revision {
-    changes: Vec<Box<dyn Change>>,
-    id: Uuid,
-    uuid_of_parents: Vec<Uuid>,
-    date: String,
-    user_name: String,
-    message: String,
-    tags: Vec<String>,
+    pub(crate) changes: Vec<Box<dyn Change>>,
+    pub(crate) id: Uuid,
+    pub(crate) uuid_of_parents: Vec<Uuid>,
+    pub(crate) date: String,
+    pub(crate) user_name: String,
+    pub(crate) message: String,
+    pub(crate) tags: Vec<String>,
 }
 
 impl Revision {
