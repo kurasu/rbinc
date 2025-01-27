@@ -125,7 +125,7 @@ impl Revision {
         self.changes.push(change);
     }
 
-    pub(crate) fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
+    pub fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
         w.write_u32(Self::CHANGE_LIST_ID)?;
         w.write_uuid(&self.id)?;
         w.write_uuid_array(&self.uuid_of_parents)?;
@@ -139,5 +139,29 @@ impl Revision {
             change.write(w)?;
         }
         Ok(())
+    }
+
+    pub fn read(mut r: &mut dyn Read) -> io::Result<Revision> {
+        let id = r.read_u32()?;
+        if id != Self::CHANGE_LIST_ID {
+            return Err(io::Error::from(io::ErrorKind::InvalidData));
+        }
+
+        let mut revision = Revision::new();
+        revision.id = r.read_uuid()?;
+        revision.uuid_of_parents = r.read_uuid_array()?;
+        revision.date = r.read_string()?;
+        revision.user_name = r.read_string()?;
+        revision.message = r.read_string()?;
+        revision.tags = r.read_string_array()?;
+
+        let count = r.read_length()?;
+
+        for _ in 0..count {
+            let change = read_change(r)?;
+            revision.changes.push(change);
+        }
+
+        Ok(revision)
     }
 }

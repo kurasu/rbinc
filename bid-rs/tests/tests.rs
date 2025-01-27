@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use std::fs::File;
-    use std::io::Write;
+    use std::io::{Cursor, Read, Write};
     use uuid::Uuid;
     use bid_rs::document::*;
     use bid_rs::revision::*;
@@ -25,8 +25,18 @@ mod tests {
     #[test]
     fn save_example_document() {
         let d = create_example_document();
-        let mut file = File::create("output.abc").unwrap();
+        let mut file = File::create("target/exa.abc").unwrap();
         d.write(&mut file).unwrap();
         file.flush().unwrap();
+    }
+
+    #[test]
+    fn save_and_load_example_document() {
+        let d = create_example_document();
+        let mut buf = Vec::<u8>::new();
+        d.write(&mut buf).unwrap();
+        let mut r = Cursor::new(buf);
+        let d2 = Document::read(&mut r).unwrap();
+        assert_eq!(d.revisions.len(), d2.revisions.len());
     }
 }

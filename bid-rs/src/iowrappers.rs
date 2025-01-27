@@ -206,6 +206,25 @@ pub trait ReadExt: Read {
         self.read_exact(&mut buf)?;
         Uuid::from_slice(&buf).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
     }
+
+    fn read_uuid_array(&mut self) -> io::Result<Vec<Uuid>> {
+        let length = self.read_length()? as usize;
+        let mut uuids = Vec::with_capacity(length);
+        for _ in 0..length {
+            uuids.push(self.read_uuid()?);
+        }
+        Ok(uuids)
+    }
+
+    fn read_string_array(&mut self) -> io::Result<Vec<String>> {
+        let length = self.read_length()? as usize;
+        let mut strings = Vec::with_capacity(length);
+        for _ in 0..length {
+            strings.push(self.read_string()?);
+        }
+        Ok(strings)
+    }
+
 }
 
 /// Implement `ReadExt` for all types that implement `Read`.

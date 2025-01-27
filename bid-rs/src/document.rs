@@ -1,6 +1,7 @@
 use io::Write;
 use std::io;
-use crate::iowrappers::WriteExt;
+use std::io::Read;
+use crate::iowrappers::{ReadExt, WriteExt};
 use crate::revision::*;
 
 pub struct Document {
@@ -25,5 +26,20 @@ impl Document {
             revision.write(w)?;
         }
         Ok(())
+    }
+
+
+    pub fn read(mut r: &mut dyn Read) -> io::Result<Document> {
+        let mut doc = Document::new();
+        let container_id = r.read_u32()?;
+
+        if container_id != Document::CONTAINER_ID {
+            return Err(io::Error::from(io::ErrorKind::InvalidData));
+        }
+
+        let revision = Revision::read(r)?;
+        doc.add_revision(revision);
+
+        Ok(doc)
     }
 }
