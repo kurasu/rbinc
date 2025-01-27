@@ -1,5 +1,5 @@
 pub mod revision;
 pub mod repository;
 pub mod iowrappers;
-mod document;
-mod changes;
+pub mod document;
+pub mod changes;

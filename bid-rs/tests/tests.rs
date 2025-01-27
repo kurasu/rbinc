@@ -5,6 +5,7 @@ mod tests {
     use uuid::Uuid;
     use bid_rs::repository::*;
     use bid_rs::revision::*;
+    use bid_rs::changes::*;
 
     #[test]
     fn test_create_example_document() {
