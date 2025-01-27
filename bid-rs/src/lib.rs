@@ -1,3 +1,3 @@
 pub mod revision;
-pub mod document;
+pub mod repository;
 pub mod iowrappers;
