@@ -25,9 +25,11 @@ mod tests {
     #[test]
     fn save_example_document() {
         let d = create_example_document();
-        let mut file = File::create("target/exa.abc").unwrap();
-        d.write(&mut file).unwrap();
-        file.flush().unwrap();
+        //let mut file = File::create("target/exa.abc").unwrap();
+        //d.write(&mut file).unwrap();
+        //file.flush().unwrap();
+        let mut buf = Vec::<u8>::new();
+        d.write(&mut buf).unwrap();
     }
 
     #[test]
