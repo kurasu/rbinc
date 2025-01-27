@@ -1,5 +1,6 @@
 use io::Write;
 use std::io;
+use uuid::Uuid;
 use crate::io::WriteExt;
 use crate::revision::*;
 
@@ -25,5 +26,35 @@ impl Document {
             revision.write(w)?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs::File;
+    use super::*;
+
+    #[test]
+    fn test_create_example_document() {
+        let mut d = create_example_document();
+        assert_eq!(d.revisions.len(), 1);
+    }
+
+    fn create_example_document() -> Document {
+        let mut d = Document::new();
+
+        let mut r = Revision::new();
+        let uuid = Uuid::new_v4();
+        r.add_change(Box::new(AddNode::new(uuid)));
+        d.add_revision(r);
+        d
+    }
+
+    #[test]
+    fn save_example_document() {
+        let mut d = create_example_document();
+        let mut file = File::create("output.abc").unwrap();
+        d.write(&mut file).unwrap();
+        file.flush().unwrap();
     }
 }

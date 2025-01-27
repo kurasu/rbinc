@@ -3,6 +3,8 @@ use std::io::{Read, Write};
 use uuid::Uuid;
 use crate::io::ReadExt;
 use crate::io::WriteExt;
+use chrono::Utc;
+use whoami::username;
 
 struct ChangeType;
 
@@ -61,7 +63,7 @@ pub trait Change {
     fn write(&self, w: &mut dyn Write) -> io::Result<()>;
 }
 
-struct AddNode {
+pub struct AddNode {
     node: Uuid
 }
 
@@ -105,6 +107,23 @@ pub struct Revision {
 impl Revision {
 
     pub const CHANGE_LIST_ID: u32 = 0x43686e67;
+
+    pub fn new() -> Revision {
+        Revision{
+            changes: vec![],
+            id: Uuid::new_v4(),
+            uuid_of_parents: vec![],
+            date: Utc::now().to_rfc3339(),
+            user_name: username(),
+            message: String::new(),
+            tags: vec![],
+        }
+    }
+
+    pub fn add_change(&mut self, change: Box<dyn Change>)
+    {
+        self.changes.push(change);
+    }
 
     pub(crate) fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
         w.write_uint32(Self::CHANGE_LIST_ID)?;
