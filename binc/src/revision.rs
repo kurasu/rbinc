@@ -27,7 +27,7 @@ pub struct Revision {
 
 impl Revision {
 
-    pub const CHANGE_LIST_ID: u32 = 0x43686e67;
+    pub const CHANGE_LIST_ID: u32 = 0x42494E43;
 
     pub fn new() -> Revision {
         Revision{

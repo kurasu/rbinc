@@ -12,7 +12,7 @@ fn main() -> eframe::Result {
     };
 
     // Our application state:
-    let app_name = "bid-rs-demo";
+    let app_name = "binc-demo";
 
     eframe::run_simple_native(app_name, options, move |ctx, _frame| {
         egui::CentralPanel::default().show(ctx, |ui| {

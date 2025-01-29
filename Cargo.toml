@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "bid-rs",
+    "binc",
     "server",
     "demo",
 ]

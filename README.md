@@ -1,2 +1,2 @@
-# bid-rs
-Binary Incremental Data Format/Container (rust)
+# BINC
+Binary Incremental Node Container (rust)
