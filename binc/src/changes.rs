@@ -67,7 +67,7 @@ impl AddNode {
         Self { uuid: node }
     }
 
-    pub fn read(mut r: &mut dyn Read, change_size: u64) -> io::Result<Self> {
+    pub fn read(mut r: &mut dyn Read, _change_size: u64) -> io::Result<Self> {
         let node = r.read_uuid()?;
         Ok(Self { uuid: node })
     }
@@ -98,7 +98,7 @@ impl RemoveNode {
         Self { node }
     }
 
-    pub fn read(mut r: &mut dyn Read, change_size: u64) -> io::Result<Self> {
+    pub fn read(mut r: &mut dyn Read, _change_size: u64) -> io::Result<Self> {
         let node = r.read_uuid()?;
         Ok(Self { node })
     }
@@ -131,7 +131,7 @@ impl SetString {
         Self { node, attribute: attribute.to_string(), value }
     }
 
-    pub fn read(mut r: &mut dyn Read, change_size: u64) -> io::Result<Self> {
+    pub fn read(mut r: &mut dyn Read, _change_size: u64) -> io::Result<Self> {
         let node = r.read_uuid()?;
         let attribute = r.read_string()?;
         let value = r.read_string()?;
@@ -180,6 +180,40 @@ impl Change for UnknownChange {
         Ok(())
     }
 }
+pub struct SetBool {
+    pub(crate) node: Uuid,
+    pub(crate) attribute: String,
+    pub(crate) value: bool,
+}
+
+impl SetBool {
+    pub fn new(node: Uuid, attribute: &str, value: bool) -> Self {
+        Self { node, attribute: attribute.to_string(), value }
+    }
+
+    pub fn read(mut r: &mut dyn Read, _change_size: u64) -> io::Result<Self> {
+        let node = r.read_uuid()?;
+        let attribute = r.read_string()?;
+        let value = r.read_u8()? != 0;
+        Ok(Self { node, attribute, value })
+    }
+}
+
+impl Change for SetBool {
+    fn change_type(&self) -> u64 { ChangeType::SET_BOOL }
+
+    fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
+        w.write_uuid(&self.node)?;
+        w.write_string(&self.attribute)?;
+        w.write_u8(self.value as u8)
+    }
+
+    fn apply(&self, nodes: &mut HashMap<Uuid, Node>) -> io::Result<()> {
+        let x = nodes.get_mut(&self.node).ok_or(io::Error::new(io::ErrorKind::NotFound, "Node not found"))?;
+        x.set_bool_attribute(&self.attribute, self.value);
+        Ok(())
+    }
+}
 
 pub(crate) fn read_change(mut r: &mut dyn Read) -> io::Result<Box<dyn Change>> {
     let change_type = r.read_length()?;
@@ -188,6 +222,7 @@ pub(crate) fn read_change(mut r: &mut dyn Read) -> io::Result<Box<dyn Change>> {
         ChangeType::ADD_NODE => Ok(Box::new(AddNode::read(r, change_size)?)),
         ChangeType::REMOVE_NODE => Ok(Box::new(RemoveNode::read(r, change_size)?)),
         ChangeType::SET_STRING => Ok(Box::new(SetString::read(r, change_size)?)),
+        ChangeType::SET_BOOL => Ok(Box::new(SetBool::read(r, change_size)?)),
         _ => Ok(Box::new(UnknownChange::read(r, change_type, change_size)?)),
     }
 }

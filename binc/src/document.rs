@@ -25,6 +25,10 @@ impl Node {
     pub fn set_string_attribute(&mut self, key: &String, value: &String) {
         self.attributes.insert(key.clone(), Box::new(value.clone()));
     }
+
+    pub fn set_bool_attribute(&mut self, key: &String, value: bool) {
+        self.attributes.insert(key.clone(), Box::new(value));
+    }
 }
 
 pub struct Document {
