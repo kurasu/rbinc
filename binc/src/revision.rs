@@ -10,7 +10,7 @@ use whoami::username;
 pub trait Change {
     fn change_type(&self) -> u64;
     fn write(&self, w: &mut dyn Write) -> io::Result<()>;
-    fn apply(&self, nodes: &mut HashMap<Uuid, crate::document::Node>);
+    fn apply(&self, nodes: &mut HashMap<Uuid, crate::document::Node>) -> io::Result<()>;
 }
 
 pub struct Revision {

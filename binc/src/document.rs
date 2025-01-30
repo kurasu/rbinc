@@ -22,8 +22,8 @@ impl Node {
         self.attributes.insert(key, Box::new(value));
     }*/
 
-    pub fn set_string_attribute(&mut self, key: String, value: String) {
-        self.attributes.insert(key, Box::new(value));
+    pub fn set_string_attribute(&mut self, key: &String, value: &String) {
+        self.attributes.insert(key.clone(), Box::new(value.clone()));
     }
 }
 

@@ -80,8 +80,12 @@ impl Change for AddNode {
         w.write_uuid(&self.uuid)
     }
 
-    fn apply(&self, nodes: &mut HashMap<Uuid, Node>) {
-        nodes.insert(self.uuid, Node::new());
+    fn apply(&self, nodes: &mut HashMap<Uuid, Node>) -> io::Result<()> {
+        let old = nodes.insert(self.uuid, Node::new());
+        if old.is_some() {
+            return Err(io::Error::new(io::ErrorKind::AlreadyExists, "Node already exists"));
+        }
+        Ok(())
     }
 }
 
@@ -107,8 +111,12 @@ impl Change for RemoveNode {
         w.write_uuid(&self.node)
     }
 
-    fn apply(&self, nodes: &mut HashMap<Uuid, Node>) {
-        nodes.remove(&self.node);
+    fn apply(&self, nodes: &mut HashMap<Uuid, Node>) -> io::Result<()> {
+        let v = nodes.remove(&self.node);
+        if v.is_none() {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "Node not found"));
+        }
+        Ok(())
     }
 }
 
@@ -140,9 +148,10 @@ impl Change for SetString {
         w.write_string(&self.value)
     }
 
-    fn apply(&self, nodes: &mut HashMap<Uuid, Node>) {
-        let x = nodes.get_mut(&self.node).unwrap();
-        x.set_string_attribute(self.attribute.clone(), self.value.clone());
+ fn apply(&self, nodes: &mut HashMap<Uuid, Node>) -> io::Result<()> {
+        let x = nodes.get_mut(&self.node).ok_or(io::Error::new(io::ErrorKind::NotFound, "Node not found"))?;
+        x.set_string_attribute(&self.attribute, &self.value);
+        Ok(())
     }
 }
 
@@ -166,8 +175,9 @@ impl Change for UnknownChange {
         w.write_all(&self.data)
     }
 
-    fn apply(&self, _nodes: &mut HashMap<Uuid, Node>) {
+    fn apply(&self, _nodes: &mut HashMap<Uuid, Node>) -> io::Result<()> {
         // Do nothing
+        Ok(())
     }
 }
 
