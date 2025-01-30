@@ -67,7 +67,7 @@ impl AddNode {
         Self { uuid: node }
     }
 
-    pub fn read(mut r: &mut dyn Read) -> io::Result<Self> {
+    pub fn read(mut r: &mut dyn Read, change_size: u64) -> io::Result<Self> {
         let node = r.read_uuid()?;
         Ok(Self { uuid: node })
     }
@@ -77,7 +77,6 @@ impl Change for AddNode {
     fn change_type(&self) -> u64 { ChangeType::ADD_NODE }
 
     fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
-        w.write_length(self.change_type() as u64)?;
         w.write_uuid(&self.uuid)
     }
 
@@ -95,7 +94,7 @@ impl RemoveNode {
         Self { node }
     }
 
-    pub fn read(mut r: &mut dyn Read) -> io::Result<Self> {
+    pub fn read(mut r: &mut dyn Read, change_size: u64) -> io::Result<Self> {
         let node = r.read_uuid()?;
         Ok(Self { node })
     }
@@ -105,7 +104,6 @@ impl Change for RemoveNode {
     fn change_type(&self) -> u64 { ChangeType::REMOVE_NODE }
 
     fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
-        w.write_length(self.change_type() as u64)?;
         w.write_uuid(&self.node)
     }
 
@@ -125,7 +123,7 @@ impl SetString {
         Self { node, attribute: attribute.to_string(), value }
     }
 
-    pub fn read(mut r: &mut dyn Read) -> io::Result<Self> {
+    pub fn read(mut r: &mut dyn Read, change_size: u64) -> io::Result<Self> {
         let node = r.read_uuid()?;
         let attribute = r.read_string()?;
         let value = r.read_string()?;
@@ -137,7 +135,6 @@ impl Change for SetString {
     fn change_type(&self) -> u64 { ChangeType::SET_STRING }
 
     fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
-        w.write_length(self.change_type() as u64)?;
         w.write_uuid(&self.node)?;
         w.write_string(&self.attribute)?;
         w.write_string(&self.value)
@@ -149,12 +146,38 @@ impl Change for SetString {
     }
 }
 
+pub struct UnknownChange {
+    pub (crate) change_type: u64,
+    pub (crate) data: Vec<u8>
+}
+
+impl UnknownChange {
+    fn read(r: &mut dyn Read, change_type: u64, change_size: u64) -> io::Result<UnknownChange> {
+        let mut data = vec![0; change_size as usize];
+        r.read_exact(&mut data)?;
+        Ok(UnknownChange { change_type, data })
+    }
+}
+
+impl Change for UnknownChange {
+    fn change_type(&self) -> u64 { self.change_type }
+
+    fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
+        w.write_all(&self.data)
+    }
+
+    fn apply(&self, _nodes: &mut HashMap<Uuid, Node>) {
+        // Do nothing
+    }
+}
+
 pub(crate) fn read_change(mut r: &mut dyn Read) -> io::Result<Box<dyn Change>> {
     let change_type = r.read_length()?;
+    let change_size = r.read_length()?;
     match change_type {
-        ChangeType::ADD_NODE => Ok(Box::new(AddNode::read(r)?)),
-        ChangeType::REMOVE_NODE => Ok(Box::new(RemoveNode::read(r)?)),
-        ChangeType::SET_STRING => Ok(Box::new(SetString::read(r)?)),
-        _ => Err(io::Error::from(io::ErrorKind::InvalidData)),
+        ChangeType::ADD_NODE => Ok(Box::new(AddNode::read(r, change_size)?)),
+        ChangeType::REMOVE_NODE => Ok(Box::new(RemoveNode::read(r, change_size)?)),
+        ChangeType::SET_STRING => Ok(Box::new(SetString::read(r, change_size)?)),
+        _ => Ok(Box::new(UnknownChange::read(r, change_type, change_size)?)),
     }
 }

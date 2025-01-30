@@ -6,8 +6,6 @@ use crate::iowrappers::ReadExt;
 use crate::iowrappers::WriteExt;
 use chrono::Utc;
 use whoami::username;
-use crate::document::Node;
-
 
 pub trait Change {
     fn change_type(&self) -> u64;
@@ -27,7 +25,7 @@ pub struct Revision {
 
 impl Revision {
 
-    pub const CHANGE_LIST_ID: u32 = 0x42494E43;
+    pub const CHANGE_LIST_ID: u32 = 0x43686E67;
 
     pub fn new() -> Revision {
         Revision{
@@ -57,7 +55,11 @@ impl Revision {
 
         w.write_length(self.changes.len() as u64)?;
         for change in &self.changes {
-            change.write(w)?;
+            w.write_length(change.change_type())?;
+            let mut temp: Vec<u8> = vec![];
+            change.write(&mut temp)?;
+            w.write_length(temp.len() as u64)?;
+            w.write_all(&temp)?
         }
         Ok(())
     }

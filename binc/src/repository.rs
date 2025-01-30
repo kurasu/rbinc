@@ -9,7 +9,7 @@ pub struct Repository {
 }
 
 impl Repository {
-    pub const CONTAINER_ID: u32 =  0x484f484e;
+    pub const CONTAINER_ID: u32 =  0x42494E43;
 
     pub fn new() -> Repository {
         Repository { revisions: Vec::new() }

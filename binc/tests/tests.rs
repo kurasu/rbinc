@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::fs::File;
     use std::io::{Cursor, Read, Write};
     use uuid::Uuid;
@@ -50,5 +51,15 @@ mod tests {
         assert_eq!(repo.revisions.len(), repo2.revisions.len());
         let doc = Document::new(repo2);
         assert_eq!(doc.node_count(), 1)
+    }#[test]
+
+    fn load_existing_file() {
+        let path = "test_data/checklistfile.binc";
+        assert!(fs::metadata(path).is_ok());
+        let mut file = File::open(path).unwrap();
+        let repo = Repository::read(&mut file).unwrap();
+        assert!(!repo.revisions.is_empty(), "Repository should have at least one revision");
+        let doc = Document::new(repo);
+        assert_eq!(doc.node_count(), 7);
     }
 }
