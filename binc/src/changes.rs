@@ -120,6 +120,76 @@ impl Change for RemoveNode {
     }
 }
 
+pub struct AddChild {
+    pub(crate) parent: Uuid,
+    pub(crate) child: Uuid,
+    pub(crate)  insertion_index: u64,
+}
+
+impl AddChild {
+    pub fn new(parent: Uuid, child: Uuid, insertion_index: u64) -> Self {
+        Self { parent, child, insertion_index }
+    }
+
+    pub fn read(mut r: &mut dyn Read, _change_size: u64) -> io::Result<Self> {
+        let parent = r.read_uuid()?;
+        let child = r.read_uuid()?;
+        let insertion_index = r.read_length()?;
+        Ok(Self { parent, child, insertion_index })
+    }
+}
+
+impl Change for AddChild {
+    fn change_type(&self) -> u64 { ChangeType::ADD_CHILD }
+
+    fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
+        w.write_uuid(&self.parent)?;
+        w.write_uuid(&self.child)?;
+        w.write_length(self.insertion_index)
+    }
+
+    fn apply(&self, nodes: &mut HashMap<Uuid, Node>) -> io::Result<()> {
+        if !nodes.contains_key(&self.child) {
+            Err(io::Error::new(io::ErrorKind::NotFound, "Child node not found"))?;
+        }
+        let parent_node = nodes.get_mut(&self.parent).ok_or(io::Error::new(io::ErrorKind::NotFound, "Parent node not found"))?;
+        parent_node.children.insert(self.insertion_index as usize, self.child);
+        Ok(())
+    }
+}
+
+pub struct RemoveChild {
+    pub(crate) parent: Uuid,
+    pub(crate) child: Uuid,
+}
+
+impl RemoveChild {
+    pub fn new(parent: Uuid, child: Uuid) -> Self {
+        Self { parent, child }
+    }
+
+    pub fn read(mut r: &mut dyn Read, _change_size: u64) -> io::Result<Self> {
+        let parent = r.read_uuid()?;
+        let child = r.read_uuid()?;
+        Ok(Self { parent, child })
+    }
+}
+
+impl Change for RemoveChild {
+    fn change_type(&self) -> u64 { ChangeType::REMOVE_CHILD }
+
+    fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
+        w.write_uuid(&self.parent)?;
+        w.write_uuid(&self.child)
+    }
+
+    fn apply(&self, nodes: &mut HashMap<Uuid, Node>) -> io::Result<()> {
+        let parent_node = nodes.get_mut(&self.parent).ok_or(io::Error::new(io::ErrorKind::NotFound, "Parent node not found"))?;
+        parent_node.children.retain(|child| *child != self.child);
+        Ok(())
+    }
+}
+
 pub struct SetString {
     pub (crate) node: Uuid,
     pub (crate) attribute: String,
@@ -223,6 +293,8 @@ pub(crate) fn read_change(mut r: &mut dyn Read) -> io::Result<Box<dyn Change>> {
         ChangeType::REMOVE_NODE => Ok(Box::new(RemoveNode::read(r, change_size)?)),
         ChangeType::SET_STRING => Ok(Box::new(SetString::read(r, change_size)?)),
         ChangeType::SET_BOOL => Ok(Box::new(SetBool::read(r, change_size)?)),
+        ChangeType::ADD_CHILD => Ok(Box::new(AddChild::read(r, change_size)?)),
+        ChangeType::REMOVE_CHILD => Ok(Box::new(RemoveChild::read(r, change_size)?)),
         _ => Ok(Box::new(UnknownChange::read(r, change_type, change_size)?)),
     }
 }

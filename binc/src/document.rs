@@ -5,7 +5,7 @@ use crate::repository::Repository;
 use crate::revision::Change;
 
 pub struct Node {
-    pub children: Vec<Node>,
+    pub children: Vec<Uuid>,
     pub attributes: HashMap<String, Box<dyn Any>>,
 }
 
