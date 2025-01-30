@@ -28,7 +28,7 @@ impl Node {
 }
 
 pub struct Document {
-    repository: Repository,
+    pub repository: Repository,
     nodes: HashMap<Uuid, Node>,
 }
 

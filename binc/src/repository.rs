@@ -36,8 +36,9 @@ impl Repository {
             return Err(io::Error::from(io::ErrorKind::InvalidData));
         }
 
-        let revision = Revision::read(r)?;
-        doc.add_revision(revision);
+        while let Ok(revision) = Revision::read(r) {
+            doc.add_revision(revision);
+        }
 
         Ok(doc)
     }

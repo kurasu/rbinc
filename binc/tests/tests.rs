@@ -51,8 +51,16 @@ mod tests {
         assert_eq!(repo.revisions.len(), repo2.revisions.len());
         let doc = Document::new(repo2);
         assert_eq!(doc.node_count(), 1)
-    }#[test]
+    }
 
+    fn read_file(path: &str) -> Vec<u8> {
+        let mut file = File::open(path).unwrap();
+        let mut buf = Vec::<u8>::new();
+        file.read_to_end(&mut buf).unwrap();
+        buf
+    }
+
+    #[test]
     fn load_existing_file() {
         let path = "test_data/checklistfile.binc";
         assert!(fs::metadata(path).is_ok());
@@ -60,6 +68,12 @@ mod tests {
         let repo = Repository::read(&mut file).unwrap();
         assert!(!repo.revisions.is_empty(), "Repository should have at least one revision");
         let doc = Document::new(repo);
-        assert_eq!(doc.node_count(), 7);
+        assert_eq!(doc.node_count(), 8);
+        let mut copy: Vec<u8> = vec!();
+        doc.repository.write(&mut copy).unwrap();
+        let original = read_file(path);
+
+        assert_eq!(copy.len(), original.len(), "File size should be the same");
+        assert_eq!(copy, original, "File content should be the same");
     }
 }
