@@ -3,10 +3,10 @@ mod tests {
     use std::fs::File;
     use std::io::{Cursor, Read, Write};
     use uuid::Uuid;
-    use bid_rs::repository::*;
-    use bid_rs::revision::*;
-    use bid_rs::changes::*;
-    use bid_rs::document::*;
+    use binc::repository::*;
+    use binc::revision::*;
+    use binc::changes::*;
+    use binc::document::*;
 
     #[test]
     fn test_create_example_document() {
