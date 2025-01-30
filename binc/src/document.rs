@@ -33,7 +33,7 @@ impl Node {
 
 pub struct Document {
     pub repository: Repository,
-    nodes: HashMap<Uuid, Node>,
+    pub nodes: HashMap<Uuid, Node>,
 }
 
 fn compute_nodes(repository: &Repository) -> HashMap<Uuid, Node> {

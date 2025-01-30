@@ -7,3 +7,4 @@ edition = "2021"
 binc = { path = "../binc" }
 eframe = "0.30.0"
 env_logger = "0.11.6"
+rfd = "0.15.2"
