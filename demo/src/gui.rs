@@ -1,8 +1,31 @@
 use std::fs::File;
 use std::io;
+use eframe::egui::Ui;
 use rfd::MessageLevel::Error;
 use binc::document::Document;
 use binc::repository::Repository;
+
+pub(crate) struct SimpleApplication {
+    pub document: Box<Document>,
+    pub view: fn(&mut Ui, &mut SimpleApplication) -> ()
+}
+
+pub(crate) fn create_toolbar(app: &mut SimpleApplication, ui: &mut Ui) {
+    ui.horizontal(|ui| {
+        if ui.button("New").clicked() {
+            app.document = Box::from(new_document());
+        }
+        if ui.button("Open").clicked() {
+            let result = open_document();
+            if let Ok(Some(result)) = result {
+                app.document = Box::from(result);
+            } else { show_error(result, "Failed to open document"); }
+        }
+        if ui.button("Save").clicked() {
+            save_document(&app.document);
+        }
+    });
+}
 
 pub (crate) fn show_error<T>(result: io::Result<T>, description: &str) {
     if let Err(error) = result {

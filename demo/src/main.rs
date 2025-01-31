@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-#![allow(rustdoc::missing_crate_level_docs)] // it's an example
+#![allow(rustdoc::missing_crate_level_docs)]
 
 use eframe::egui;
 use eframe::egui::Ui;
@@ -9,26 +9,17 @@ use crate::gui::*;
 
 mod gui;
 
-struct DemoApplication {
-    document: Box<Document>,
-}
-
-trait SimpleGuiApplication {
-
-}
-
-impl SimpleGuiApplication for DemoApplication {
-
-}
-
 fn main() -> eframe::Result {
-    let mut app = DemoApplication {
-        document: Box::from(new_document()),
+    let mut app = SimpleApplication { document: Box::from(new_document()),
+        view: |ui, app| {
+            create_toolbar(app, ui);
+            create_tree(ui, &app.document);
+        }
     };
-    create_generic_gui_application(app)
+    create_simple_application(app, "BINC Demo")
 }
 
-fn create_generic_gui_application(mut app: DemoApplication) -> eframe::Result {
+fn create_simple_application(mut app: SimpleApplication, app_name: &str) -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     let options = eframe::NativeOptions {
@@ -36,33 +27,11 @@ fn create_generic_gui_application(mut app: DemoApplication) -> eframe::Result {
         ..Default::default()
     };
 
-    // Our application state:
-    let app_name = "BINC Demo";
-
     eframe::run_simple_native(app_name, options, move |ctx, _frame| {
         egui::CentralPanel::default().show(ctx, |ui| {
-            create_toolbar(&mut app, ui);
-
-            create_tree(ui, &app.document);
+            (app.view)(ui, &mut app);
         });
     })
-}
-
-fn create_toolbar(app: &mut DemoApplication, ui: &mut Ui) {
-    ui.horizontal(|ui| {
-        if ui.button("New").clicked() {
-            app.document = Box::from(new_document());
-        }
-        if ui.button("Open").clicked() {
-            let result = open_document();
-            if let Ok(Some(result)) = result {
-                app.document = Box::from(result);
-            } else { show_error(result, "Failed to open document"); }
-        }
-        if ui.button("Save").clicked() {
-            save_document(&app.document);
-        }
-    });
 }
 
 fn create_tree(ui: &mut Ui, document: &Document) {
