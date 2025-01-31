@@ -1,5 +1,7 @@
 use std::any::Any;
 use std::collections::HashMap;
+use std::io;
+use std::io::{Read, Write};
 use uuid::Uuid;
 use crate::repository::Repository;
 use crate::revision::Change;
@@ -50,6 +52,16 @@ impl Document {
     pub fn new(repository: Repository) -> Document {
         let nodes = compute_nodes(&repository);
         Document { repository, nodes }
+    }
+
+    pub fn read(file: &mut dyn Read) -> io::Result<Document> {
+        let repository = Repository::read(file)?;
+        let nodes = compute_nodes(&repository);
+        Ok(Document { repository, nodes })
+    }
+
+    pub fn write(&self, w: &mut dyn Write) -> io::Result<()> {
+        self.repository.write(w)
     }
 
     pub fn node_count(&self) -> usize {
