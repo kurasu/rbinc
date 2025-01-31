@@ -9,7 +9,26 @@ use crate::gui::*;
 
 mod gui;
 
+struct DemoApplication {
+    document: Box<Document>,
+}
+
+trait SimpleGuiApplication {
+
+}
+
+impl SimpleGuiApplication for DemoApplication {
+
+}
+
 fn main() -> eframe::Result {
+    let mut app = DemoApplication {
+        document: Box::from(new_document()),
+    };
+    create_generic_gui_application(app)
+}
+
+fn create_generic_gui_application(mut app: DemoApplication) -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     let options = eframe::NativeOptions {
@@ -19,31 +38,31 @@ fn main() -> eframe::Result {
 
     // Our application state:
     let app_name = "BINC Demo";
-    let mut document = new_document();
 
     eframe::run_simple_native(app_name, options, move |ctx, _frame| {
         egui::CentralPanel::default().show(ctx, |ui| {
+            create_toolbar(&mut app, ui);
 
-            ui.horizontal(|ui| {
-                if ui.button("New").clicked() {
-
-                    document = new_document();
-                }
-                if ui.button("Open").clicked() {
-                    let result = open_document();
-                    if let Ok(Some(result)) = result {
-                        document = result;
-                    }
-                    else { show_error(result, "Failed to open document"); }
-                }
-                if ui.button("Save").clicked() {
-                    save_document(&document);
-                }
-            });
-
-            create_tree(ui, &document);
+            create_tree(ui, &app.document);
         });
     })
+}
+
+fn create_toolbar(app: &mut DemoApplication, ui: &mut Ui) {
+    ui.horizontal(|ui| {
+        if ui.button("New").clicked() {
+            app.document = Box::from(new_document());
+        }
+        if ui.button("Open").clicked() {
+            let result = open_document();
+            if let Ok(Some(result)) = result {
+                app.document = Box::from(result);
+            } else { show_error(result, "Failed to open document"); }
+        }
+        if ui.button("Save").clicked() {
+            save_document(&app.document);
+        }
+    });
 }
 
 fn create_tree(ui: &mut Ui, document: &Document) {
