@@ -5,12 +5,12 @@ use rfd::MessageLevel::Error;
 use binc::document::Document;
 use binc::repository::Repository;
 
-pub(crate) struct SimpleApplication {
+pub struct SimpleApplication {
     pub document: Box<Document>,
     pub view: fn(&mut Ui, &mut SimpleApplication) -> ()
 }
 
-pub(crate) fn create_toolbar(app: &mut SimpleApplication, ui: &mut Ui) {
+pub fn create_toolbar(app: &mut SimpleApplication, ui: &mut Ui) {
     ui.horizontal(|ui| {
         if ui.button("New").clicked() {
             app.document = Box::from(new_document());
@@ -27,14 +27,14 @@ pub(crate) fn create_toolbar(app: &mut SimpleApplication, ui: &mut Ui) {
     });
 }
 
-pub (crate) fn show_error<T>(result: io::Result<T>, description: &str) {
+pub fn show_error<T>(result: io::Result<T>, description: &str) {
     if let Err(error) = result {
         let text = format!("{}\n\n{}", description.to_string(), error.to_string());
         rfd::MessageDialog::new().set_level(Error).set_title("Error").set_description(text).show();
     }
 }
 
-pub (crate) fn open_document() -> io::Result<Option<Document>> {
+pub fn open_document() -> io::Result<Option<Document>> {
     let path = rfd::FileDialog::new().add_filter("BINC files", &["binc"]).pick_file();
 
     if let Some(path) = path {
@@ -46,7 +46,7 @@ pub (crate) fn open_document() -> io::Result<Option<Document>> {
     Ok(None)
 }
 
-pub (crate) fn save_document(document: &Document) -> io::Result<bool> {
+pub fn save_document(document: &Document) -> io::Result<bool> {
     let path = rfd::FileDialog::new().add_filter("BINC files", &["binc"]).save_file();
 
     if let Some(path) = path {
@@ -57,6 +57,6 @@ pub (crate) fn save_document(document: &Document) -> io::Result<bool> {
     Ok(false)
 }
 
-pub (crate) fn new_document() -> Document {
+pub fn new_document() -> Document {
     Document::new(Repository::new())
 }

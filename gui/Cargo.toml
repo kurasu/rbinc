@@ -1,0 +1,9 @@
+[package]
+name = "gui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+binc = { path = "../binc" }
+eframe = "0.30.0"
+rfd = "0.15.2"

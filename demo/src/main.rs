@@ -5,9 +5,7 @@ use eframe::egui;
 use eframe::egui::Ui;
 use binc::document::Document;
 use uuid::Uuid;
-use crate::gui::*;
-
-mod gui;
+use gui::gui::*;
 
 fn main() -> eframe::Result {
     let mut app = SimpleApplication { document: Box::from(new_document()),
