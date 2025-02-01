@@ -4,21 +4,36 @@ use eframe::egui::Ui;
 use rfd::MessageLevel::Error;
 use binc::document::Document;
 use binc::repository::Repository;
+use uuid::Uuid;
 
 pub struct SimpleApplication {
     pub document: Box<Document>,
-    pub view: fn(&mut Ui, &mut SimpleApplication) -> ()
+    pub roots: Vec<Uuid>,
+}
+
+impl SimpleApplication {
+    pub fn new() -> SimpleApplication {
+        SimpleApplication {
+            document: Box::from(new_document()),
+            roots: Vec::new(),
+        }
+    }
+
+    pub fn set_document(&mut self, document: Document) {
+        self.document = Box::from(document);
+        self.roots = self.document.find_roots();
+    }
 }
 
 pub fn create_toolbar(app: &mut SimpleApplication, ui: &mut Ui) {
     ui.horizontal(|ui| {
         if ui.button("New").clicked() {
-            app.document = Box::from(new_document());
+            app.set_document(new_document());
         }
         if ui.button("Open").clicked() {
             let result = open_document();
             if let Ok(Some(result)) = result {
-                app.document = Box::from(result);
+                app.set_document(result);
             } else { show_error(result, "Failed to open document"); }
         }
         if ui.button("Save").clicked() {

@@ -8,16 +8,7 @@ use uuid::Uuid;
 use gui::gui::*;
 
 fn main() -> eframe::Result {
-    let mut app = SimpleApplication { document: Box::from(new_document()),
-        view: |ui, app| {
-            create_toolbar(app, ui);
-            create_tree(ui, &app.document);
-        }
-    };
-    create_simple_application(app, "BINC Demo")
-}
-
-fn create_simple_application(mut app: SimpleApplication, app_name: &str) -> eframe::Result {
+    let mut app = SimpleApplication::new();
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     let options = eframe::NativeOptions {
@@ -25,17 +16,17 @@ fn create_simple_application(mut app: SimpleApplication, app_name: &str) -> efra
         ..Default::default()
     };
 
-    eframe::run_simple_native(app_name, options, move |ctx, _frame| {
+    eframe::run_simple_native("BINC Demo", options, move |ctx, _frame| {
         egui::CentralPanel::default().show(ctx, |ui| {
-            (app.view)(ui, &mut app);
+            create_toolbar(&mut app, ui);
+            create_tree(ui, &app.document, &app.roots);
         });
     })
 }
 
-fn create_tree(ui: &mut Ui, document: &Document) {
-    for node_id in document.nodes.iter() {
-        create_node_tree(ui, node_id.0, document);
-        return;
+fn create_tree(ui: &mut Ui, document: &Document, roots: &Vec<Uuid>) {
+    for root in roots {
+        create_node_tree(ui, &root, document);
     }
 }
 

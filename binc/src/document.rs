@@ -67,4 +67,14 @@ impl Document {
     pub fn node_count(&self) -> usize {
         self.nodes.len()
     }
+
+    pub fn find_roots(&self) -> Vec<Uuid> {
+        let mut roots: Vec<&Uuid> = self.nodes.keys().collect();
+        for (uuid, node) in &self.nodes {
+            for child in &node.children {
+                roots.retain(|&x| x != child);
+            }
+        }
+        roots.drain(..).map(|x| *x).collect()
+    }
 }
