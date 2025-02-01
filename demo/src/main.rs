@@ -3,7 +3,7 @@
 
 use eframe::egui;
 use eframe::egui::Ui;
-use binc::document::Document;
+use binc::document::{Document, Node};
 use uuid::Uuid;
 use gui::gui::*;
 
@@ -17,21 +17,39 @@ fn main() -> eframe::Result {
     };
 
     eframe::run_simple_native("BINC Demo", options, move |ctx, _frame| {
+
         egui::CentralPanel::default().show(ctx, |ui| {
             create_toolbar(&mut app, ui);
-            create_tree(ui, &app.document, &app.roots);
+            create_tree(ui, &mut app);
+        });
+        egui::SidePanel::right("inspector_panel").show(ctx, |ui| {
+            let selected_node = if let Some(id) = &app.selected_node { app.document.nodes.get(id) } else { None };
+            create_inspector(ui, selected_node);
         });
     })
 }
 
-fn create_tree(ui: &mut Ui, document: &Document, roots: &Vec<Uuid>) {
-    for root in roots {
-        create_node_tree(ui, &root, document);
+fn create_inspector(ui: &mut Ui, node: Option<&Node>) {
+    if let Some(node) = node {
+        ui.label("Inspector");
+        for (key, value) in &node.attributes {
+            ui.label(format!("{}: {:?}", key, value));
+        }
+    }
+    else {
+        ui.label("No node selected");
     }
 }
 
-fn create_node_tree(ui: &mut Ui, node_id: &Uuid, document: &Document) {
-    if let Some(node) = document.nodes.get(node_id) {
+fn create_tree(ui: &mut Ui, app: &mut SimpleApplication) {
+    for root in app.roots.clone() {
+        create_node_tree(ui, &root, app);
+    }
+}
+
+fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &mut SimpleApplication) {
+    if let Some(node) = app.document.nodes.get(node_id) {
+        let children = &node.children.clone();
         let id_string = format!("ID: {:?}", node_id);
         let name = node.attributes.get("name");
         let label = if let Some(name) = name {
@@ -40,10 +58,13 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, document: &Document) {
         }
         else { id_string };
 
-        ui.collapsing(label, |ui| {
-            for child_id in &node.children {
-                create_node_tree(ui, child_id, document);
+        if ui.collapsing(label, |ui| {
+            for child_id in children {
+                create_node_tree(ui, child_id, app);
             }
-        });
+        }).header_response.clicked() {
+            // Select the node
+            app.selected_node = Some(*node_id);
+        }
     }
 }

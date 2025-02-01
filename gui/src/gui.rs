@@ -9,6 +9,7 @@ use uuid::Uuid;
 pub struct SimpleApplication {
     pub document: Box<Document>,
     pub roots: Vec<Uuid>,
+    pub selected_node: Option<Uuid>
 }
 
 impl SimpleApplication {
@@ -16,12 +17,14 @@ impl SimpleApplication {
         SimpleApplication {
             document: Box::from(new_document()),
             roots: Vec::new(),
+            selected_node: None,
         }
     }
 
     pub fn set_document(&mut self, document: Document) {
         self.document = Box::from(document);
         self.roots = self.document.find_roots();
+        self.selected_node = None;
     }
 }
 
