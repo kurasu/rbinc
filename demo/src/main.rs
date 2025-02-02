@@ -27,18 +27,42 @@ fn main() -> eframe::Result {
             let selected_node = if let Some(id) = &app.selected_node { app.document.nodes.get(id) } else { None };
             create_inspector(ui, selected_node);
         });
+        egui::SidePanel::right("history_panel").show(ctx, |ui| {
+            create_history(ui, &app);
+        });
     })
 }
 
 fn create_inspector(ui: &mut Ui, node: Option<&Node>) {
-    if let Some(node) = node {
-        ui.label("Inspector");
-        for (key, value) in &node.attributes {
-            ui.label(format!("{}: {:?}", key, attribute_value_to_string(value.as_ref())));
+    ui.vertical(|ui| {
+        if let Some(node) = node {
+            ui.label("Inspector");
+            egui::Grid::new("inspector_grid").show(ui, |ui| {
+                ui.label("name");
+                ui.text_edit_singleline(&mut "".to_string());
+                ui.end_row();
+                for (key, value) in &node.attributes {
+                    ui.label(key);
+                    ui.label(format!("{:?}", attribute_value_to_string(value.as_ref())));
+                    ui.end_row();
+                }
+            });
+        } else {
+            ui.label("No node selected");
         }
-    }
-    else {
-        ui.label("No node selected");
+    });
+}
+
+fn create_history(ui: &mut Ui, app: &SimpleApplication) {
+    for revision in &app.document.repository.revisions {
+        let label = format!("{} by {} on {}", revision.message, revision.user_name, revision.date);
+        if ui.collapsing(label, |ui| {
+            for change in &revision.changes {
+                ui.label(change.to_string());
+            }
+        }).header_response.clicked() {
+            // Handle revision selection if needed
+        }
     }
 }
 
@@ -69,11 +93,7 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &mut SimpleApplication) {
         let children = &node.children.clone();
         let id_string = format!("ID: {:?}", node_id);
         let name = node.attributes.get("name");
-        let label = if let Some(name) = name {
-            let name = name.downcast_ref::<String>().unwrap();
-            format!("{}", name)
-        }
-        else { id_string };
+        let label = get_label(id_string, name);
 
         if ui.collapsing(label, |ui| {
             for child_id in children {
@@ -84,4 +104,11 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &mut SimpleApplication) {
             app.selected_node = Some(*node_id);
         }
     }
+}
+
+fn get_label(id_string: String, name: Option<&Box<dyn Any>>) -> String {
+    if let Some(name) = name {
+        let name = name.downcast_ref::<String>().unwrap();
+        format!("{}", name)
+    } else { id_string }
 }

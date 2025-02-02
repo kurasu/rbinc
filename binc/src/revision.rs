@@ -7,20 +7,20 @@ use crate::iowrappers::WriteExt;
 use chrono::Utc;
 use whoami::username;
 
-pub trait Change {
+pub trait Change: std::fmt::Display {
     fn change_type(&self) -> u64;
     fn write(&self, w: &mut dyn Write) -> io::Result<()>;
     fn apply(&self, nodes: &mut HashMap<Uuid, crate::document::Node>) -> io::Result<()>;
 }
 
 pub struct Revision {
-    pub(crate) changes: Vec<Box<dyn Change>>,
-    pub(crate) id: Uuid,
-    pub(crate) uuid_of_parents: Vec<Uuid>,
-    pub(crate) date: String,
-    pub(crate) user_name: String,
-    pub(crate) message: String,
-    pub(crate) tags: Vec<String>,
+    pub changes: Vec<Box<dyn Change>>,
+    pub id: Uuid,
+    pub uuid_of_parents: Vec<Uuid>,
+    pub date: String,
+    pub user_name: String,
+    pub message: String,
+    pub tags: Vec<String>,
 }
 
 impl Revision {

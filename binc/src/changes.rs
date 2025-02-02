@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::io;
 use std::io::{Read, Write};
 use uuid::Uuid;
@@ -87,6 +88,8 @@ impl Change for AddNode {
         }
         Ok(())
     }
+
+
 }
 
 pub struct RemoveNode {
@@ -238,6 +241,12 @@ impl UnknownChange {
     }
 }
 
+impl Display for UnknownChange {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "UnknownChange({}, {} bytes)", self.change_type, self.data.len())
+    }
+}
+
 impl Change for UnknownChange {
     fn change_type(&self) -> u64 { self.change_type }
 
@@ -282,6 +291,48 @@ impl Change for SetBool {
         let x = nodes.get_mut(&self.node).ok_or(io::Error::new(io::ErrorKind::NotFound, "Node not found"))?;
         x.set_bool_attribute(&self.attribute, self.value);
         Ok(())
+    }
+}
+
+fn shorten_uuid(uuid: Uuid) -> String {
+    let s = uuid.to_string();
+    s.chars().take(8).collect()
+}
+
+impl Display for AddNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "AddNode({})", shorten_uuid(self.uuid))
+    }
+}
+
+impl Display for RemoveNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RemoveNode({})", shorten_uuid(self.node))
+    }
+}
+
+
+impl Display for AddChild {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "AddChild({}, {}, {})", shorten_uuid(self.parent), shorten_uuid(self.child), self.insertion_index)
+    }
+}
+
+impl Display for RemoveChild {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RemoveChild({}, {})", shorten_uuid(self.parent), shorten_uuid(self.child))
+    }
+}
+
+impl Display for SetString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SetString({}, {} = {})", shorten_uuid(self.node), self.attribute, self.value)
+    }
+}
+
+impl Display for SetBool {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SetBool({}, {} = {})", shorten_uuid(self.node), self.attribute, self.value)
     }
 }
 
