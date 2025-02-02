@@ -1,9 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(rustdoc::missing_crate_level_docs)]
 
+use std::any::Any;
 use eframe::egui;
 use eframe::egui::Ui;
-use binc::document::{Document, Node};
+use binc::document::Node;
 use uuid::Uuid;
 use gui::gui::*;
 
@@ -33,11 +34,27 @@ fn create_inspector(ui: &mut Ui, node: Option<&Node>) {
     if let Some(node) = node {
         ui.label("Inspector");
         for (key, value) in &node.attributes {
-            ui.label(format!("{}: {:?}", key, value));
+            ui.label(format!("{}: {:?}", key, attribute_value_to_string(value.as_ref())));
         }
     }
     else {
         ui.label("No node selected");
+    }
+}
+
+fn attribute_value_to_string(value: &dyn Any) -> String {
+    if let Some(value) = value.downcast_ref::<String>() {
+        value.clone()
+    } else if let Some(value) = value.downcast_ref::<&str>() {
+        value.to_string()
+    } else if let Some(value) = value.downcast_ref::<bool>() {
+        value.to_string()
+    } else if let Some(value) = value.downcast_ref::<i32>() {
+        value.to_string()
+    } else if let Some(value) = value.downcast_ref::<f64>() {
+        value.to_string()
+    } else {
+        "None".to_string()
     }
 }
 
