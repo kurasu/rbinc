@@ -6,9 +6,23 @@ use uuid::Uuid;
 use crate::repository::Repository;
 use crate::revision::Change;
 
+pub enum AttributeValue {
+    String(String),
+    Bool(bool),
+}
+
+impl std::fmt::Display for AttributeValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AttributeValue::String(s) => write!(f, "{}", s),
+            AttributeValue::Bool(b) => write!(f, "{}", b),
+        }
+    }
+}
+
 pub struct Node {
     pub children: Vec<Uuid>,
-    pub attributes: HashMap<String, Box<dyn Any>>,
+    pub attributes: HashMap<String, AttributeValue>,
 }
 
 impl Node {
@@ -25,11 +39,11 @@ impl Node {
     }*/
 
     pub fn set_string_attribute(&mut self, key: &String, value: &String) {
-        self.attributes.insert(key.clone(), Box::new(value.clone()));
+        self.attributes.insert(key.clone(), AttributeValue::String(value.clone()));
     }
 
     pub fn set_bool_attribute(&mut self, key: &String, value: bool) {
-        self.attributes.insert(key.clone(), Box::new(value));
+        self.attributes.insert(key.clone(), AttributeValue::Bool(value));
     }
 }
 

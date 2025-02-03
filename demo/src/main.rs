@@ -4,7 +4,7 @@
 use std::any::Any;
 use eframe::egui;
 use eframe::egui::Ui;
-use binc::document::Node;
+use binc::document::{AttributeValue, Node};
 use uuid::Uuid;
 use binc::changes::shorten_uuid;
 use gui::gui::*;
@@ -50,7 +50,7 @@ fn create_inspector(ui: &mut Ui, node: Option<&Node>) {
                 ui.end_row();
                 for (key, value) in &node.attributes {
                     ui.label(key);
-                    ui.label(format!("{:?}", attribute_value_to_string(value.as_ref())));
+                    ui.label(format!("{}", value));
                     ui.end_row();
                 }
             });
@@ -113,9 +113,9 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &mut SimpleApplication) {
     }
 }
 
-fn get_label(id_string: String, name: Option<&Box<dyn Any>>) -> String {
+fn get_label(id_string: String, name: Option<&AttributeValue>) -> String {
     if let Some(name) = name {
-        let name = name.downcast_ref::<String>().unwrap();
+        let name = name;
         format!("{}", name)
     } else { id_string }
 }
