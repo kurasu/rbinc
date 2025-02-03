@@ -208,8 +208,6 @@ impl Change {
 }
 
 impl Display for Change {
-
-
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Change::AddNode {uuid} => write!(f, "AddNode({})", shorten_uuid(uuid)),
