@@ -6,7 +6,7 @@ use eframe::egui;
 use eframe::egui::Ui;
 use binc::document::{AttributeValue, Node};
 use uuid::Uuid;
-use binc::changes::shorten_uuid;
+use binc::util::shorten_uuid;
 use gui::gui::*;
 
 fn main() -> eframe::Result {
@@ -98,7 +98,7 @@ fn create_tree(ui: &mut Ui, app: &mut SimpleApplication) {
 fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &mut SimpleApplication) {
     if let Some(node) = app.document.nodes.get(node_id) {
         let children = &node.children.clone();
-        let id_string = format!("ID: {:?}", shorten_uuid(*node_id));
+        let id_string = format!("ID: {:?}", shorten_uuid(node_id));
         let name = node.attributes.get("name");
         let label = get_label(id_string, name);
 

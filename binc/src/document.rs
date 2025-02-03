@@ -1,10 +1,8 @@
-use std::any::Any;
 use std::collections::HashMap;
 use std::io;
 use std::io::{Read, Write};
 use uuid::Uuid;
 use crate::repository::Repository;
-use crate::revision::Change;
 
 pub enum AttributeValue {
     String(String),
@@ -84,7 +82,7 @@ impl Document {
 
     pub fn find_roots(&self) -> Vec<Uuid> {
         let mut roots: Vec<&Uuid> = self.nodes.keys().collect();
-        for (uuid, node) in &self.nodes {
+        for (_uuid, node) in &self.nodes {
             for child in &node.children {
                 roots.retain(|&x| x != child);
             }

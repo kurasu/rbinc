@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::io;
 use std::io::{Read, Write};
 use uuid::Uuid;
@@ -6,15 +5,10 @@ use crate::iowrappers::ReadExt;
 use crate::iowrappers::WriteExt;
 use chrono::Utc;
 use whoami::username;
-
-pub trait Change: std::fmt::Display {
-    fn change_type(&self) -> u64;
-    fn write(&self, w: &mut dyn Write) -> io::Result<()>;
-    fn apply(&self, nodes: &mut HashMap<Uuid, crate::document::Node>) -> io::Result<()>;
-}
+use crate::change::Change;
 
 pub struct Revision {
-    pub changes: Vec<Box<dyn Change>>,
+    pub changes: Vec<Change>,
     pub id: Uuid,
     pub uuid_of_parents: Vec<Uuid>,
     pub date: String,
@@ -39,7 +33,7 @@ impl Revision {
         }
     }
 
-    pub fn add_change(&mut self, change: Box<dyn Change>)
+    pub fn add_change(&mut self, change: Change)
     {
         self.changes.push(change);
     }
@@ -81,7 +75,7 @@ impl Revision {
         let count = r.read_length()?;
 
         for _ in 0..count {
-            let change = crate::changes::read_change(r)?;
+            let change = Change::read(r)?;
             revision.changes.push(change);
         }
 

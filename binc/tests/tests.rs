@@ -6,7 +6,7 @@ mod tests {
     use uuid::Uuid;
     use binc::repository::*;
     use binc::revision::*;
-    use binc::changes::*;
+    use binc::change::*;
     use binc::document::*;
 
     #[test]
@@ -21,10 +21,10 @@ mod tests {
         let mut rev = Revision::new();
         let uuid = Uuid::new_v4();
         let uuid2 = Uuid::new_v4();
-        rev.add_change(Box::new(AddNode::new(uuid)));
-        rev.add_change(Box::new(RemoveNode::new(uuid)));
-        rev.add_change(Box::new(AddNode::new(uuid2)));
-        rev.add_change(Box::new(SetString::new(uuid2, "name", "my value".to_string())));
+        rev.add_change(Change::AddNode{uuid});
+        rev.add_change(Change::RemoveNode{uuid});
+        rev.add_change(Change::AddNode{uuid: uuid2});
+        rev.add_change(Change::SetString{node: uuid2, attribute: "name".to_string(), value: "my value".to_string()});
         repo.add_revision(rev);
         repo
     }
