@@ -6,6 +6,7 @@ use eframe::egui;
 use eframe::egui::Ui;
 use binc::document::Node;
 use uuid::Uuid;
+use binc::changes::shorten_uuid;
 use gui::gui::*;
 
 fn main() -> eframe::Result {
@@ -13,25 +14,31 @@ fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([600.0, 300.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([900.0, 600.0]),
         ..Default::default()
     };
 
     eframe::run_simple_native("BINC Demo", options, move |ctx, _frame| {
-
-        egui::CentralPanel::default().show(ctx, |ui| {
+        let frame = egui::Frame::default().inner_margin(8.0).fill(egui::Color32::from_gray(36));
+        egui::TopBottomPanel::top("toolbar").frame(frame).show(ctx, |ui| {
             create_toolbar(&mut app, ui);
-            create_tree(ui, &mut app);
         });
         egui::SidePanel::right("inspector_panel").show(ctx, |ui| {
             let selected_node = if let Some(id) = &app.selected_node { app.document.nodes.get(id) } else { None };
             create_inspector(ui, selected_node);
         });
-        egui::SidePanel::right("history_panel").show(ctx, |ui| {
-            create_history(ui, &app);
+        egui::TopBottomPanel::bottom("history_panel").show(ctx, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                create_history(ui, &app);
+            });
+        });
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            create_tree(ui, &mut app);
         });
     })
 }
+
 
 fn create_inspector(ui: &mut Ui, node: Option<&Node>) {
     ui.vertical(|ui| {
@@ -91,7 +98,7 @@ fn create_tree(ui: &mut Ui, app: &mut SimpleApplication) {
 fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &mut SimpleApplication) {
     if let Some(node) = app.document.nodes.get(node_id) {
         let children = &node.children.clone();
-        let id_string = format!("ID: {:?}", node_id);
+        let id_string = format!("ID: {:?}", shorten_uuid(*node_id));
         let name = node.attributes.get("name");
         let label = get_label(id_string, name);
 

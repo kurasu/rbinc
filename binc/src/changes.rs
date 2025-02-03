@@ -294,7 +294,7 @@ impl Change for SetBool {
     }
 }
 
-fn shorten_uuid(uuid: Uuid) -> String {
+pub fn shorten_uuid(uuid: Uuid) -> String {
     let s = uuid.to_string();
     s.chars().take(8).collect()
 }
