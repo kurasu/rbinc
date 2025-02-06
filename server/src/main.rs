@@ -1,53 +1,50 @@
 mod server;
 
-use std::net::TcpListener;
+use clap::{Args, Parser, Subcommand};
+use uuid::Uuid;
 
-use clap::{arg, Command};
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands
+}
 
-fn cli() -> Command {
-    Command::new("xyz")
-        .about("XYZ Toy Server")
-        .version("0.1.0")
-        .subcommand_required(true)
-        .arg_required_else_help(true)
-        .subcommand(
-            Command::new("create")
-                .about("Create new store")
-                .arg(arg!(filename: [FILENAME])))
-        .subcommand(
-            Command::new("add-node")
-                .about("Add node")
-                .arg(arg!(store: [STORE]))
-                .arg(arg!(uuid: [UUID])))
-        .subcommand(
-            Command::new("remove-node")
-                .about("Remove node")
-                .arg(arg!(store: [STORE]))
-                .arg(arg!(uuid: [UUID])))
-        .subcommand(
-            Command::new("add-child")
-                .about("Add node as child")
-
-                .arg(arg!(store: [STORE]))
-                .arg(arg!(parent: [PARENT]))
-                .arg(arg!(child: [CHILD])))
-        .subcommand(
-            Command::new("history")
-                .about("List revisions"))
-        .subcommand(
-            Command::new("serve")
-                .about("Start server"))
+#[derive(Subcommand, Debug)]
+enum Commands {
+    CreateStore { filename: String },
+    AddNode { store: String, uuid: Uuid },
+    RemoveNode { store: String, uuid: Uuid },
+    AddChild { store: String, parent: Uuid, child: Uuid },
+    History { store: String },
+    Serve { store: String, port: u16 },
 }
 
 fn main() {
-    server::server()
-    //let matches = cli().get_matches();
 
-    /*let c = add(10, 4);
+    let matches = Cli::parse();
 
-    let uuid1 = uuid::Uuid::new_v4();
-    let a = Change::AddNode(uuid1);
-    let b = Change::SetBool { node: uuid1, field: "value".to_string(), value: true};
-    println!("Hello {}", revision::get_change_id(a));
-     */
+    println!("{:?}", matches);
+
+    match matches.command {
+        Commands::CreateStore { filename } => {
+            println!("Creating store {}", filename);
+        }
+        Commands::AddNode { store, uuid } => {
+            println!("Adding node {} to store {}", uuid, store);
+        }
+        Commands::RemoveNode { store, uuid } => {
+            println!("Removing node {} from store {}", uuid, store);
+        }
+        Commands::AddChild { store, parent, child } => {
+            println!("Adding child {} to parent {} in store {}", child, parent, store);
+        }
+        Commands::History { store } => {
+            println!("Listing revisions for store {}", store);
+        }
+        Commands::Serve { store, port } => {
+            println!("Serving store {} on port {}", store, port);
+            server::server();
+        }
+    }
 }

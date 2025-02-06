@@ -7,4 +7,4 @@ edition = "2021"
 binc = { path = "../binc" }
 eframe = "0.30.0"
 rfd = "0.15.2"
-uuid = { version = "1.12.1", features = ["v4"] }
+uuid = { version = "1.13.1", features = ["v4"] }
