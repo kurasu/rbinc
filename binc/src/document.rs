@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 use std::io;
 use std::io::{Read, Write};
+use std::ops::DerefMut;
 use uuid::Uuid;
+use crate::change::Change;
 use crate::repository::Repository;
+use crate::revision::Revision;
 
 pub enum AttributeValue {
     String(String),
@@ -19,14 +22,24 @@ impl std::fmt::Display for AttributeValue {
 }
 
 pub struct Node {
+    pub uuid: Uuid,
     pub children: Vec<Uuid>,
-    pub attributes: HashMap<String, AttributeValue>,
+    pub attributes: HashMap<String, AttributeValue>
 }
 
 impl Node {
     pub(crate) fn
     new() -> Node {
         Node {
+            uuid: Uuid::new_v4(),
+            children: vec![],
+            attributes: HashMap::new(),
+        }
+    }
+
+    pub fn new_with_uuid(uuid: Uuid) -> Node {
+        Node {
+            uuid: uuid,
             children: vec![],
             attributes: HashMap::new(),
         }
@@ -48,6 +61,7 @@ impl Node {
 pub struct Document {
     pub repository: Repository,
     pub nodes: HashMap<Uuid, Node>,
+    pending_changes: Box<Revision>,
 }
 
 fn compute_nodes(repository: &Repository) -> HashMap<Uuid, Node> {
@@ -63,13 +77,13 @@ fn compute_nodes(repository: &Repository) -> HashMap<Uuid, Node> {
 impl Document {
     pub fn new(repository: Repository) -> Document {
         let nodes = compute_nodes(&repository);
-        Document { repository, nodes }
+        Document { repository, nodes, pending_changes: Box::new(Revision::new()) }
     }
 
     pub fn read(file: &mut dyn Read) -> io::Result<Document> {
         let repository = Repository::read(file)?;
         let nodes = compute_nodes(&repository);
-        Ok(Document { repository, nodes })
+        Ok(Document { repository, nodes, pending_changes: Box::new(Revision::new()) })
     }
 
     pub fn write(&self, w: &mut dyn Write) -> io::Result<()> {
@@ -88,5 +102,14 @@ impl Document {
             }
         }
         roots.drain(..).map(|x| *x).collect()
+    }
+
+    pub fn add_and_apply_change(&mut self, change: Change) {
+        change.apply(&mut self.nodes);
+    }
+
+    pub fn commit_changes(&mut self) {
+        let pending = std::mem::replace(&mut self.pending_changes, Box::new(Revision::new()));
+        self.repository.add_revision(*pending);
     }
 }

@@ -8,6 +8,7 @@ use binc::document::{AttributeValue, Node};
 use uuid::Uuid;
 use binc::util::shorten_uuid;
 use gui::gui::*;
+use crate::GuiAction::AddNode;
 
 fn main() -> eframe::Result {
     let mut app = SimpleApplication::new();
@@ -89,13 +90,34 @@ fn attribute_value_to_string(value: &dyn Any) -> String {
     }
 }
 
+enum GuiAction {
+    SelectNode { node: Uuid },
+    AddNode { parent: Uuid, index: u64 },
+}
+
 fn create_tree(ui: &mut Ui, app: &mut SimpleApplication) {
+    let mut action: Option<GuiAction> = None;
     for root in app.roots.clone() {
-        create_node_tree(ui, &root, app);
+        action = create_node_tree(ui, &root, app);
+    }
+
+    match action
+    {
+        Some(action) => {
+        match action {
+            GuiAction::SelectNode { node } => {
+                app.selected_node = Some(node);
+            }
+            GuiAction::AddNode { parent, index } => {
+                app.add_child(&parent, index);
+            }
+        }
+    }
+        None => {}
     }
 }
 
-fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &mut SimpleApplication) {
+fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication) -> Option<GuiAction>{
     if let Some(node) = app.document.nodes.get(node_id) {
         let children = &node.children.clone();
         let id_string = format!("ID: {:?}", shorten_uuid(node_id));
@@ -103,14 +125,21 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &mut SimpleApplication) {
         let label = get_label(id_string, name);
 
         if ui.collapsing(label, |ui| {
+            let mut index = 0u64;
             for child_id in children {
                 create_node_tree(ui, child_id, app);
+                index += 1;
             }
+            let add_button = ui.button("+").on_hover_text("Add child node");
+            /*if add_button.clicked() {
+                let action = AddNode { parent: *node_id, index };
+                Some(action)
+            }*/
         }).header_response.clicked() {
-            // Select the node
-            app.selected_node = Some(*node_id);
+            return Some(GuiAction::SelectNode { node: *node_id })
         }
     }
+    None
 }
 
 fn get_label(id_string: String, name: Option<&AttributeValue>) -> String {

@@ -74,7 +74,7 @@ impl Change {
     {
         match self {
             Change::AddNode {uuid} => {
-                let old = nodes.insert(*uuid, Node::new());
+                let old = nodes.insert(*uuid, Node::new_with_uuid(uuid.clone()));
                 if old.is_some() {
                     return Err(io::Error::new(io::ErrorKind::AlreadyExists, "Node already exists"));
                 }

@@ -2,9 +2,10 @@ use std::fs::File;
 use std::io;
 use eframe::egui::Ui;
 use rfd::MessageLevel::Error;
-use binc::document::Document;
+use binc::document::{Document, Node};
 use binc::repository::Repository;
 use uuid::Uuid;
+use binc::change::Change;
 
 pub struct SimpleApplication {
     pub document: Box<Document>,
@@ -25,6 +26,15 @@ impl SimpleApplication {
         self.document = Box::from(document);
         self.roots = self.document.find_roots();
         self.selected_node = None;
+    }
+
+    pub fn add_child(&mut self, parent_id: &Uuid, insertion_index: u64) {
+        let child_id = Uuid::new_v4();
+
+        let c1 = Change::AddNode { uuid: child_id };
+        let c2 = Change::AddChild { parent: parent_id.clone(), child: child_id, insertion_index: insertion_index };
+        self.document.add_and_apply_change(c1);
+        self.document.add_and_apply_change(c2);
     }
 }
 
