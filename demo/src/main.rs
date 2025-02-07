@@ -2,6 +2,7 @@
 #![allow(rustdoc::missing_crate_level_docs)]
 
 use std::any::Any;
+use std::result;
 use eframe::egui;
 use eframe::egui::Ui;
 use binc::document::{AttributeValue, Node};
@@ -124,19 +125,28 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication) -> Opt
         let name = node.attributes.get("name");
         let label = get_label(id_string, name);
 
-        if ui.collapsing(label, |ui| {
+        let collapsing_response = ui.collapsing(label, |ui| {
             let mut index = 0u64;
             for child_id in children {
-                create_node_tree(ui, child_id, app);
+                let result = create_node_tree(ui, child_id, app);
+                if result.is_some() {
+                    return result
+                }
                 index += 1;
             }
             let add_button = ui.button("+").on_hover_text("Add child node");
-            /*if add_button.clicked() {
+            if add_button.clicked() {
                 let action = AddNode { parent: *node_id, index };
                 Some(action)
-            }*/
-        }).header_response.clicked() {
+            } else { None }
+        });
+        if collapsing_response.header_response.clicked() {
             return Some(GuiAction::SelectNode { node: *node_id })
+        }
+        else if let Some(action) = collapsing_response.body_returned {
+            if action.is_some() {
+                return action
+            }
         }
     }
     None
