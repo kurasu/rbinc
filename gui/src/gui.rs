@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io;
 use eframe::egui::Ui;
 use rfd::MessageLevel::Error;
-use binc::document::{Document, Node};
+use binc::document::Document;
 use binc::repository::Repository;
 use uuid::Uuid;
 use binc::change::Change;
@@ -35,6 +35,21 @@ impl SimpleApplication {
         let c2 = Change::AddChild { parent: parent_id.clone(), child: child_id, insertion_index: insertion_index };
         self.document.add_and_apply_change(c1);
         self.document.add_and_apply_change(c2);
+    }
+
+    pub fn remove_node(&mut self, node_id: &Uuid) {
+        let mut changes : Vec<Change> = vec![];
+        for v in self.document.nodes.values() {
+            if v.children.contains(node_id) {
+                changes.push(Change::RemoveChild { parent: v.uuid.clone(), child: node_id.clone() });
+            }
+        }
+        changes.push(Change::RemoveNode { uuid: node_id.clone() });
+        for c in changes {
+            self.document.add_and_apply_change(c);
+        }
+        self.selected_node = None;
+        self.roots = self.document.find_roots();
     }
 }
 

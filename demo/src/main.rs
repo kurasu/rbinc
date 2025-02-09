@@ -2,7 +2,6 @@
 #![allow(rustdoc::missing_crate_level_docs)]
 
 use std::any::Any;
-use std::result;
 use eframe::egui;
 use eframe::egui::Ui;
 use binc::document::{AttributeValue, Node};
@@ -21,28 +20,56 @@ fn main() -> eframe::Result {
     };
 
     eframe::run_simple_native("BINC Demo", options, move |ctx, _frame| {
+        let mut action: Option<GuiAction> = None;
+
         let frame = egui::Frame::default().inner_margin(8.0).fill(egui::Color32::from_gray(36));
         egui::TopBottomPanel::top("toolbar").frame(frame).show(ctx, |ui| {
             create_toolbar(&mut app, ui);
         });
         egui::SidePanel::right("inspector_panel").show(ctx, |ui| {
             let selected_node = if let Some(id) = &app.selected_node { app.document.nodes.get(id) } else { None };
-            create_inspector(ui, selected_node);
+            action = create_inspector(ui, selected_node);
         });
         egui::TopBottomPanel::bottom("history_panel").show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                create_history(ui, &app);
+                if action.is_none() {
+                    action = create_history(ui, &app);
+                }
             });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            create_tree(ui, &mut app);
+            if action.is_none() {
+                action = create_tree(ui, &mut app);
+            }
         });
+
+        process_action(action, &mut app);
     })
 }
 
+fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
+    match action
+    {
+        Some(action) => {
+            match action {
+                GuiAction::SelectNode { node } => {
+                    app.selected_node = Some(node);
+                }
+                GuiAction::AddNode { parent, index } => {
+                    app.add_child(&parent, index);
+                }
+                GuiAction::RemoveNode { node } => {
+                    app.remove_node(&node);
+                }
+            }
+        }
+        None => {}
+    }
+}
 
-fn create_inspector(ui: &mut Ui, node: Option<&Node>) {
+fn create_inspector(ui: &mut Ui, node: Option<&Node>) -> Option<GuiAction> {
+    let mut action : Option<GuiAction> = None;
     ui.vertical(|ui| {
         if let Some(node) = node {
             ui.label("Inspector");
@@ -50,19 +77,29 @@ fn create_inspector(ui: &mut Ui, node: Option<&Node>) {
                 ui.label("name");
                 ui.text_edit_singleline(&mut "".to_string());
                 ui.end_row();
+
+                ui.label("UUID");
+                ui.label(shorten_uuid(&node.uuid));
+                ui.end_row();
+
                 for (key, value) in &node.attributes {
                     ui.label(key);
                     ui.label(format!("{}", value));
                     ui.end_row();
                 }
+                if ui.button("Delete Node").clicked() {
+                    action = Some(GuiAction::RemoveNode { node: node.uuid });
+                }
+                ui.end_row();
             });
         } else {
             ui.label("No node selected");
         }
     });
+    action
 }
 
-fn create_history(ui: &mut Ui, app: &SimpleApplication) {
+fn create_history(ui: &mut Ui, app: &SimpleApplication) -> Option<GuiAction> {
     for revision in &app.document.repository.revisions {
         let label = format!("{} by {} on {}", revision.message, revision.user_name, revision.date);
         if ui.collapsing(label, |ui| {
@@ -73,6 +110,7 @@ fn create_history(ui: &mut Ui, app: &SimpleApplication) {
             // Handle revision selection if needed
         }
     }
+    None
 }
 
 fn attribute_value_to_string(value: &dyn Any) -> String {
@@ -94,28 +132,16 @@ fn attribute_value_to_string(value: &dyn Any) -> String {
 enum GuiAction {
     SelectNode { node: Uuid },
     AddNode { parent: Uuid, index: u64 },
+    RemoveNode { node: Uuid },
 }
 
-fn create_tree(ui: &mut Ui, app: &mut SimpleApplication) {
+fn create_tree(ui: &mut Ui, app: &mut SimpleApplication) -> Option<GuiAction> {
     let mut action: Option<GuiAction> = None;
     for root in app.roots.clone() {
         action = create_node_tree(ui, &root, app);
     }
 
-    match action
-    {
-        Some(action) => {
-        match action {
-            GuiAction::SelectNode { node } => {
-                app.selected_node = Some(node);
-            }
-            GuiAction::AddNode { parent, index } => {
-                app.add_child(&parent, index);
-            }
-        }
-    }
-        None => {}
-    }
+    return action
 }
 
 fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication) -> Option<GuiAction>{
