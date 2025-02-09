@@ -112,11 +112,25 @@ impl Document {
 
     pub fn add_and_apply_change(&mut self, change: Change) {
         change.apply(&mut self.nodes);
-        self.pending_changes.changes.push(change);
+
+        let last_change = self.pending_changes.changes.last();
+        let combined_change = if last_change.is_some() { change.combine_change(last_change.unwrap()) } else { None };
+
+        if let Some(combined_change) = combined_change {
+            self.pending_changes.changes.pop();
+            self.pending_changes.changes.push(combined_change);
+        }
+        else {
+            self.pending_changes.changes.push(change);
+        }
     }
 
     pub fn commit_changes(&mut self) {
         let pending = std::mem::replace(&mut self.pending_changes, Box::new(Revision::new()));
         self.repository.add_revision(*pending);
     }
+}
+
+fn can_combine(p0: &Change, p1: &Change) -> bool {
+    todo!()
 }

@@ -205,6 +205,26 @@ impl Change {
             Change::UnknownChange {change_type, data: _} => *change_type,
         }
     }
+
+    pub fn combine_change(&self, last_change: &Change) -> Option<Change> {
+        if let Change::SetString {node, attribute, value} = self {
+            if let Change::SetString {node: node2, attribute: attribute2, value: value2} = last_change {
+                if node == node2 && attribute == attribute2 {
+                    return Some(Change::SetString {node: *node, attribute: attribute.clone(), value: value.clone()});
+                }
+            }
+        }
+
+        if let Change::SetBool {node, attribute, value} = self {
+            if let Change::SetBool {node: node2, attribute: attribute2, value: value2} = last_change {
+                if node == node2 && attribute == attribute2 {
+                    return Some(Change::SetBool {node: *node, attribute: attribute.clone(), value: *value});
+                }
+            }
+        }
+
+        None
+    }
 }
 
 impl Display for Change {
