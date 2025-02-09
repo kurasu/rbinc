@@ -10,7 +10,8 @@ use binc::change::Change;
 pub struct SimpleApplication {
     pub document: Box<Document>,
     pub roots: Vec<Uuid>,
-    pub selected_node: Option<Uuid>
+    pub selected_node: Option<Uuid>,
+    pub selected_node_name: String,
 }
 
 impl SimpleApplication {
@@ -19,13 +20,25 @@ impl SimpleApplication {
             document: Box::from(new_document()),
             roots: Vec::new(),
             selected_node: None,
+            selected_node_name: String::new(),
         }
     }
 
     pub fn set_document(&mut self, document: Document) {
         self.document = Box::from(document);
         self.roots = self.document.find_roots();
-        self.selected_node = None;
+        self.select_node(None);
+    }
+
+    pub fn select_node(&mut self, node_id: Option<Uuid>) {
+        self.selected_node = node_id;
+        if let Some(node_id) = node_id {
+            let name = self.document.nodes.get(&node_id).as_ref().expect("Should exist").get_string_attribute("name");
+            self.selected_node_name = name.unwrap_or(String::new());
+        }
+        else {
+            self.selected_node_name = String::new();
+        }
     }
 
     pub fn add_child(&mut self, parent_id: &Uuid, insertion_index: u64) {
@@ -48,7 +61,7 @@ impl SimpleApplication {
         for c in changes {
             self.document.add_and_apply_change(c);
         }
-        self.selected_node = None;
+        self.select_node(None);
         self.roots = self.document.find_roots();
     }
 

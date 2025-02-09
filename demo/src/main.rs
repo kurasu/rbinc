@@ -6,6 +6,7 @@ use eframe::egui;
 use eframe::egui::{Color32, RichText, Ui};
 use binc::document::{AttributeValue, Node};
 use uuid::Uuid;
+use binc::change::Change;
 use binc::util::shorten_uuid;
 use gui::gui::*;
 use crate::GuiAction::AddNode;
@@ -28,7 +29,7 @@ fn main() -> eframe::Result {
         });
         egui::SidePanel::right("inspector_panel").default_width(200f32).show(ctx, |ui| {
             let selected_node = if let Some(id) = &app.selected_node { app.document.nodes.get(id) } else { None };
-            action = create_inspector(ui, selected_node);
+            action = create_inspector(ui, selected_node, &mut app.selected_node_name);
         });
         egui::TopBottomPanel::bottom("history_panel").default_height(160f32).show(ctx, |ui| {
             egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
@@ -54,7 +55,7 @@ fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
         Some(action) => {
             match action {
                 GuiAction::SelectNode { node } => {
-                    app.selected_node = Some(node);
+                    app.select_node(Some(node));
                 }
                 GuiAction::AddNode { parent, index } => {
                     app.add_child(&parent, index);
@@ -65,13 +66,16 @@ fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
                 GuiAction::Commit => {
                     app.commit();
                 }
+                GuiAction::WrappedChange { change } => {
+                    app.document.add_and_apply_change(change);
+                }
             }
         }
         None => {}
     }
 }
 
-fn create_inspector(ui: &mut Ui, node: Option<&Node>) -> Option<GuiAction> {
+fn create_inspector(ui: &mut Ui, node: Option<&Node>, node_name: &mut String) -> Option<GuiAction> {
     let mut action : Option<GuiAction> = None;
     ui.vertical(|ui| {
         if let Some(node) = node {
@@ -83,7 +87,9 @@ fn create_inspector(ui: &mut Ui, node: Option<&Node>) -> Option<GuiAction> {
                 ui.end_row();
 
                 ui.label("name");
-                ui.text_edit_singleline(&mut "".to_string());
+                if ui.text_edit_singleline(node_name).changed() {
+                    action = Some(GuiAction::WrappedChange { change: Change::SetString { node: node.uuid, attribute: "name".to_string(), value: node_name.clone() } });
+                }
                 ui.end_row();
 
                 ui.label("UUID");
@@ -154,6 +160,7 @@ enum GuiAction {
     SelectNode { node: Uuid },
     AddNode { parent: Uuid, index: u64 },
     RemoveNode { node: Uuid },
+    WrappedChange { change: Change },
     Commit // Commit pending changes
 }
 

@@ -52,6 +52,13 @@ impl Node {
         self.attributes.insert(key.clone(), AttributeValue::String(value.clone()));
     }
 
+    pub fn get_string_attribute(&self, key: &str) -> Option<String> {
+        match self.attributes.get(key) {
+            Some(AttributeValue::String(s)) => Some(s.clone()),
+            _ => None,
+        }
+    }
+
     pub fn set_bool_attribute(&mut self, key: &String, value: bool) {
         self.attributes.insert(key.clone(), AttributeValue::Bool(value));
     }
