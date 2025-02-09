@@ -26,12 +26,12 @@ fn main() -> eframe::Result {
         egui::TopBottomPanel::top("toolbar").frame(frame).show(ctx, |ui| {
             create_toolbar(&mut app, ui);
         });
-        egui::SidePanel::right("inspector_panel").show(ctx, |ui| {
+        egui::SidePanel::right("inspector_panel").default_width(200f32).show(ctx, |ui| {
             let selected_node = if let Some(id) = &app.selected_node { app.document.nodes.get(id) } else { None };
             action = create_inspector(ui, selected_node);
         });
-        egui::TopBottomPanel::bottom("history_panel").show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
+        egui::TopBottomPanel::bottom("history_panel").default_height(160f32).show(ctx, |ui| {
+            egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
                 if action.is_none() {
                     action = create_history(ui, &app);
                 }
@@ -75,14 +75,19 @@ fn create_inspector(ui: &mut Ui, node: Option<&Node>) -> Option<GuiAction> {
     let mut action : Option<GuiAction> = None;
     ui.vertical(|ui| {
         if let Some(node) = node {
-            ui.label("Inspector");
-            egui::Grid::new("inspector_grid").show(ui, |ui| {
+            egui::Grid::new("inspector_grid").num_columns(2).show(ui, |ui| {
+                ui.label("Inspector");
+                if ui.button("Delete Node").clicked() {
+                    action = Some(GuiAction::RemoveNode { node: node.uuid });
+                }
+                ui.end_row();
+
                 ui.label("name");
                 ui.text_edit_singleline(&mut "".to_string());
                 ui.end_row();
 
                 ui.label("UUID");
-                ui.label(shorten_uuid(&node.uuid));
+                ui.label(node.uuid.to_string());
                 ui.end_row();
 
                 for (key, value) in &node.attributes {
@@ -90,13 +95,11 @@ fn create_inspector(ui: &mut Ui, node: Option<&Node>) -> Option<GuiAction> {
                     ui.label(format!("{}", value));
                     ui.end_row();
                 }
-                if ui.button("Delete Node").clicked() {
-                    action = Some(GuiAction::RemoveNode { node: node.uuid });
-                }
-                ui.end_row();
             });
         } else {
-            ui.label("No node selected");
+            ui.vertical_centered(|ui| {
+                ui.label("No node selected");
+            });
         }
     });
     action
