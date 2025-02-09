@@ -105,6 +105,7 @@ impl Document {
 
     pub fn add_and_apply_change(&mut self, change: Change) {
         change.apply(&mut self.nodes);
+        self.pending_changes.changes.push(change);
     }
 
     pub fn commit_changes(&mut self) {
