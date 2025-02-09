@@ -3,7 +3,7 @@
 
 use std::any::Any;
 use eframe::egui;
-use eframe::egui::Ui;
+use eframe::egui::{Color32, RichText, Ui};
 use binc::document::{AttributeValue, Node};
 use uuid::Uuid;
 use binc::util::shorten_uuid;
@@ -62,6 +62,9 @@ fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
                 GuiAction::RemoveNode { node } => {
                     app.remove_node(&node);
                 }
+                GuiAction::Commit => {
+                    app.commit();
+                }
             }
         }
         None => {}
@@ -110,6 +113,21 @@ fn create_history(ui: &mut Ui, app: &SimpleApplication) -> Option<GuiAction> {
             // Handle revision selection if needed
         }
     }
+    let pending = &app.document.pending_changes;
+    let collapsing = ui.collapsing("Pending", |ui| {
+        if ui.button("Commit").clicked() {
+            return Some(GuiAction::Commit);
+        }
+        for change in &pending.changes {
+            ui.label(change.to_string());
+        }
+        None
+    });
+    if let Some(action) = collapsing.body_returned {
+        if action.is_some() {
+            return action
+        }
+    }
     None
 }
 
@@ -133,6 +151,7 @@ enum GuiAction {
     SelectNode { node: Uuid },
     AddNode { parent: Uuid, index: u64 },
     RemoveNode { node: Uuid },
+    Commit // Commit pending changes
 }
 
 fn create_tree(ui: &mut Ui, app: &mut SimpleApplication) -> Option<GuiAction> {
@@ -150,8 +169,13 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication) -> Opt
         let id_string = format!("ID: {:?}", shorten_uuid(node_id));
         let name = node.attributes.get("name");
         let label = get_label(id_string, name);
+        let selected = app.selected_node == Some(*node_id);
+        let mut text = RichText::new(label);
+        if selected {
+            text = text.color(Color32::YELLOW);
+        }
 
-        let collapsing_response = ui.collapsing(label, |ui| {
+        let collapsing_response = ui.collapsing(text, |ui| {
             let mut index = 0u64;
             for child_id in children {
                 let result = create_node_tree(ui, child_id, app);

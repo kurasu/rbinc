@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::io;
 use std::io::{Read, Write};
-use std::ops::DerefMut;
 use uuid::Uuid;
 use crate::change::Change;
 use crate::repository::Repository;
@@ -61,7 +60,7 @@ impl Node {
 pub struct Document {
     pub repository: Repository,
     pub nodes: HashMap<Uuid, Node>,
-    pending_changes: Box<Revision>,
+    pub pending_changes: Box<Revision>,
 }
 
 fn compute_nodes(repository: &Repository) -> HashMap<Uuid, Node> {

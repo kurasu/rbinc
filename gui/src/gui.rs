@@ -51,6 +51,10 @@ impl SimpleApplication {
         self.selected_node = None;
         self.roots = self.document.find_roots();
     }
+
+    pub fn commit(&mut self) {
+        self.document.commit_changes();
+    }
 }
 
 pub fn create_toolbar(app: &mut SimpleApplication, ui: &mut Ui) {
