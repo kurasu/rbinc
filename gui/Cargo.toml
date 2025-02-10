@@ -5,6 +5,6 @@ edition = "2021"
 
 [dependencies]
 binc = { path = "../binc" }
-eframe = "0.30.0"
+eframe = "0.31.0"
 rfd = "0.15.2"
 uuid = { version = "1.13.1", features = ["v4"] }

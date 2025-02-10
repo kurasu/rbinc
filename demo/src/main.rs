@@ -21,7 +21,7 @@ fn main() -> eframe::Result {
     };
 
     eframe::run_simple_native("BINC Demo", options, move |ctx, _frame| {
-        let mut action: Option<GuiAction> = None;
+        let mut actions: Vec<GuiAction> = vec![];
 
         let frame = egui::Frame::default().inner_margin(8.0).fill(egui::Color32::from_gray(36));
         egui::TopBottomPanel::top("toolbar").frame(frame).show(ctx, |ui| {
@@ -29,23 +29,21 @@ fn main() -> eframe::Result {
         });
         egui::SidePanel::right("inspector_panel").default_width(200f32).show(ctx, |ui| {
             let selected_node = if let Some(id) = &app.selected_node { app.document.nodes.get(id) } else { None };
-            action = create_inspector(ui, selected_node, &mut app.selected_node_name);
+            create_inspector(ui, selected_node, &mut app.selected_node_name, &mut actions);
         });
         egui::TopBottomPanel::bottom("history_panel").default_height(160f32).show(ctx, |ui| {
             egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
-                if action.is_none() {
-                    action = create_history(ui, &app);
-                }
+                create_history(ui, &app, &mut actions);
             });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            if action.is_none() {
-                action = create_tree(ui, &mut app);
-            }
+            create_tree(ui, &mut app, &mut actions);
         });
 
-        process_action(action, &mut app);
+        for action in actions {
+            process_action(Some(action), &mut app);
+        }
     })
 }
 
@@ -75,20 +73,19 @@ fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
     }
 }
 
-fn create_inspector(ui: &mut Ui, node: Option<&Node>, node_name: &mut String) -> Option<GuiAction> {
-    let mut action : Option<GuiAction> = None;
+fn create_inspector(ui: &mut Ui, node: Option<&Node>, node_name: &mut String, actions: &mut Vec<GuiAction>) {
     ui.vertical(|ui| {
         if let Some(node) = node {
             egui::Grid::new("inspector_grid").num_columns(2).show(ui, |ui| {
                 ui.label("Inspector");
                 if ui.button("Delete Node").clicked() {
-                    action = Some(GuiAction::RemoveNode { node: node.uuid });
+                    actions.push(GuiAction::RemoveNode { node: node.uuid });
                 }
                 ui.end_row();
 
                 ui.label("name");
                 if ui.text_edit_singleline(node_name).changed() {
-                    action = Some(GuiAction::WrappedChange { change: Change::SetString { node: node.uuid, attribute: "name".to_string(), value: node_name.clone() } });
+                    actions.push(GuiAction::WrappedChange { change: Change::SetString { node: node.uuid, attribute: "name".to_string(), value: node_name.clone() } });
                 }
                 ui.end_row();
 
@@ -108,10 +105,9 @@ fn create_inspector(ui: &mut Ui, node: Option<&Node>, node_name: &mut String) ->
             });
         }
     });
-    action
 }
 
-fn create_history(ui: &mut Ui, app: &SimpleApplication) -> Option<GuiAction> {
+fn create_history(ui: &mut Ui, app: &SimpleApplication, actions: &mut Vec<GuiAction>) {
     for revision in &app.document.repository.revisions {
         let label = format!("{} by {} on {}", revision.message, revision.user_name, revision.date);
         if ui.collapsing(label, |ui| {
@@ -123,21 +119,15 @@ fn create_history(ui: &mut Ui, app: &SimpleApplication) -> Option<GuiAction> {
         }
     }
     let pending = &app.document.pending_changes;
-    let collapsing = ui.collapsing("Pending", |ui| {
+    ui.collapsing("Pending", |ui| {
         if ui.button("Commit").clicked() {
-            return Some(GuiAction::Commit);
+            actions.push(GuiAction::Commit);
         }
         for change in &pending.changes {
             ui.label(change.to_string());
         }
-        None
     });
-    if let Some(action) = collapsing.body_returned {
-        if action.is_some() {
-            return action
-        }
-    }
-    None
+    ui.allocate_space(ui.available_size());
 }
 
 fn attribute_value_to_string(value: &dyn Any) -> String {
@@ -164,16 +154,13 @@ enum GuiAction {
     Commit // Commit pending changes
 }
 
-fn create_tree(ui: &mut Ui, app: &mut SimpleApplication) -> Option<GuiAction> {
-    let mut action: Option<GuiAction> = None;
+fn create_tree(ui: &mut Ui, app: &mut SimpleApplication, actions: &mut Vec<GuiAction>) {
     for root in app.roots.clone() {
-        action = create_node_tree(ui, &root, app);
+        create_node_tree(ui, &root, app, actions);
     }
-
-    return action
 }
 
-fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication) -> Option<GuiAction>{
+fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication, actions: &mut Vec<GuiAction>) {
     if let Some(node) = app.document.nodes.get(node_id) {
         let children = &node.children.clone();
         let id_string = format!("ID: {:?}", shorten_uuid(node_id));
@@ -188,28 +175,18 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication) -> Opt
         let collapsing_response = ui.collapsing(text, |ui| {
             let mut index = 0u64;
             for child_id in children {
-                let result = create_node_tree(ui, child_id, app);
-                if result.is_some() {
-                    return result
-                }
+                create_node_tree(ui, child_id, app, actions);
                 index += 1;
             }
             let add_button = ui.button("+").on_hover_text("Add child node");
             if add_button.clicked() {
-                let action = AddNode { parent: *node_id, index };
-                Some(action)
-            } else { None }
+                actions.push(AddNode { parent: *node_id, index });
+            }
         });
         if collapsing_response.header_response.clicked() {
-            return Some(GuiAction::SelectNode { node: *node_id })
-        }
-        else if let Some(action) = collapsing_response.body_returned {
-            if action.is_some() {
-                return action
-            }
+            actions.push(GuiAction::SelectNode { node: *node_id })
         }
     }
-    None
 }
 
 fn get_label(id_string: String, name: Option<&AttributeValue>) -> String {
