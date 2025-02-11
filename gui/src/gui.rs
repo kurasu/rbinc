@@ -19,14 +19,17 @@ pub struct SimpleApplication {
 
 impl SimpleApplication {
     pub fn new() -> SimpleApplication {
-        SimpleApplication {
+        let mut app = SimpleApplication {
             document: Box::from(new_document()),
             roots: Vec::new(),
             selected_node: None,
             selected_node_name: String::new(),
             expanded_nodes: HashSet::new(),
             is_editing: false,
-        }
+        };
+        app.roots = app.document.find_roots();
+        //app.select_node(app.roots.get(0).);
+        app
     }
 
     pub fn set_document(&mut self, document: Document) {
@@ -205,7 +208,7 @@ pub fn create_toolbar(app: &mut SimpleApplication, ui: &mut Ui) {
             } else { show_error(result, "Failed to open document"); }
         }
         if ui.button("Save").clicked() {
-            save_document(&app.document);
+            save_document(&mut app.document);
         }
 
         ui.separator();
@@ -244,10 +247,11 @@ pub fn open_document() -> io::Result<Option<Document>> {
     Ok(None)
 }
 
-pub fn save_document(document: &Document) -> io::Result<bool> {
+pub fn save_document(document: &mut Document) -> io::Result<bool> {
     let path = rfd::FileDialog::new().add_filter("BINC files", &["binc"]).save_file();
 
     if let Some(path) = path {
+        document.commit_changes();
         let mut file = File::create(path)?;
         document.write(&mut file)?;
         return Ok(true);
@@ -256,5 +260,9 @@ pub fn save_document(document: &Document) -> io::Result<bool> {
 }
 
 pub fn new_document() -> Document {
-    Document::new(Repository::new())
+    let mut document = Document::new(Repository::new());
+    let root = Uuid::new_v4();
+    document.add_and_apply_change(Change::AddNode { uuid: root });
+    document.add_and_apply_change(Change::SetString { node: root, attribute: "name".to_string(), value: "Root".to_string() });
+    document
 }
