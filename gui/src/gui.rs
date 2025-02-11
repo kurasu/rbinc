@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io;
-use eframe::egui::Ui;
+use eframe::egui::{Button, Sense, Ui, Widget};
 use rfd::MessageLevel::Error;
 use binc::document::Document;
 use binc::repository::Repository;
@@ -83,6 +83,21 @@ pub fn create_toolbar(app: &mut SimpleApplication, ui: &mut Ui) {
         }
         if ui.button("Save").clicked() {
             save_document(&app.document);
+        }
+
+        ui.separator();
+
+        if ui.button("Undo").clicked() {
+            app.document.undo();
+        }
+
+        let mut redo = Button::new("Redo");
+        if app.document.undo_changes.is_empty() {
+            redo = redo.sense(Sense::empty());
+        }
+
+        if redo.ui(ui).clicked() {
+            app.document.redo();
         }
     });
 }
