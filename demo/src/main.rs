@@ -3,7 +3,7 @@
 
 use std::any::Any;
 use eframe::egui;
-use eframe::egui::{Color32, Context, RichText, Ui};
+use eframe::egui::{Button, Color32, Context, RichText, Ui, Widget};
 use binc::document::{AttributeValue, Node};
 use uuid::Uuid;
 use binc::change::Change;
@@ -17,6 +17,8 @@ enum GuiAction {
     AddNode { parent: Uuid, index: u64 },
     RemoveNode { node: Uuid },
     WrappedChange { change: Change },
+    SetNodeExpanded { node: Uuid, expanded: bool },
+    ToggleSelectedNodeExpanded,
     /// Commit pending changes
     Commit,
     SelectPrevious,
@@ -82,6 +84,9 @@ fn check_keyboard(ctx: &Context, mut actions: &mut Vec<GuiAction>) {
     if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
         actions.push(GuiAction::SelectFirstChild);
     }
+    if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+        actions.push(GuiAction::ToggleSelectedNodeExpanded);
+    }
 }
 
 fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
@@ -100,6 +105,8 @@ fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
                 GuiAction::SelectNext => app.select_next_sibling(),
                 GuiAction::SelectParent => app.select_parent(),
                 GuiAction::SelectFirstChild => app.select_first_child(),
+                GuiAction::SetNodeExpanded { node, expanded } => app.set_node_expanded(node, expanded),
+                GuiAction::ToggleSelectedNodeExpanded => app.toggle_selected_node_expanded(),
             }
         }
         None => {}
@@ -196,21 +203,36 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication, action
         if selected {
             text = text.color(Color32::YELLOW);
         }
+        let is_expanded = app.expanded_nodes.contains(node_id);
 
-        let collapsing_response = ui.collapsing(text, |ui| {
-            let mut index = 0u64;
-            for child_id in children {
-                create_node_tree(ui, child_id, app, actions);
-                index += 1;
-            }
-            let add_button = ui.button("+").on_hover_text("Add child node");
-            if add_button.clicked() {
-                actions.push(GuiAction::AddNode { parent: *node_id, index });
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                let expand_button = Button::new(if is_expanded { "-" } else { "+" }).small();
+
+                if expand_button.ui(ui).on_hover_text("Expand/collapse node").clicked() {
+                    actions.push(GuiAction::SetNodeExpanded { node: *node_id, expanded: !is_expanded });
+                }
+                if ui.label(text).clicked() {
+                    actions.push(GuiAction::SelectNode { node: *node_id });
+                }
+                ui.spacing();
+                if ui.small_button("x").clicked() {
+                    actions.push(GuiAction::RemoveNode { node: *node_id });
+                }
+            });
+
+            if is_expanded {
+                ui.indent(node_id, |ui| {
+                    for child_id in children {
+                        create_node_tree(ui, child_id, app, actions);
+                    }
+                    let add_button = ui.button("+").on_hover_text("Add child node");
+                    if add_button.clicked() {
+                        actions.push(GuiAction::AddNode { parent: *node_id, index: children.len() as u64 });
+                    }
+                });
             }
         });
-        if collapsing_response.header_response.clicked() {
-            actions.push(GuiAction::SelectNode { node: *node_id })
-        }
     }
 }
 

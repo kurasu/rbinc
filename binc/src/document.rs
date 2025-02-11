@@ -104,7 +104,6 @@ impl Document {
         }
     }
 
-
     pub fn write(&self, w: &mut dyn Write) -> io::Result<()> {
         self.repository.write(w)
     }

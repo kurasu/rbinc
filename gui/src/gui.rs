@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs::File;
 use std::io;
 use eframe::egui::{Button, Sense, Ui, Widget};
@@ -12,6 +13,7 @@ pub struct SimpleApplication {
     pub roots: Vec<Uuid>,
     pub selected_node: Option<Uuid>,
     pub selected_node_name: String,
+    pub expanded_nodes: HashSet<Uuid>,
 }
 
 impl SimpleApplication {
@@ -21,6 +23,7 @@ impl SimpleApplication {
             roots: Vec::new(),
             selected_node: None,
             selected_node_name: String::new(),
+            expanded_nodes: HashSet::new(),
         }
     }
 
@@ -71,12 +74,19 @@ impl SimpleApplication {
 
     pub fn select_next_sibling(&mut self) {
         if let Some(selected_node) = self.selected_node {
-            if let Some(node) = self.document.nodes.get(&selected_node) {
+            if self.expanded_nodes.contains(&selected_node) {
+                self.select_first_child();
+            }
+            else if let Some(node) = self.document.nodes.get(&selected_node) {
                 if let Some(parent) = node.parent {
                     let children = self.document.nodes.get(&parent).as_ref().expect("Should exist").children.clone();
                     let index = children.iter().position(|x| *x == selected_node).expect("Should exist");
                     if index < children.len() - 1 {
                         self.select_node(Some(children[index + 1]));
+                    }
+                    else {
+                        self.select_node(Some(parent));
+                        self.select_next_sibling();
                     }
                 }
             }
@@ -92,6 +102,8 @@ impl SimpleApplication {
                     if index > 0 {
                         self.select_node(Some(children[index - 1]));
                     }
+                    else {
+                        self.select_node(Some(parent));}
                 }
             }
         }
@@ -109,11 +121,27 @@ impl SimpleApplication {
 
     pub fn select_first_child(&mut self) {
         if let Some(selected_node) = self.selected_node {
+            self.set_node_expanded(selected_node, true);
             if let Some(node) = self.document.nodes.get(&selected_node) {
                 if !node.children.is_empty() {
                     self.select_node(Some(node.children[0]));
                 }
             }
+        }
+    }
+
+    pub fn toggle_selected_node_expanded(&mut self) {
+        if let Some(selected_node) = self.selected_node {
+            let is_expanded = self.expanded_nodes.contains(&selected_node);
+            self.set_node_expanded(selected_node, !is_expanded);
+        }
+    }
+
+    pub fn set_node_expanded(&mut self, node: Uuid, expanded: bool) {
+        if expanded {
+            self.expanded_nodes.insert(node);
+        } else {
+            self.expanded_nodes.remove(&node);
         }
     }
 }
