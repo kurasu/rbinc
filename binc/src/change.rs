@@ -88,9 +88,8 @@ impl Change {
                 Ok(())
             }
             Change::AddChild {parent, child, insertion_index} => {
-                if !nodes.contains_key(child) {
-                    Err(io::Error::new(io::ErrorKind::NotFound, "Child node not found"))?;
-                }
+                let child_node = nodes.get_mut(child).ok_or(io::Error::new(io::ErrorKind::NotFound, "Child node not found"))?;
+                child_node.parent = Some(parent.clone());
                 let parent_node = nodes.get_mut(parent).ok_or(io::Error::new(io::ErrorKind::NotFound, "Parent node not found"))?;
                 parent_node.children.insert(*insertion_index as usize, *child);
                 Ok(())
@@ -208,7 +207,7 @@ impl Change {
 
     pub fn combine_change(&self, last_change: &Change) -> Option<Change> {
         if let Change::SetString {node, attribute, value} = self {
-            if let Change::SetString {node: node2, attribute: attribute2, value: value2} = last_change {
+            if let Change::SetString {node: node2, attribute: attribute2, value: _value2} = last_change {
                 if node == node2 && attribute == attribute2 {
                     return Some(Change::SetString {node: *node, attribute: attribute.clone(), value: value.clone()});
                 }
@@ -216,7 +215,7 @@ impl Change {
         }
 
         if let Change::SetBool {node, attribute, value} = self {
-            if let Change::SetBool {node: node2, attribute: attribute2, value: value2} = last_change {
+            if let Change::SetBool {node: node2, attribute: attribute2, value: _value2} = last_change {
                 if node == node2 && attribute == attribute2 {
                     return Some(Change::SetBool {node: *node, attribute: attribute.clone(), value: *value});
                 }

@@ -22,23 +22,17 @@ impl std::fmt::Display for AttributeValue {
 
 pub struct Node {
     pub uuid: Uuid,
+    pub parent: Option<Uuid>,
     pub children: Vec<Uuid>,
     pub attributes: HashMap<String, AttributeValue>
 }
 
 impl Node {
-    pub(crate) fn
-    new() -> Node {
-        Node {
-            uuid: Uuid::new_v4(),
-            children: vec![],
-            attributes: HashMap::new(),
-        }
-    }
 
     pub fn new_with_uuid(uuid: Uuid) -> Node {
         Node {
             uuid: uuid,
+            parent: None,
             children: vec![],
             attributes: HashMap::new(),
         }
@@ -99,7 +93,6 @@ impl Document {
 
     pub fn read(file: &mut dyn Read) -> io::Result<Document> {
         let repository = Repository::read(file)?;
-        let nodes = compute_nodes(&repository);
         Ok(Self::new(repository))
     }
 

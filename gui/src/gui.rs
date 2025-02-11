@@ -68,6 +68,54 @@ impl SimpleApplication {
     pub fn commit(&mut self) {
         self.document.commit_changes();
     }
+
+    pub fn select_next_sibling(&mut self) {
+        if let Some(selected_node) = self.selected_node {
+            if let Some(node) = self.document.nodes.get(&selected_node) {
+                if let Some(parent) = node.parent {
+                    let children = self.document.nodes.get(&parent).as_ref().expect("Should exist").children.clone();
+                    let index = children.iter().position(|x| *x == selected_node).expect("Should exist");
+                    if index < children.len() - 1 {
+                        self.select_node(Some(children[index + 1]));
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn select_previous_sibling(&mut self) {
+        if let Some(selected_node) = self.selected_node {
+            if let Some(node) = self.document.nodes.get(&selected_node) {
+                if let Some(parent) = node.parent {
+                    let children = self.document.nodes.get(&parent).as_ref().expect("Should exist").children.clone();
+                    let index = children.iter().position(|x| *x == selected_node).expect("Should exist");
+                    if index > 0 {
+                        self.select_node(Some(children[index - 1]));
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn select_parent(&mut self) {
+        if let Some(selected_node) = self.selected_node {
+            if let Some(node) = self.document.nodes.get(&selected_node) {
+                if let Some(parent) = node.parent {
+                    self.select_node(Some(parent));
+                }
+            }
+        }
+    }
+
+    pub fn select_first_child(&mut self) {
+        if let Some(selected_node) = self.selected_node {
+            if let Some(node) = self.document.nodes.get(&selected_node) {
+                if !node.children.is_empty() {
+                    self.select_node(Some(node.children[0]));
+                }
+            }
+        }
+    }
 }
 
 pub fn create_toolbar(app: &mut SimpleApplication, ui: &mut Ui) {

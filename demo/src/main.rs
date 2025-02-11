@@ -17,7 +17,12 @@ enum GuiAction {
     AddNode { parent: Uuid, index: u64 },
     RemoveNode { node: Uuid },
     WrappedChange { change: Change },
-    Commit // Commit pending changes
+    /// Commit pending changes
+    Commit,
+    SelectPrevious,
+    SelectNext,
+    SelectParent,
+    SelectFirstChild,
 }
 
 fn main() -> eframe::Result {
@@ -65,6 +70,18 @@ fn check_keyboard(ctx: &Context, mut actions: &mut Vec<GuiAction>) {
     if ctx.input(|i| i.key_pressed(egui::Key::Y) && i.modifiers.command) {
         actions.push(GuiAction::Redo);
     }
+    if ctx.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
+        actions.push(GuiAction::SelectPrevious);
+    }
+    if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
+        actions.push(GuiAction::SelectNext);
+    }
+    if (ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) || ctx.input(|i| i.key_pressed(egui::Key::Backspace))) {
+        actions.push(GuiAction::SelectParent);
+    }
+    if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
+        actions.push(GuiAction::SelectFirstChild);
+    }
 }
 
 fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
@@ -78,7 +95,11 @@ fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
                 GuiAction::Commit => app.commit(),
                 GuiAction::WrappedChange { change } => app.document.add_and_apply_change(change),
                 GuiAction::Undo => app.document.undo(),
-                GuiAction::Redo => app.document.redo()
+                GuiAction::Redo => app.document.redo(),
+                GuiAction::SelectPrevious => app.select_previous_sibling(),
+                GuiAction::SelectNext => app.select_next_sibling(),
+                GuiAction::SelectParent => app.select_parent(),
+                GuiAction::SelectFirstChild => app.select_first_child(),
             }
         }
         None => {}
