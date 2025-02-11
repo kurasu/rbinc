@@ -10,8 +10,14 @@ impl Tree {
     /// Get the parent_node along with the name of the node
     pub fn get_parent_mut(&mut self, path: &String) -> (Option<&mut Node>, String) {
         let mut parts = path.split("/");
-        let name = parts.last().unwrap().clone().to_string();
-        let parent = self.get_mut(&path[..path.len() - name.len() - 1].to_string());
+        let name = parts.clone().last().unwrap().clone().to_string();
+        
+        if parts.count() == 1 {
+            return (Some(&mut self.root), name);
+        }
+        
+        let parent_path = &path[..path.len() - name.len() - 1].to_string();
+        let parent = self.get_mut(parent_path);
         (parent, name)
     }
 
