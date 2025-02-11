@@ -3,13 +3,22 @@
 
 use std::any::Any;
 use eframe::egui;
-use eframe::egui::{Color32, RichText, Ui};
+use eframe::egui::{Color32, Context, RichText, Ui};
 use binc::document::{AttributeValue, Node};
 use uuid::Uuid;
 use binc::change::Change;
 use binc::util::shorten_uuid;
 use gui::gui::*;
-use crate::GuiAction::AddNode;
+
+enum GuiAction {
+    Undo,
+    Redo,
+    SelectNode { node: Uuid },
+    AddNode { parent: Uuid, index: u64 },
+    RemoveNode { node: Uuid },
+    WrappedChange { change: Change },
+    Commit // Commit pending changes
+}
 
 fn main() -> eframe::Result {
     let mut app = SimpleApplication::new();
@@ -22,6 +31,8 @@ fn main() -> eframe::Result {
 
     eframe::run_simple_native("BINC Demo", options, move |ctx, _frame| {
         let mut actions: Vec<GuiAction> = vec![];
+
+        check_keyboard(ctx, &mut actions);
 
         let frame = egui::Frame::default().inner_margin(8.0).fill(egui::Color32::from_gray(36));
         egui::TopBottomPanel::top("toolbar").frame(frame).show(ctx, |ui| {
@@ -47,26 +58,27 @@ fn main() -> eframe::Result {
     })
 }
 
+fn check_keyboard(ctx: &Context, mut actions: &mut Vec<GuiAction>) {
+    if ctx.input(|i| i.key_pressed(egui::Key::Z) && i.modifiers.command) {
+        actions.push(GuiAction::Undo);
+    }
+    if ctx.input(|i| i.key_pressed(egui::Key::Y) && i.modifiers.command) {
+        actions.push(GuiAction::Redo);
+    }
+}
+
 fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
     match action
     {
         Some(action) => {
             match action {
-                GuiAction::SelectNode { node } => {
-                    app.select_node(Some(node));
-                }
-                GuiAction::AddNode { parent, index } => {
-                    app.add_child(&parent, index);
-                }
-                GuiAction::RemoveNode { node } => {
-                    app.remove_node(&node);
-                }
-                GuiAction::Commit => {
-                    app.commit();
-                }
-                GuiAction::WrappedChange { change } => {
-                    app.document.add_and_apply_change(change);
-                }
+                GuiAction::SelectNode { node } => app.select_node(Some(node)),
+                GuiAction::AddNode { parent, index } => app.add_child(&parent, index),
+                GuiAction::RemoveNode { node } => app.remove_node(&node),
+                GuiAction::Commit => app.commit(),
+                GuiAction::WrappedChange { change } => app.document.add_and_apply_change(change),
+                GuiAction::Undo => app.document.undo(),
+                GuiAction::Redo => app.document.redo()
             }
         }
         None => {}
@@ -146,14 +158,6 @@ fn attribute_value_to_string(value: &dyn Any) -> String {
     }
 }
 
-enum GuiAction {
-    SelectNode { node: Uuid },
-    AddNode { parent: Uuid, index: u64 },
-    RemoveNode { node: Uuid },
-    WrappedChange { change: Change },
-    Commit // Commit pending changes
-}
-
 fn create_tree(ui: &mut Ui, app: &mut SimpleApplication, actions: &mut Vec<GuiAction>) {
     for root in app.roots.clone() {
         create_node_tree(ui, &root, app, actions);
@@ -180,7 +184,7 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication, action
             }
             let add_button = ui.button("+").on_hover_text("Add child node");
             if add_button.clicked() {
-                actions.push(AddNode { parent: *node_id, index });
+                actions.push(GuiAction::AddNode { parent: *node_id, index });
             }
         });
         if collapsing_response.header_response.clicked() {
