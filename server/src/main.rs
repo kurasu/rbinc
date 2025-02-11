@@ -2,11 +2,8 @@ mod server;
 
 use std::io;
 use clap::{Args, Parser, Subcommand};
-use uuid::Uuid;
-use binc::document::{AttributeValue, Document};
+use binc::document::{AttributeValue, Document, Node};
 use binc::repository::Repository;
-use binc::revision::Revision;
-use binc::util::shorten_uuid;
 
 /// A simple command line tool for creating, manipulating, viewing and serving BINC documents
 #[derive(Parser, Debug)]
@@ -20,15 +17,6 @@ struct Cli {
 enum Commands {
     /// Create a new store
     CreateStore { filename: String },
-
-    /// Add a new node to the document
-    AddNode { store: String, uuid: Uuid },
-
-    /// Remove a node from the document
-    RemoveNode { store: String, uuid: Uuid },
-
-    /// Add a child to a node in the document
-    AddChild { store: String, parent: Uuid, child: Uuid },
 
     /// Print the history of the document
     History { store: String },
@@ -47,23 +35,7 @@ fn main() -> io::Result<()> {
     match matches.command {
         Commands::CreateStore { filename } => {
             println!("Creating store {}", filename);
-            Repository::new().write(&mut std::fs::File::create(filename)?)
-        }
-        Commands::AddNode { store, uuid } => {
-            println!("Adding node {} to store {}", uuid, store);
-            let mut repo = Repository::read(&mut std::fs::File::open(store)?)?;
-            let revision = Revision::new();
-            repo.add_revision(revision);
-            Ok(())
-            //repo.write_changes();
-        }
-        Commands::RemoveNode { store, uuid } => {
-            println!("Removing node {} from store {}", uuid, store);
-            Ok(())
-        }
-        Commands::AddChild { store, parent, child } => {
-            println!("Adding child {} to parent {} in store {}", child, parent, store);
-            Ok(())
+            Repository::default().write(&mut std::fs::File::create(filename)?)
         }
         Commands::History { store } => {
             println!("Listing revisions for store {}", store);
@@ -83,10 +55,7 @@ fn main() -> io::Result<()> {
             let repo = Repository::read(&mut std::fs::File::open(store)?)?;
             let document = Document::new(repo);
 
-            let roots = document.find_roots();
-            for root in roots {
-                print_tree(&document, &root, 0);
-            }
+            print_tree(&document.tree.root, 0);
 
             Ok(())
         }
@@ -105,35 +74,31 @@ fn get_label(id_string: String, name: Option<&AttributeValue>) -> String {
     } else { id_string }
 }
 
-fn print_tree(document: &Document, root: &Uuid, depth: i32) {
-    if let Some(node) = document.nodes.get(root) {
-        let children = &node.children.clone();
-        let id_string = format!("ID: {:?}", shorten_uuid(root));
-        let name = node.attributes.get("name");
-        let label = get_label(id_string, name);
+fn print_tree(node: &Node, depth: i32) {
+    let children = &node.children;
+    let name = node.name.as_str();
 
-        for _ in 0..depth {
-            print!("  ");
-        }
+    for _ in 0..depth {
+        print!("  ");
+    }
 
-        print!("{}", label);
-        if node.attributes.len() > 0 {
-            print!(" (");
-            let mut first = true;
-            node.attributes.iter().for_each(|(key, value)| {
-                if !first {
-                    print!(", ");
-                }
-                print!("{}: {}", key, value);
-                first = false;
-            });
-            print!(")");
-        }
-        println!();
+    print!("{}", name);
+    if node.attributes.len() > 0 {
+        print!(" (");
+        let mut first = true;
+        node.attributes.iter().for_each(|(key, value)| {
+            if !first {
+                print!(", ");
+            }
+            print!("{}: {}", key, value);
+            first = false;
+        });
+        print!(")");
+    }
+    println!();
 
-        for child_id in children {
-            print_tree(document, child_id, depth + 1);
-        }
+    for child in children {
+        print_tree(child, depth + 1);
     }
 }
 

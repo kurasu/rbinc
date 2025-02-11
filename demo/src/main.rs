@@ -3,7 +3,7 @@
 
 use std::any::Any;
 use eframe::egui;
-use eframe::egui::{Button, Context, Image, RichText, Ui, Widget};
+use eframe::egui::{Button, Context, Image, RichText, TextBuffer, Ui, Widget};
 use binc::document::{AttributeValue, Node};
 use uuid::Uuid;
 use binc::change::Change;
@@ -13,11 +13,11 @@ use gui::gui::*;
 enum GuiAction {
     Undo,
     Redo,
-    SelectNode { node: Uuid },
-    AddNode { parent: Uuid, index: u64 },
-    RemoveNode { node: Uuid },
+    SelectNode { path: String },
+    AddNode { path: String },
+    RemoveNode { path: String },
     WrappedChange { change: Change },
-    SetNodeExpanded { node: Uuid, expanded: bool },
+    SetNodeExpanded { path: String, expanded: bool },
     ToggleSelectedNodeExpanded,
     /// Commit pending changes
     Commit,
@@ -47,8 +47,8 @@ fn main() -> eframe::Result {
             create_toolbar(&mut app, ui);
         });
         egui::SidePanel::right("inspector_panel").default_width(200f32).show(ctx, |ui| {
-            let selected_node = if let Some(id) = &app.selected_node { app.document.nodes.get(id) } else { None };
-            create_inspector(ui, selected_node, &mut app.selected_node_name, &mut actions);
+            let selected_node =  { app.document.tree.get(&app.selected_node) };
+            create_inspector(ui, &app.selected_node, selected_node, &mut app.selected_node_name, &mut actions);
         });
         egui::TopBottomPanel::bottom("history_panel").default_height(160f32).show(ctx, |ui| {
             egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
@@ -81,17 +81,18 @@ fn check_keyboard(ctx: &Context, app: &SimpleApplication, mut actions: &mut Vec<
     }
 
     if !app.is_editing {
-        if let Some(node) = app.selected_node {
+        if !app.selected_node.is_empty() {
+            let path = &app.selected_node;
             if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
-                if app.expanded_nodes.contains(&node) {
-                    actions.push(GuiAction::SetNodeExpanded { node, expanded: false });
+                if app.expanded_nodes.contains(path) {
+                    actions.push(GuiAction::SetNodeExpanded { path: path.clone(), expanded: false });
                 } else {
                     actions.push(GuiAction::SelectParent);
                 }
-                actions.push(GuiAction::SetNodeExpanded { node, expanded: false });
+                actions.push(GuiAction::SetNodeExpanded { path: path.clone(), expanded: false });
             }
             if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
-                actions.push(GuiAction::SetNodeExpanded { node, expanded: true });
+                actions.push(GuiAction::SetNodeExpanded { path: path.clone(), expanded: true });
             }
         }
     }
@@ -106,9 +107,9 @@ fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
     {
         Some(action) => {
             match action {
-                GuiAction::SelectNode { node } => app.select_node(Some(node)),
-                GuiAction::AddNode { parent, index } => app.add_child(&parent, index),
-                GuiAction::RemoveNode { node } => app.remove_node(&node),
+                GuiAction::SelectNode { path } => app.select_node(path),
+                GuiAction::AddNode { path } => app.add_child(&path),
+                GuiAction::RemoveNode { path } => app.remove_node(&path),
                 GuiAction::Commit => app.commit(),
                 GuiAction::WrappedChange { change } => app.document.add_and_apply_change(change),
                 GuiAction::Undo => app.document.undo(),
@@ -117,7 +118,7 @@ fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
                 GuiAction::SelectNext => app.select_next(),
                 GuiAction::SelectParent => app.select_parent(),
                 GuiAction::SelectFirstChild => app.select_first_child(),
-                GuiAction::SetNodeExpanded { node, expanded } => app.set_node_expanded(node, expanded),
+                GuiAction::SetNodeExpanded { path, expanded } => app.set_node_expanded(path, expanded),
                 GuiAction::ToggleSelectedNodeExpanded => app.toggle_selected_node_expanded(),
                 GuiAction::ToggleEditing => app.toggle_editing(),
             }
@@ -126,24 +127,24 @@ fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
     }
 }
 
-fn create_inspector(ui: &mut Ui, node: Option<&Node>, node_name: &mut String, actions: &mut Vec<GuiAction>) {
+fn create_inspector(ui: &mut Ui, path: &String, node: Option<&Node>, node_name: &mut String, actions: &mut Vec<GuiAction>) {
     ui.vertical(|ui| {
         if let Some(node) = node {
             egui::Grid::new("inspector_grid").num_columns(2).show(ui, |ui| {
                 ui.label("Inspector");
                 if ui.button("Delete Node").clicked() {
-                    actions.push(GuiAction::RemoveNode { node: node.uuid });
+                    actions.push(GuiAction::RemoveNode { path: path.clone() });
                 }
                 ui.end_row();
 
                 ui.label("name");
                 if ui.text_edit_singleline(node_name).changed() {
-                    actions.push(GuiAction::WrappedChange { change: Change::SetString { node: node.uuid, attribute: "name".to_string(), value: node_name.clone() } });
+                    actions.push(GuiAction::WrappedChange { change: Change::SetString { path: path.clone(), attribute: "name".to_string(), value: node_name.clone() } });
                 }
                 ui.end_row();
 
-                ui.label("UUID");
-                ui.label(node.uuid.to_string());
+                ui.label("Path");
+                ui.label(path);
                 ui.end_row();
 
                 for (key, value) in &node.attributes {
@@ -153,8 +154,10 @@ fn create_inspector(ui: &mut Ui, node: Option<&Node>, node_name: &mut String, ac
                 }
             });
         } else {
-            ui.vertical_centered(|ui| {
-                ui.label("No node selected");
+            ui.horizontal_centered(|ui| {
+                ui.vertical_centered(|ui| {
+                    ui.label("No selection");
+                });
             });
         }
     });
@@ -200,64 +203,68 @@ fn attribute_value_to_string(value: &dyn Any) -> String {
 }
 
 fn create_tree(ui: &mut Ui, app: &mut SimpleApplication, actions: &mut Vec<GuiAction>) {
-    for root in app.roots.clone() {
-        create_node_tree(ui, &root, app, actions);
-    }
+    create_node_tree(ui, &app.document.tree.root, app, actions, "");
 }
 
-fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication, actions: &mut Vec<GuiAction>) {
-    if let Some(node) = app.document.nodes.get(node_id) {
-        let children = &node.children.clone();
-        let id_string = format!("ID: {:?}", shorten_uuid(node_id));
-        let name = node.get_string_attribute("name");
-        let mut node_name = name.unwrap_or(String::new()).clone();
-        let label = get_label(id_string, &node_name);
-        let selected = app.selected_node == Some(*node_id);
+fn create_node_tree(ui: &mut Ui, node: &Node, app: &SimpleApplication, actions: &mut Vec<GuiAction>, path: &str) {
+     {
+        let children = &node.children;
+        let name = node.name.clone();
+        let mut node_name = name.clone();
+        let pretty_name = node.get_string_attribute("name");
+        let label = if let Some(pretty_name) = pretty_name {
+            pretty_name
+        } else {
+            name.clone()
+        };
+        let selected = app.selected_node == path && !path.is_empty();
         let mut text = RichText::new(label);
         if selected {
             text = text.color(ui.visuals().strong_text_color());
         }
-        let is_expanded = app.expanded_nodes.contains(node_id);
+        let is_expanded = app.expanded_nodes.contains(path);
 
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 let expand_icon = if is_expanded { "⏷" } else { "⏵" };
                 if ui.label(expand_icon).on_hover_text("Expand/collapse node").clicked() {
-                    actions.push(GuiAction::SetNodeExpanded { node: *node_id, expanded: !is_expanded });
+                    actions.push(GuiAction::SetNodeExpanded { path: path.to_string(), expanded: !is_expanded });
                 }
 
                 let mut checked = node.get_bool_attribute("completed").unwrap_or(false);
                 if ui.checkbox(&mut checked, "").clicked() {
-                    actions.push(GuiAction::WrappedChange { change: Change::SetBool { node: *node_id, attribute: "completed".to_string(), value: checked } });
+                    actions.push(GuiAction::WrappedChange { change: Change::SetBool { path: path.to_string(), attribute: "completed".to_string(), value: checked } });
                 }
 
                 if selected && app.is_editing {
                     let text_edit = ui.text_edit_singleline(&mut node_name);
                     text_edit.request_focus();
                     if text_edit.changed() {
-                        actions.push(GuiAction::WrappedChange { change: Change::SetString { node: *node_id, attribute: "name".to_string(), value: node_name.clone() } });
+                        actions.push(GuiAction::WrappedChange { change: Change::SetString { path: path.to_string(), attribute: "name".to_string(), value: node_name.clone() } });
                     }
                 } else {
                     let label = ui.label(text);
-                    if label.clicked() { actions.push(GuiAction::SelectNode { node: *node_id }); }
+                    if label.clicked() { actions.push(GuiAction::SelectNode { path: path.to_string() }); }
                     if label.double_clicked() { actions.push(GuiAction::ToggleEditing); }
                 }
 
                 ui.spacing();
 
                 if selected {
-                    if ui.label("✖").clicked() { actions.push(GuiAction::RemoveNode { node: *node_id }); }
+                    if ui.label("✖").clicked() { actions.push(GuiAction::RemoveNode { path: path.to_string() }); }
                 }
             });
 
             if is_expanded {
-                ui.indent(node_id, |ui| {
-                    for child_id in children {
-                        create_node_tree(ui, child_id, app, actions);
+                ui.indent(path, |ui| {
+                    for child in children {
+                        let sub_path = path.to_string() + "/" + &child.name;
+                        create_node_tree(ui, child, app, actions, path);
                     }
                     let add_button = ui.label("⊞").on_hover_text("Add child node");
                     if add_button.clicked() {
-                        actions.push(GuiAction::AddNode { parent: *node_id, index: children.len() as u64 });
+                        let new_path = path.to_string() + "/new";
+                        actions.push(GuiAction::AddNode { path: new_path });
                     }
                 });
             }
