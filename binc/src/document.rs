@@ -56,6 +56,13 @@ impl Node {
     pub fn set_bool_attribute(&mut self, key: &String, value: bool) {
         self.attributes.insert(key.clone(), AttributeValue::Bool(value));
     }
+
+    pub fn get_bool_attribute(&self, key: &str) -> Option<bool> {
+        match self.attributes.get(key) {
+            Some(AttributeValue::Bool(s)) => Some(s.clone()),
+            _ => None,
+        }
+    }
 }
 
 pub struct Document {

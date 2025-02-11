@@ -3,7 +3,7 @@
 
 use std::any::Any;
 use eframe::egui;
-use eframe::egui::{Button, Context, RichText, Ui, Widget};
+use eframe::egui::{Button, Context, Image, RichText, Ui, Widget};
 use binc::document::{AttributeValue, Node};
 use uuid::Uuid;
 use binc::change::Change;
@@ -207,18 +207,19 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication, action
 
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
-                let expand_button = Button::new(if is_expanded { "-" } else { "+" }).small();
-
-                if expand_button.ui(ui).on_hover_text("Expand/collapse node").clicked() {
+                let expand_icon = if is_expanded { "⏷" } else { "⏵" };
+                if ui.label(expand_icon).on_hover_text("Expand/collapse node").clicked() {
                     actions.push(GuiAction::SetNodeExpanded { node: *node_id, expanded: !is_expanded });
                 }
-                if ui.label(text).clicked() {
-                    actions.push(GuiAction::SelectNode { node: *node_id });
+
+                let mut checked = node.get_bool_attribute("completed").unwrap_or(false);
+                if ui.checkbox(&mut checked, "").clicked() {
+                    actions.push(GuiAction::WrappedChange { change: Change::SetBool { node: *node_id, attribute: "completed".to_string(), value: checked } });
                 }
+                if ui.label(text).clicked() { actions.push(GuiAction::SelectNode { node: *node_id }); }
                 ui.spacing();
-                if ui.small_button("x").clicked() {
-                    actions.push(GuiAction::RemoveNode { node: *node_id });
-                }
+
+                if ui.label("⊗").clicked() { actions.push(GuiAction::RemoveNode { node: *node_id }); }
             });
 
             if is_expanded {
@@ -226,7 +227,7 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication, action
                     for child_id in children {
                         create_node_tree(ui, child_id, app, actions);
                     }
-                    let add_button = ui.button("+").on_hover_text("Add child node");
+                    let add_button = ui.label("+").on_hover_text("Add child node");
                     if add_button.clicked() {
                         actions.push(GuiAction::AddNode { parent: *node_id, index: children.len() as u64 });
                     }
