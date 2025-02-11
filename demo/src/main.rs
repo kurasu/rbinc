@@ -78,13 +78,13 @@ fn check_keyboard(ctx: &Context, mut actions: &mut Vec<GuiAction>) {
     if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
         actions.push(GuiAction::SelectNext);
     }
-    if (ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) || ctx.input(|i| i.key_pressed(egui::Key::Backspace))) {
+    /*if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
         actions.push(GuiAction::SelectParent);
     }
     if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
         actions.push(GuiAction::SelectFirstChild);
-    }
-    if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+    }*/
+    if ctx.input(|i| i.key_pressed(egui::Key::Tab)) {
         actions.push(GuiAction::ToggleSelectedNodeExpanded);
     }
 }
@@ -196,8 +196,9 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication, action
     if let Some(node) = app.document.nodes.get(node_id) {
         let children = &node.children.clone();
         let id_string = format!("ID: {:?}", shorten_uuid(node_id));
-        let name = node.attributes.get("name");
-        let label = get_label(id_string, name);
+        let name = node.get_string_attribute("name");
+        let mut node_name = name.unwrap_or(String::new()).clone();
+        let label = get_label(id_string, &node_name);
         let selected = app.selected_node == Some(*node_id);
         let mut text = RichText::new(label);
         if selected {
@@ -216,10 +217,22 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication, action
                 if ui.checkbox(&mut checked, "").clicked() {
                     actions.push(GuiAction::WrappedChange { change: Change::SetBool { node: *node_id, attribute: "completed".to_string(), value: checked } });
                 }
-                if ui.label(text).clicked() { actions.push(GuiAction::SelectNode { node: *node_id }); }
+
+                if selected {
+                    let text_edit = ui.text_edit_singleline(&mut node_name);
+                    text_edit.request_focus();
+                    if text_edit.changed() {
+                        actions.push(GuiAction::WrappedChange { change: Change::SetString { node: *node_id, attribute: "name".to_string(), value: node_name.clone() } });
+                    }
+                } else {
+                    if ui.label(text).clicked() { actions.push(GuiAction::SelectNode { node: *node_id }); }
+                }
+
                 ui.spacing();
 
-                if ui.label("⊗").clicked() { actions.push(GuiAction::RemoveNode { node: *node_id }); }
+                if selected {
+                    if ui.label("✖").clicked() { actions.push(GuiAction::RemoveNode { node: *node_id }); }
+                }
             });
 
             if is_expanded {
@@ -227,7 +240,7 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication, action
                     for child_id in children {
                         create_node_tree(ui, child_id, app, actions);
                     }
-                    let add_button = ui.label("+").on_hover_text("Add child node");
+                    let add_button = ui.label("⊞").on_hover_text("Add child node");
                     if add_button.clicked() {
                         actions.push(GuiAction::AddNode { parent: *node_id, index: children.len() as u64 });
                     }
@@ -237,8 +250,8 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication, action
     }
 }
 
-fn get_label(id_string: String, name: Option<&AttributeValue>) -> String {
-    if let Some(name) = name {
+fn get_label(id_string: String, name: &String) -> String {
+    if !name.is_empty() {
         let name = name;
         format!("{}", name)
     } else { id_string }

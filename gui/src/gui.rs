@@ -163,11 +163,11 @@ pub fn create_toolbar(app: &mut SimpleApplication, ui: &mut Ui) {
 
         ui.separator();
 
-        if ui.button("Undo").clicked() {
+        if ui.button("↺").clicked() {
             app.document.undo();
         }
 
-        let mut redo = Button::new("Redo");
+        let mut redo = Button::new("↻");
         if app.document.undo_changes.is_empty() {
             redo = redo.sense(Sense::empty());
         }
