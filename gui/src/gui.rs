@@ -14,6 +14,7 @@ pub struct SimpleApplication {
     pub selected_node: Option<Uuid>,
     pub selected_node_name: String,
     pub expanded_nodes: HashSet<Uuid>,
+    pub is_editing: bool,
 }
 
 impl SimpleApplication {
@@ -24,6 +25,7 @@ impl SimpleApplication {
             selected_node: None,
             selected_node_name: String::new(),
             expanded_nodes: HashSet::new(),
+            is_editing: false,
         }
     }
 
@@ -72,39 +74,62 @@ impl SimpleApplication {
         self.document.commit_changes();
     }
 
-    pub fn select_next_sibling(&mut self) {
+    pub fn get_previous_sibling(&self, node_id: Uuid) -> Option<Uuid> {
+        if let Some(node) = self.document.nodes.get(&node_id) {
+            if let Some(parent) = node.parent {
+                let children = self.document.nodes.get(&parent).as_ref().expect("Should exist").children.clone();
+                let index = children.iter().position(|x| *x == node_id).expect("Should exist");
+                if index > 0 {
+                    return Some(children[index - 1]);
+                }
+            }
+        }
+        None
+    }
+
+    pub fn get_next_sibling(&self, node_id: Uuid) -> Option<Uuid> {
+        if let Some(node) = self.document.nodes.get(&node_id) {
+            if let Some(parent) = node.parent {
+                let children = self.document.nodes.get(&parent).as_ref().expect("Should exist").children.clone();
+                let index = children.iter().position(|x| *x == node_id).expect("Should exist");
+                if index < children.len() - 1 {
+                    return Some(children[index + 1]);
+                }
+            }
+        }
+        None
+    }
+
+    pub fn select_next(&mut self) {
         if let Some(selected_node) = self.selected_node {
             if self.expanded_nodes.contains(&selected_node) {
                 self.select_first_child();
             }
             else if let Some(node) = self.document.nodes.get(&selected_node) {
-                if let Some(parent) = node.parent {
-                    let children = self.document.nodes.get(&parent).as_ref().expect("Should exist").children.clone();
-                    let index = children.iter().position(|x| *x == selected_node).expect("Should exist");
-                    if index < children.len() - 1 {
-                        self.select_node(Some(children[index + 1]));
-                    }
-                    else {
-                        self.select_node(Some(parent));
-                        self.select_next_sibling();
-                    }
+                if let Some(sibling) = self.get_next_sibling(selected_node) {
+                    self.select_node(Some(sibling));
+                }
+                else if let Some(parent) = node.parent {
+                    self.select_node(self.get_next_sibling(parent));
                 }
             }
         }
     }
 
-    pub fn select_previous_sibling(&mut self) {
+    pub fn is_node_expanded(&self, node: Uuid) -> bool {
+        self.expanded_nodes.contains(&node)
+    }
+
+    pub fn select_previous(&mut self) {
         if let Some(selected_node) = self.selected_node {
-            if let Some(node) = self.document.nodes.get(&selected_node) {
-                if let Some(parent) = node.parent {
-                    let children = self.document.nodes.get(&parent).as_ref().expect("Should exist").children.clone();
-                    let index = children.iter().position(|x| *x == selected_node).expect("Should exist");
-                    if index > 0 {
-                        self.select_node(Some(children[index - 1]));
-                    }
-                    else {
-                        self.select_node(Some(parent));}
+            if let Some(sibling) = self.get_previous_sibling(selected_node) {
+                if self.is_node_expanded(sibling) && !self.document.nodes.get(&sibling).unwrap().children.is_empty() {
+                    self.select_node(self.get_last_child(sibling));
+                } else {
+                    self.select_node(Some(sibling));
                 }
+            } else {
+                self.select_parent()
             }
         }
     }
@@ -130,6 +155,24 @@ impl SimpleApplication {
         }
     }
 
+    pub fn get_first_child(&self, node_id: Uuid) -> Option<Uuid> {
+        if let Some(node) = self.document.nodes.get(&node_id) {
+            if !node.children.is_empty() {
+                return Some(node.children[0]);
+            }
+        }
+        None
+    }
+
+    pub fn get_last_child(&self, node_id: Uuid) -> Option<Uuid> {
+        if let Some(node) = self.document.nodes.get(&node_id) {
+            if !node.children.is_empty() {
+                return Some(node.children[node.children.len() - 1]);
+            }
+        }
+        None
+    }
+
     pub fn toggle_selected_node_expanded(&mut self) {
         if let Some(selected_node) = self.selected_node {
             let is_expanded = self.expanded_nodes.contains(&selected_node);
@@ -143,6 +186,10 @@ impl SimpleApplication {
         } else {
             self.expanded_nodes.remove(&node);
         }
+    }
+
+    pub fn toggle_editing(&mut self) {
+        self.is_editing = !self.is_editing;
     }
 }
 

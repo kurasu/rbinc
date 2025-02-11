@@ -25,6 +25,7 @@ enum GuiAction {
     SelectNext,
     SelectParent,
     SelectFirstChild,
+    ToggleEditing,
 }
 
 fn main() -> eframe::Result {
@@ -39,7 +40,7 @@ fn main() -> eframe::Result {
     eframe::run_simple_native("BINC Demo", options, move |ctx, _frame| {
         let mut actions: Vec<GuiAction> = vec![];
 
-        check_keyboard(ctx, &mut actions);
+        check_keyboard(ctx, &app, &mut actions);
 
         let frame = egui::Frame::default().inner_margin(8.0).fill(ctx.style().visuals.panel_fill);
         egui::TopBottomPanel::top("toolbar").frame(frame).show(ctx, |ui| {
@@ -65,7 +66,7 @@ fn main() -> eframe::Result {
     })
 }
 
-fn check_keyboard(ctx: &Context, mut actions: &mut Vec<GuiAction>) {
+fn check_keyboard(ctx: &Context, app: &SimpleApplication, mut actions: &mut Vec<GuiAction>) {
     if ctx.input(|i| i.key_pressed(egui::Key::Z) && i.modifiers.command) {
         actions.push(GuiAction::Undo);
     }
@@ -78,14 +79,25 @@ fn check_keyboard(ctx: &Context, mut actions: &mut Vec<GuiAction>) {
     if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
         actions.push(GuiAction::SelectNext);
     }
-    /*if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
-        actions.push(GuiAction::SelectParent);
+
+    if !app.is_editing {
+        if let Some(node) = app.selected_node {
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
+                if app.expanded_nodes.contains(&node) {
+                    actions.push(GuiAction::SetNodeExpanded { node, expanded: false });
+                } else {
+                    actions.push(GuiAction::SelectParent);
+                }
+                actions.push(GuiAction::SetNodeExpanded { node, expanded: false });
+            }
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
+                actions.push(GuiAction::SetNodeExpanded { node, expanded: true });
+            }
+        }
     }
-    if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
-        actions.push(GuiAction::SelectFirstChild);
-    }*/
-    if ctx.input(|i| i.key_pressed(egui::Key::Tab)) {
-        actions.push(GuiAction::ToggleSelectedNodeExpanded);
+
+    if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+        actions.push(GuiAction::ToggleEditing);
     }
 }
 
@@ -101,12 +113,13 @@ fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
                 GuiAction::WrappedChange { change } => app.document.add_and_apply_change(change),
                 GuiAction::Undo => app.document.undo(),
                 GuiAction::Redo => app.document.redo(),
-                GuiAction::SelectPrevious => app.select_previous_sibling(),
-                GuiAction::SelectNext => app.select_next_sibling(),
+                GuiAction::SelectPrevious => app.select_previous(),
+                GuiAction::SelectNext => app.select_next(),
                 GuiAction::SelectParent => app.select_parent(),
                 GuiAction::SelectFirstChild => app.select_first_child(),
                 GuiAction::SetNodeExpanded { node, expanded } => app.set_node_expanded(node, expanded),
                 GuiAction::ToggleSelectedNodeExpanded => app.toggle_selected_node_expanded(),
+                GuiAction::ToggleEditing => app.toggle_editing(),
             }
         }
         None => {}
@@ -218,14 +231,16 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication, action
                     actions.push(GuiAction::WrappedChange { change: Change::SetBool { node: *node_id, attribute: "completed".to_string(), value: checked } });
                 }
 
-                if selected {
+                if selected && app.is_editing {
                     let text_edit = ui.text_edit_singleline(&mut node_name);
                     text_edit.request_focus();
                     if text_edit.changed() {
                         actions.push(GuiAction::WrappedChange { change: Change::SetString { node: *node_id, attribute: "name".to_string(), value: node_name.clone() } });
                     }
                 } else {
-                    if ui.label(text).clicked() { actions.push(GuiAction::SelectNode { node: *node_id }); }
+                    let label = ui.label(text);
+                    if label.clicked() { actions.push(GuiAction::SelectNode { node: *node_id }); }
+                    if label.double_clicked() { actions.push(GuiAction::ToggleEditing); }
                 }
 
                 ui.spacing();
