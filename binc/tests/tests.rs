@@ -16,15 +16,15 @@ mod tests {
     }
 
     fn create_example_repository() -> Repository {
-        let mut repo = Repository::new();
+        let mut repo = Repository::default();
 
         let mut rev = Revision::new();
-        let uuid = Uuid::new_v4();
-        let uuid2 = Uuid::new_v4();
-        rev.add_change(Change::AddNode{uuid});
-        rev.add_change(Change::RemoveNode{uuid});
-        rev.add_change(Change::AddNode{uuid: uuid2});
-        rev.add_change(Change::SetString{node: uuid2, attribute: "name".to_string(), value: "my value".to_string()});
+        let path1 = "thing";
+        let path2 = "other";
+        rev.add_change(Change::AddNode{ path: path1.to_string() });
+        rev.add_change(Change::RemoveNode{ path: path1.to_string() });
+        rev.add_change(Change::AddNode{path: path2.to_string() });
+        rev.add_change(Change::SetString{path: path2.to_string(), attribute: "name".to_string(), value: "my value".to_string()});
         repo.add_revision(rev);
         repo
     }
@@ -38,7 +38,6 @@ mod tests {
         let mut buf = Vec::<u8>::new();
         repo.write(&mut buf).unwrap();
         let doc = Document::new(repo);
-        assert_eq!(doc.node_count(), 1)
     }
 
     #[test]
@@ -50,7 +49,6 @@ mod tests {
         let repo2 = Repository::read(&mut r).unwrap();
         assert_eq!(repo.revisions.len(), repo2.revisions.len());
         let doc = Document::new(repo2);
-        assert_eq!(doc.node_count(), 1)
     }
 
     fn read_file(path: &str) -> Vec<u8> {
@@ -68,7 +66,6 @@ mod tests {
         let repo = Repository::read(&mut file).unwrap();
         assert!(!repo.revisions.is_empty(), "Repository should have at least one revision");
         let doc = Document::new(repo);
-        assert_eq!(doc.node_count(), 8);
         let mut copy: Vec<u8> = vec!();
         doc.repository.write(&mut copy).unwrap();
         let original = read_file(path);

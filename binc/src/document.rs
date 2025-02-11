@@ -5,6 +5,7 @@ use uuid::Uuid;
 use crate::change::Change;
 use crate::repository::Repository;
 use crate::revision::Revision;
+use crate::tree::Tree;
 
 pub enum AttributeValue {
     String(String),
@@ -20,20 +21,19 @@ impl std::fmt::Display for AttributeValue {
     }
 }
 
+#[derive(Default)]
 pub struct Node {
-    pub uuid: Uuid,
-    pub parent: Option<Uuid>,
-    pub children: Vec<Uuid>,
+    pub name: String,
+    pub children: Vec<Node>,
     pub attributes: HashMap<String, AttributeValue>
 }
 
 impl Node {
 
-    pub fn new_with_uuid(uuid: Uuid) -> Node {
+    pub fn new(name: &str) -> Node {
         Node {
-            uuid: uuid,
-            parent: None,
-            children: vec![],
+            name: name.to_string(),
+            children: Vec::new(),
             attributes: HashMap::new(),
         }
     }
@@ -65,73 +65,58 @@ impl Node {
     }
 }
 
+#[derive(Default)]
 pub struct Document {
     /// Repository containing all revisions
     pub repository: Repository,
-    /// This is a cache of the current state of the document, as of the last revision and all pending changes
-    pub nodes: HashMap<Uuid, Node>,
+    /// Root node of the document
+    pub tree: Tree,
     /// Changes that have not been committed to the repository
     pub pending_changes: Box<Revision>,
     /// Changes that have been undone and can be redone
     pub undo_changes: Vec<Change>,
 }
 
-fn compute_nodes(repository: &Repository) -> HashMap<Uuid, Node> {
-    let mut nodes: HashMap<Uuid, Node> = HashMap::new();
-    for rev in &repository.revisions {
-        for change in &rev.changes {
-            change.apply(&mut nodes);
-        }
-    }
-    nodes
-}
-
-impl Default for Document {
-    fn default() -> Self {
-        Document { repository: Repository::new(), nodes: HashMap::new(), pending_changes: Box::new(Revision::new()), undo_changes: Vec::new() }
-    }
-}
-
 impl Document {
+
+    fn build_tree(&mut self) -> Tree {
+        let mut tree = Tree::default();
+
+        for rev in &self.repository.revisions {
+            for change in &rev.changes {
+                change.apply(&mut tree).expect("Error applying change");
+            }
+        }
+        for change in &self.pending_changes.changes {
+            change.apply(&mut tree).expect("Error applying change");
+        }
+
+        tree
+    }
+
+    pub fn rebuild_tree(&mut self) {
+        self.tree = self.build_tree();
+    }
+
     pub fn new(repository: Repository) -> Document {
-        let nodes = compute_nodes(&repository);
-        Document { repository, nodes, pending_changes: Box::new(Revision::new()), undo_changes: vec![] }
+        let mut document = Self::default();
+        document.repository = repository;
+        document.rebuild_tree();
+        document
     }
 
     pub fn read(file: &mut dyn Read) -> io::Result<Document> {
         let repository = Repository::read(file)?;
-        Ok(Self::new(repository))
-    }
-
-    fn rebuild(&mut self) {
-        self.nodes = compute_nodes(&self.repository);
-
-        for change in &self.pending_changes.changes {
-            change.apply(&mut self.nodes).expect("Error applying change");
-        }
+        Ok(Document::new(repository))
     }
 
     pub fn write(&self, w: &mut dyn Write) -> io::Result<()> {
         self.repository.write(w)
     }
 
-    pub fn node_count(&self) -> usize {
-        self.nodes.len()
-    }
-
-    pub fn find_roots(&self) -> Vec<Uuid> {
-        let mut roots: Vec<&Uuid> = self.nodes.keys().collect();
-        for (_uuid, node) in &self.nodes {
-            for child in &node.children {
-                roots.retain(|&x| x != child);
-            }
-        }
-        roots.drain(..).map(|x| *x).collect()
-    }
-
     pub fn add_and_apply_change(&mut self, change: Change) {
         self.undo_changes.clear();
-        change.apply(&mut self.nodes).expect("Error applying change");
+        change.apply(&mut self.tree).expect("Error applying change");
 
         let last_change = self.pending_changes.changes.last();
         let combined_change = if last_change.is_some() { change.combine_change(last_change.unwrap()) } else { None };
@@ -154,7 +139,7 @@ impl Document {
         if self.pending_changes.changes.is_empty() && !self.repository.revisions.is_empty() {
             let last_revision = self.repository.revisions.pop().unwrap();
             self.pending_changes = Box::new(last_revision);
-            self.rebuild();
+            self.rebuild_tree();
         }
     }
 
@@ -165,16 +150,15 @@ impl Document {
 
         if let Some(change) = self.pending_changes.changes.pop() {
             self.undo_changes.push(change);
-            self.rebuild();
         }
 
-        self.rebuild();
+        self.rebuild_tree();
     }
 
     pub fn redo(&mut self) {
         if let Some(change) = self.undo_changes.pop() {
             self.pending_changes.changes.push(change);
-            self.rebuild();
+            self.rebuild_tree();
         }
     }
 }

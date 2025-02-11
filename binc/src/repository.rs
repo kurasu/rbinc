@@ -4,16 +4,13 @@ use std::io::Read;
 use crate::iowrappers::{ReadExt, WriteExt};
 use crate::revision::*;
 
+#[derive(Default)]
 pub struct Repository {
     pub revisions: Vec<Revision>
 }
 
 impl Repository {
     pub const CONTAINER_ID: u32 =  0x42494E43;
-
-    pub fn new() -> Repository {
-        Repository { revisions: Vec::new() }
-    }
 
     pub fn add_revision(&mut self, revision: Revision) {
         self.revisions.push(revision);
@@ -29,7 +26,7 @@ impl Repository {
     }
 
     pub fn read(mut r: &mut dyn Read) -> io::Result<Repository> {
-        let mut doc = Repository::new();
+        let mut doc = Repository::default();
         let container_id = r.read_u32()?;
 
         if container_id != Repository::CONTAINER_ID {

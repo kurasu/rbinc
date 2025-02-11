@@ -7,6 +7,7 @@ use chrono::Utc;
 use whoami::username;
 use crate::change::Change;
 
+#[derive(Default)]
 pub struct Revision {
     pub changes: Vec<Change>,
     pub id: Uuid,
