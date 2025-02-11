@@ -3,7 +3,7 @@
 
 use std::any::Any;
 use eframe::egui;
-use eframe::egui::{Button, Color32, Context, RichText, Ui, Widget};
+use eframe::egui::{Button, Context, RichText, Ui, Widget};
 use binc::document::{AttributeValue, Node};
 use uuid::Uuid;
 use binc::change::Change;
@@ -41,7 +41,7 @@ fn main() -> eframe::Result {
 
         check_keyboard(ctx, &mut actions);
 
-        let frame = egui::Frame::default().inner_margin(8.0).fill(egui::Color32::from_gray(36));
+        let frame = egui::Frame::default().inner_margin(8.0).fill(ctx.style().visuals.panel_fill);
         egui::TopBottomPanel::top("toolbar").frame(frame).show(ctx, |ui| {
             create_toolbar(&mut app, ui);
         });
@@ -201,7 +201,7 @@ fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication, action
         let selected = app.selected_node == Some(*node_id);
         let mut text = RichText::new(label);
         if selected {
-            text = text.color(Color32::YELLOW);
+            text = text.color(ui.visuals().strong_text_color());
         }
         let is_expanded = app.expanded_nodes.contains(node_id);
 
