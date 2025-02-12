@@ -9,6 +9,10 @@ pub struct Tree {
 impl Tree {
     /// Get the parent_node along with the name of the node
     pub fn get_parent_mut(&mut self, path: &String) -> (Option<&mut Node>, String) {
+        if path.starts_with("/") {
+            return (Some(&mut self.root), path[1..].to_string());
+        }
+
         let mut parts = path.split("/");
         let name = parts.clone().last().unwrap().clone().to_string();
         
@@ -33,6 +37,11 @@ impl Tree {
     }
 
     pub fn get(&self, path: &str) -> Option<&Node> {
+
+        if path.starts_with("/") {
+            return Self::get_recursive(&self.root, &mut path[1..].split("/"));
+        }
+
         let mut parts = path.split("/");
         Self::get_recursive(&self.root, &mut parts)
     }
@@ -49,6 +58,10 @@ impl Tree {
     }
 
     pub fn get_mut(&mut self, path: &String) -> Option<&mut Node> {
+        if path.starts_with("/") {
+            return Self::get_mut_recursive(&mut self.root, &mut path[1..].split("/"));
+        }
+
         let mut parts = path.split("/");
         Self::get_mut_recursive(&mut self.root, &mut parts)
     }

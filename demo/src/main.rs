@@ -203,10 +203,10 @@ fn attribute_value_to_string(value: &dyn Any) -> String {
 }
 
 fn create_tree(ui: &mut Ui, app: &mut SimpleApplication, actions: &mut Vec<GuiAction>) {
-    create_node_tree(ui, &app.document.tree.root, app, actions, "");
+    create_node_tree(ui, &app.document.tree.root, app, actions, "".to_string());
 }
 
-fn create_node_tree(ui: &mut Ui, node: &Node, app: &SimpleApplication, actions: &mut Vec<GuiAction>, path: &str) {
+fn create_node_tree(ui: &mut Ui, node: &Node, app: &SimpleApplication, actions: &mut Vec<GuiAction>, path: String) {
      {
         let children = &node.children;
         let name = node.name.clone();
@@ -222,7 +222,7 @@ fn create_node_tree(ui: &mut Ui, node: &Node, app: &SimpleApplication, actions: 
         if selected {
             text = text.color(ui.visuals().strong_text_color());
         }
-        let is_expanded = app.expanded_nodes.contains(path);
+        let is_expanded = app.expanded_nodes.contains(path.as_str());
 
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
@@ -256,14 +256,14 @@ fn create_node_tree(ui: &mut Ui, node: &Node, app: &SimpleApplication, actions: 
             });
 
             if is_expanded {
-                ui.indent(path, |ui| {
+                ui.indent(path.as_str(), |ui| {
                     for child in children {
-                        let sub_path = path.to_string() + "/" + &child.name;
-                        create_node_tree(ui, child, app, actions, path);
+                        let sub_path = path.clone() + "/" + &child.name;
+                        create_node_tree(ui, child, app, actions, sub_path);
                     }
                     let add_button = ui.label("⊞").on_hover_text("Add child node");
                     if add_button.clicked() {
-                        let new_path = path.to_string() + "/new";
+                        let new_path = path.clone() + "/new";
                         actions.push(GuiAction::AddNode { path: new_path });
                     }
                 });
