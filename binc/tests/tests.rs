@@ -8,6 +8,7 @@ mod tests {
     use binc::revision::*;
     use binc::change::*;
     use binc::document::*;
+    use binc::id::Id;
 
     #[test]
     fn test_create_example_document() {
@@ -19,12 +20,12 @@ mod tests {
         let mut repo = Repository::new();
 
         let mut rev = Revision::new();
-        let uuid = Uuid::new_v4();
-        let uuid2 = Uuid::new_v4();
-        rev.add_change(Change::AddNode{uuid});
-        rev.add_change(Change::RemoveNode{uuid});
-        rev.add_change(Change::AddNode{uuid: uuid2});
-        rev.add_change(Change::SetString{node: uuid2, attribute: "name".to_string(), value: "my value".to_string()});
+        let id = Id::default();
+        let id2 = Id::default();
+        rev.add_change(Change::AddNode{id});
+        rev.add_change(Change::RemoveNode{id});
+        rev.add_change(Change::AddNode{id: id2});
+        rev.add_change(Change::SetString{node: id2, attribute: "name".to_string(), value: "my value".to_string()});
         repo.add_revision(rev);
         repo
     }

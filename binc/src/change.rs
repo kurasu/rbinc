@@ -4,6 +4,7 @@ use std::io;
 use std::io::{Read, Write};
 use uuid::Uuid;
 use crate::document::Node;
+use crate::id::{Id, IdStore};
 use crate::iowrappers::{ReadExt, WriteExt};
 use crate::util::shorten_uuid;
 
@@ -60,28 +61,28 @@ impl ChangeType {
 }
 
 pub enum Change {
-    AddNode {uuid: Uuid},
-    RemoveNode {uuid: Uuid},
-    AddChild {parent: Uuid, child: Uuid, insertion_index: u64},
-    RemoveChild {parent: Uuid, child: Uuid},
-    SetString {node: Uuid, attribute: String, value: String},
-    SetBool {node: Uuid, attribute: String, value: bool},
+    AddNode {id: Id},
+    RemoveNode {id: Id},
+    AddChild {parent: Id, child: Id, insertion_index: u64},
+    RemoveChild {parent: Id, child: Id},
+    SetString {node: Id, attribute: String, value: String},
+    SetBool {node: Id, attribute: String, value: bool},
     UnknownChange {change_type: u64, data: Vec<u8>},
 }
 
 impl Change {
-    pub(crate) fn apply(&self, nodes: &mut HashMap<Uuid, Node>) -> io::Result<()>
+    pub(crate) fn apply(&self, nodes: &mut IdStore) -> io::Result<()>
     {
         match self {
-            Change::AddNode {uuid} => {
-                let old = nodes.insert(*uuid, Node::new_with_uuid(uuid.clone()));
+            Change::AddNode {id} => {
+                let old = nodes.insert(id, Node::new_with_id(id));
                 if old.is_some() {
                     return Err(io::Error::new(io::ErrorKind::AlreadyExists, "Node already exists"));
                 }
                 Ok(())
             }
-            Change::RemoveNode { uuid } => {
-                let v = nodes.remove(uuid);
+            Change::RemoveNode { id } => {
+                let v = nodes.remove(id);
                 if v.is_none() {
                     return Err(io::Error::new(io::ErrorKind::NotFound, "Node not found"));
                 }
@@ -91,7 +92,7 @@ impl Change {
                 let child_node = nodes.get_mut(child).ok_or(io::Error::new(io::ErrorKind::NotFound, "Child node not found"))?;
                 child_node.parent = Some(parent.clone());
                 let parent_node = nodes.get_mut(parent).ok_or(io::Error::new(io::ErrorKind::NotFound, "Parent node not found"))?;
-                parent_node.children.insert(*insertion_index as usize, *child);
+                parent_node.children.insert(*insertion_index as usize, child.clone());
                 Ok(())
             }
             Change::RemoveChild {parent, child} => {
@@ -122,34 +123,34 @@ impl Change {
         let change_size = r.read_length()?;
         match change_type {
             ChangeType::ADD_NODE => {
-                let node = r.read_uuid()?;
-                Ok(Change::AddNode {uuid: node})
+                let node = r.read_id()?;
+                Ok(Change::AddNode {id: node})
             }
             ChangeType::REMOVE_NODE => {
-                let node = r.read_uuid()?;
-                Ok(Change::RemoveNode {uuid: node})
+                let node = r.read_id()?;
+                Ok(Change::RemoveNode {id: node})
             }
             ChangeType::SET_STRING => {
-                let node = r.read_uuid()?;
+                let node = r.read_id()?;
                 let attribute = r.read_string()?;
                 let value = r.read_string()?;
                 Ok(Change::SetString {node, attribute, value})
             }
             ChangeType::SET_BOOL => {
-                let node = r.read_uuid()?;
+                let node = r.read_id()?;
                 let attribute = r.read_string()?;
                 let value = r.read_u8()? != 0;
                 Ok(Change::SetBool {node, attribute, value})
             }
             ChangeType::ADD_CHILD => {
-                let parent = r.read_uuid()?;
-                let child = r.read_uuid()?;
+                let parent = r.read_id()?;
+                let child = r.read_id()?;
                 let insertion_index = r.read_length()?;
                 Ok(Change::AddChild {parent, child, insertion_index})
             }
             ChangeType::REMOVE_CHILD => {
-                let parent = r.read_uuid()?;
-                let child = r.read_uuid()?;
+                let parent = r.read_id()?;
+                let child = r.read_id()?;
                 Ok(Change::RemoveChild {parent, child})
             }
             _ => {
@@ -162,28 +163,28 @@ impl Change {
 
     pub(crate) fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
         match self {
-            Change::AddNode {uuid} => {
-                w.write_uuid(uuid)
+            Change::AddNode {id} => {
+                w.write_id(id)
             }
-            Change::RemoveNode {uuid} => {
-                w.write_uuid(uuid)
+            Change::RemoveNode {id} => {
+                w.write_id(id)
             }
             Change::AddChild {parent, child, insertion_index} => {
-                w.write_uuid(parent)?;
-                w.write_uuid(child)?;
+                w.write_id(parent)?;
+                w.write_id(child)?;
                 w.write_length(*insertion_index)
             }
             Change::RemoveChild {parent, child} => {
-                w.write_uuid(parent)?;
-                w.write_uuid(child)
+                w.write_id(parent)?;
+                w.write_id(child)
             }
             Change::SetString {node, attribute, value} => {
-                w.write_uuid(node)?;
+                w.write_id(node)?;
                 w.write_string(attribute)?;
                 w.write_string(value)
             }
             Change::SetBool {node, attribute, value} => {
-                w.write_uuid(node)?;
+                w.write_id(node)?;
                 w.write_string(attribute)?;
                 w.write_u8(*value as u8)
             }
@@ -195,8 +196,8 @@ impl Change {
 
     pub(crate) fn change_type(&self) -> u64 {
         match self {
-            Change::AddNode {uuid: _} => ChangeType::ADD_NODE,
-            Change::RemoveNode {uuid: _} => ChangeType::REMOVE_NODE,
+            Change::AddNode {id: _} => ChangeType::ADD_NODE,
+            Change::RemoveNode {id: _} => ChangeType::REMOVE_NODE,
             Change::AddChild {parent: _, child: _, insertion_index: _} => ChangeType::ADD_CHILD,
             Change::RemoveChild {parent: _, child: _} => ChangeType::REMOVE_CHILD,
             Change::SetString {node: _, attribute: _, value: _} => ChangeType::SET_STRING,
@@ -209,7 +210,7 @@ impl Change {
         if let Change::SetString {node, attribute, value} = self {
             if let Change::SetString {node: node2, attribute: attribute2, value: _value2} = last_change {
                 if node == node2 && attribute == attribute2 {
-                    return Some(Change::SetString {node: *node, attribute: attribute.clone(), value: value.clone()});
+                    return Some(Change::SetString {node: node.clone(), attribute: attribute.clone(), value: value.clone()});
                 }
             }
         }
@@ -217,7 +218,7 @@ impl Change {
         if let Change::SetBool {node, attribute, value} = self {
             if let Change::SetBool {node: node2, attribute: attribute2, value: _value2} = last_change {
                 if node == node2 && attribute == attribute2 {
-                    return Some(Change::SetBool {node: *node, attribute: attribute.clone(), value: *value});
+                    return Some(Change::SetBool {node: node.clone(), attribute: attribute.clone(), value: *value});
                 }
             }
         }
@@ -229,12 +230,12 @@ impl Change {
 impl Display for Change {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Change::AddNode {uuid} => write!(f, "AddNode({})", shorten_uuid(uuid)),
-            Change::RemoveNode {uuid} => write!(f, "RemoveNode({})", shorten_uuid(uuid)),
-            Change::AddChild {parent, child, insertion_index} => write!(f, "AddChild({}, {}, {})", shorten_uuid(parent), shorten_uuid(child), insertion_index),
-            Change::RemoveChild {parent, child} => write!(f, "RemoveChild({}, {})", shorten_uuid(parent), shorten_uuid(child)),
-            Change::SetString {node, attribute, value} => write!(f, "SetString({}, {} = {})", shorten_uuid(node), attribute, value),
-            Change::SetBool {node, attribute, value} => write!(f, "SetBool({}, {} = {})", shorten_uuid(node), attribute, value),
+            Change::AddNode {id} => write!(f, "AddNode({})", id),
+            Change::RemoveNode {id} => write!(f, "RemoveNode({})", id),
+            Change::AddChild {parent, child, insertion_index} => write!(f, "AddChild({}, {}, {})", parent, child, insertion_index),
+            Change::RemoveChild {parent, child} => write!(f, "RemoveChild({}, {})", parent, child),
+            Change::SetString {node, attribute, value} => write!(f, "SetString({}, {} = {})", node, attribute, value),
+            Change::SetBool {node, attribute, value} => write!(f, "SetBool({}, {} = {})", node, attribute, value),
             Change::UnknownChange {change_type, data} => write!(f, "UnknownChange({}, {} bytes)", change_type, data.len()),
         }
     }

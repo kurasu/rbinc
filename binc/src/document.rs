@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::io;
 use std::io::{Read, Write};
-use uuid::Uuid;
 use crate::change::Change;
+use crate::id::{Id, IdStore};
 use crate::repository::Repository;
 use crate::revision::Revision;
 
@@ -21,17 +21,17 @@ impl std::fmt::Display for AttributeValue {
 }
 
 pub struct Node {
-    pub uuid: Uuid,
-    pub parent: Option<Uuid>,
-    pub children: Vec<Uuid>,
+    pub id: Id,
+    pub parent: Option<Id>,
+    pub children: Vec<Id>,
     pub attributes: HashMap<String, AttributeValue>
 }
 
 impl Node {
 
-    pub fn new_with_uuid(uuid: Uuid) -> Node {
+    pub fn new_with_id(id: &Id) -> Node {
         Node {
-            uuid: uuid,
+            id: id.clone(),
             parent: None,
             children: vec![],
             attributes: HashMap::new(),
@@ -69,15 +69,15 @@ pub struct Document {
     /// Repository containing all revisions
     pub repository: Repository,
     /// This is a cache of the current state of the document, as of the last revision and all pending changes
-    pub nodes: HashMap<Uuid, Node>,
+    pub nodes: IdStore,
     /// Changes that have not been committed to the repository
     pub pending_changes: Box<Revision>,
     /// Changes that have been undone and can be redone
     pub undo_changes: Vec<Change>,
 }
 
-fn compute_nodes(repository: &Repository) -> HashMap<Uuid, Node> {
-    let mut nodes: HashMap<Uuid, Node> = HashMap::new();
+fn compute_nodes(repository: &Repository) -> IdStore {
+    let mut nodes: IdStore = IdStore::new();
     for rev in &repository.revisions {
         for change in &rev.changes {
             change.apply(&mut nodes);
@@ -88,7 +88,7 @@ fn compute_nodes(repository: &Repository) -> HashMap<Uuid, Node> {
 
 impl Default for Document {
     fn default() -> Self {
-        Document { repository: Repository::new(), nodes: HashMap::new(), pending_changes: Box::new(Revision::new()), undo_changes: Vec::new() }
+        Document { repository: Repository::new(), nodes: IdStore::new(), pending_changes: Box::new(Revision::new()), undo_changes: Vec::new() }
     }
 }
 
@@ -119,14 +119,8 @@ impl Document {
         self.nodes.len()
     }
 
-    pub fn find_roots(&self) -> Vec<Uuid> {
-        let mut roots: Vec<&Uuid> = self.nodes.keys().collect();
-        for (_uuid, node) in &self.nodes {
-            for child in &node.children {
-                roots.retain(|&x| x != child);
-            }
-        }
-        roots.drain(..).map(|x| *x).collect()
+    pub fn find_roots(&self) -> Vec<Id> {
+        self.nodes.find_roots()
     }
 
     pub fn add_and_apply_change(&mut self, change: Change) {

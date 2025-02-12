@@ -5,15 +5,15 @@ use eframe::egui::{Button, Sense, Ui, Widget};
 use rfd::MessageLevel::Error;
 use binc::document::Document;
 use binc::repository::Repository;
-use uuid::Uuid;
 use binc::change::Change;
+use binc::id::Id;
 
 pub struct SimpleApplication {
     pub document: Box<Document>,
-    pub roots: Vec<Uuid>,
-    pub selected_node: Option<Uuid>,
+    pub roots: Vec<Id>,
+    pub selected_node: Option<Id>,
     pub selected_node_name: String,
-    pub expanded_nodes: HashSet<Uuid>,
+    pub expanded_nodes: HashSet<Id>,
     pub is_editing: bool,
 }
 
@@ -38,7 +38,7 @@ impl SimpleApplication {
         self.select_node(None);
     }
 
-    pub fn select_node(&mut self, node_id: Option<Uuid>) {
+    pub fn select_node(&mut self, node_id: Option<Id>) {
         self.selected_node = node_id;
         if let Some(node_id) = node_id {
             let name = self.document.nodes.get(&node_id).as_ref().expect("Should exist").get_string_attribute("name");
@@ -49,23 +49,23 @@ impl SimpleApplication {
         }
     }
 
-    pub fn add_child(&mut self, parent_id: &Uuid, insertion_index: u64) {
-        let child_id = Uuid::new_v4();
+    pub fn add_child(&mut self, parent_id: &Id, insertion_index: u64) {
+        let child_id = Id::default();
 
-        let c1 = Change::AddNode { uuid: child_id };
+        let c1 = Change::AddNode { id: child_id };
         let c2 = Change::AddChild { parent: parent_id.clone(), child: child_id, insertion_index: insertion_index };
         self.document.add_and_apply_change(c1);
         self.document.add_and_apply_change(c2);
     }
 
-    pub fn remove_node(&mut self, node_id: &Uuid) {
+    pub fn remove_node(&mut self, node_id: &Id) {
         let mut changes : Vec<Change> = vec![];
-        for v in self.document.nodes.values() {
-            if v.children.contains(node_id) {
-                changes.push(Change::RemoveChild { parent: v.uuid.clone(), child: node_id.clone() });
+        if let Some(node) = self.document.nodes.get(node_id) {
+            if let Some(parent) = node.parent {
+                changes.push(Change::RemoveChild { parent: parent.clone(), child: node_id.clone() });
             }
         }
-        changes.push(Change::RemoveNode { uuid: node_id.clone() });
+        changes.push(Change::RemoveNode { id: node_id.clone() });
         for c in changes {
             self.document.add_and_apply_change(c);
         }
@@ -77,7 +77,7 @@ impl SimpleApplication {
         self.document.commit_changes();
     }
 
-    pub fn get_previous_sibling(&self, node_id: Uuid) -> Option<Uuid> {
+    pub fn get_previous_sibling(&self, node_id: Id) -> Option<Id> {
         if let Some(node) = self.document.nodes.get(&node_id) {
             if let Some(parent) = node.parent {
                 let children = self.document.nodes.get(&parent).as_ref().expect("Should exist").children.clone();
@@ -90,7 +90,7 @@ impl SimpleApplication {
         None
     }
 
-    pub fn get_next_sibling(&self, node_id: Uuid) -> Option<Uuid> {
+    pub fn get_next_sibling(&self, node_id: Id) -> Option<Id> {
         if let Some(node) = self.document.nodes.get(&node_id) {
             if let Some(parent) = node.parent {
                 let children = self.document.nodes.get(&parent).as_ref().expect("Should exist").children.clone();
@@ -119,7 +119,7 @@ impl SimpleApplication {
         }
     }
 
-    pub fn is_node_expanded(&self, node: Uuid) -> bool {
+    pub fn is_node_expanded(&self, node: Id) -> bool {
         self.expanded_nodes.contains(&node)
     }
 
@@ -158,7 +158,7 @@ impl SimpleApplication {
         }
     }
 
-    pub fn get_first_child(&self, node_id: Uuid) -> Option<Uuid> {
+    pub fn get_first_child(&self, node_id: Id) -> Option<Id> {
         if let Some(node) = self.document.nodes.get(&node_id) {
             if !node.children.is_empty() {
                 return Some(node.children[0]);
@@ -167,7 +167,7 @@ impl SimpleApplication {
         None
     }
 
-    pub fn get_last_child(&self, node_id: Uuid) -> Option<Uuid> {
+    pub fn get_last_child(&self, node_id: Id) -> Option<Id> {
         if let Some(node) = self.document.nodes.get(&node_id) {
             if !node.children.is_empty() {
                 return Some(node.children[node.children.len() - 1]);
@@ -183,7 +183,7 @@ impl SimpleApplication {
         }
     }
 
-    pub fn set_node_expanded(&mut self, node: Uuid, expanded: bool) {
+    pub fn set_node_expanded(&mut self, node: Id, expanded: bool) {
         if expanded {
             self.expanded_nodes.insert(node);
         } else {
@@ -261,8 +261,8 @@ pub fn save_document(document: &mut Document) -> io::Result<bool> {
 
 pub fn new_document() -> Document {
     let mut document = Document::new(Repository::new());
-    let root = Uuid::new_v4();
-    document.add_and_apply_change(Change::AddNode { uuid: root });
+    let root = Id::default();
+    document.add_and_apply_change(Change::AddNode { id: root.clone() });
     document.add_and_apply_change(Change::SetString { node: root, attribute: "name".to_string(), value: "Root".to_string() });
     document
 }

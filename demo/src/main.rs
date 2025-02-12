@@ -7,17 +7,18 @@ use eframe::egui::{Button, Context, Image, RichText, Ui, Widget};
 use binc::document::{AttributeValue, Node};
 use uuid::Uuid;
 use binc::change::Change;
+use binc::id::Id;
 use binc::util::shorten_uuid;
 use gui::gui::*;
 
 enum GuiAction {
     Undo,
     Redo,
-    SelectNode { node: Uuid },
-    AddNode { parent: Uuid, index: u64 },
-    RemoveNode { node: Uuid },
+    SelectNode { node: Id },
+    AddNode { parent: Id, index: u64 },
+    RemoveNode { node: Id },
     WrappedChange { change: Change },
-    SetNodeExpanded { node: Uuid, expanded: bool },
+    SetNodeExpanded { node: Id, expanded: bool },
     ToggleSelectedNodeExpanded,
     /// Commit pending changes
     Commit,
@@ -132,18 +133,18 @@ fn create_inspector(ui: &mut Ui, node: Option<&Node>, node_name: &mut String, ac
             egui::Grid::new("inspector_grid").num_columns(2).show(ui, |ui| {
                 ui.label("Inspector");
                 if ui.button("Delete Node").clicked() {
-                    actions.push(GuiAction::RemoveNode { node: node.uuid });
+                    actions.push(GuiAction::RemoveNode { node: node.id });
                 }
                 ui.end_row();
 
                 ui.label("name");
                 if ui.text_edit_singleline(node_name).changed() {
-                    actions.push(GuiAction::WrappedChange { change: Change::SetString { node: node.uuid, attribute: "name".to_string(), value: node_name.clone() } });
+                    actions.push(GuiAction::WrappedChange { change: Change::SetString { node: node.id, attribute: "name".to_string(), value: node_name.clone() } });
                 }
                 ui.end_row();
 
-                ui.label("UUID");
-                ui.label(node.uuid.to_string());
+                ui.label("ID");
+                ui.label(node.id.to_string());
                 ui.end_row();
 
                 for (key, value) in &node.attributes {
@@ -205,7 +206,7 @@ fn create_tree(ui: &mut Ui, app: &mut SimpleApplication, actions: &mut Vec<GuiAc
     }
 }
 
-fn create_node_tree(ui: &mut Ui, node_id: &Uuid, app: &SimpleApplication, actions: &mut Vec<GuiAction>) {
+fn create_node_tree(ui: &mut Ui, node_id: &Id, app: &SimpleApplication, actions: &mut Vec<GuiAction>) {
     if let Some(node) = app.document.nodes.get(node_id) {
         let children = &node.children.clone();
         let id_string = format!("ID: {:?}", shorten_uuid(node_id));
