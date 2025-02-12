@@ -1,17 +1,29 @@
-use std::collections::hash_map::Iter;
-use std::collections::HashMap;
 use std::fmt::Display;
-use uuid::Uuid;
+use std::vec;
 use crate::document::Node;
 
 #[derive(PartialEq, Clone, Copy, Debug, Eq, Hash)]
 pub struct NodeId {
-    pub (crate) id: Uuid,
+    pub (crate) id: u32,
+}
+
+impl NodeId {
+    fn index(&self) -> usize {
+        self.id as usize
+    }
 }
 
 impl Default for NodeId {
     fn default() -> Self {
-        NodeId { id: Uuid::new_v4() }
+        NodeId { id: get_next_id() }
+    }
+}
+
+fn get_next_id() -> u32 {
+    static mut NEXT_ID: u32 = 0;
+    unsafe {
+        NEXT_ID += 1;
+        NEXT_ID
     }
 }
 
@@ -22,43 +34,51 @@ impl Display for NodeId {
 }
 
 pub struct NodeStore {
-    map: HashMap<NodeId, Node>
+    nodes: Vec<Option<Node>>
 }
 
 impl NodeStore {
     pub fn new() -> NodeStore {
         NodeStore {
-            map: HashMap::new()
+            nodes: vec![]
         }
     }
 
     pub fn find_roots(&self) -> Vec<NodeId> {
         let mut roots: Vec<NodeId> = vec![];
-        for (_id, node) in &self.map {
-            if node.parent.is_none() {
-                roots.push(node.id.clone());
+        for node in &self.nodes {
+            if let Some(node) = node {
+                if node.parent.is_none() {
+                    roots.push(node.id);
+                }
             }
         }
         roots
     }
 
     pub fn insert(&mut self, id: &NodeId, node: Node) -> Option<Node> {
-        self.map.insert(id.clone(), node)
+        let index = id.index();
+        if index >= self.nodes.len() {
+            self.nodes.resize_with(32 + index - self.nodes.len(), || None);
+        }
+        let old = self.nodes.remove(index);
+        self.nodes[index] = Some(node);
+        old
     }
 
     pub fn remove(&mut self, id: &NodeId) -> Option<Node> {
-        self.map.remove(id)
+        self.nodes.remove(id.index())
     }
 
     pub fn get(&self, id: &NodeId) -> Option<&Node> {
-        self.map.get(id)
+        self.nodes.get(id.index()).unwrap().as_ref()
     }
 
     pub fn get_mut(&mut self, id: &NodeId) -> Option<&mut Node> {
-        self.map.get_mut(id)
+        self.nodes.get_mut(id.index()).unwrap().as_mut()
     }
 
     pub(crate) fn len(&self) -> usize {
-        self.map.len()
+        self.nodes.len()
     }
 }

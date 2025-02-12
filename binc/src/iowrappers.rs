@@ -79,7 +79,7 @@ pub trait WriteExt: Write {
     }
     
     fn write_id(&mut self, id: &NodeId) -> io::Result<()> {
-        self.write_uuid(&id.id)
+        self.write_length(id.id as u64)
     }
 
     fn write_uuid(&mut self, value: &Uuid) -> io::Result<()> {
@@ -207,7 +207,7 @@ pub trait ReadExt: Read {
     }
 
     fn read_id(&mut self) -> io::Result<NodeId> {
-        self.read_uuid().map(|id| NodeId {id})
+        self.read_length().map(|id| NodeId {id: id as u32})
     }
 
     fn read_uuid(&mut self) -> io::Result<Uuid> {
