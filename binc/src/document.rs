@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::io;
 use std::io::{Read, Write};
-use uuid::Uuid;
 use crate::change::Change;
 use crate::repository::Repository;
 use crate::revision::Revision;

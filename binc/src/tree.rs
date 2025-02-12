@@ -41,6 +41,10 @@ impl Tree {
         if path.starts_with("/") {
             return Self::get_recursive(&self.root, &mut path[1..].split("/"));
         }
+        
+        if path.is_empty() {
+            return Some(&self.root);
+        }
 
         let mut parts = path.split("/");
         Self::get_recursive(&self.root, &mut parts)
@@ -60,6 +64,10 @@ impl Tree {
     pub fn get_mut(&mut self, path: &String) -> Option<&mut Node> {
         if path.starts_with("/") {
             return Self::get_mut_recursive(&mut self.root, &mut path[1..].split("/"));
+        }
+        
+        if path.is_empty() {
+            return Some(&mut self.root);
         }
 
         let mut parts = path.split("/");
