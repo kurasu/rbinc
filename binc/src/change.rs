@@ -4,7 +4,7 @@ use std::io;
 use std::io::{Read, Write};
 use uuid::Uuid;
 use crate::document::Node;
-use crate::id::{Id, IdStore};
+use crate::id::{NodeId, NodeStore};
 use crate::iowrappers::{ReadExt, WriteExt};
 use crate::util::shorten_uuid;
 
@@ -61,17 +61,17 @@ impl ChangeType {
 }
 
 pub enum Change {
-    AddNode {id: Id},
-    RemoveNode {id: Id},
-    AddChild {parent: Id, child: Id, insertion_index: u64},
-    RemoveChild {parent: Id, child: Id},
-    SetString {node: Id, attribute: String, value: String},
-    SetBool {node: Id, attribute: String, value: bool},
+    AddNode {id: NodeId },
+    RemoveNode {id: NodeId },
+    AddChild {parent: NodeId, child: NodeId, insertion_index: u64},
+    RemoveChild {parent: NodeId, child: NodeId },
+    SetString {node: NodeId, attribute: String, value: String},
+    SetBool {node: NodeId, attribute: String, value: bool},
     UnknownChange {change_type: u64, data: Vec<u8>},
 }
 
 impl Change {
-    pub(crate) fn apply(&self, nodes: &mut IdStore) -> io::Result<()>
+    pub(crate) fn apply(&self, nodes: &mut NodeStore) -> io::Result<()>
     {
         match self {
             Change::AddNode {id} => {

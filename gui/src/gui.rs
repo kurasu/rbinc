@@ -6,14 +6,14 @@ use rfd::MessageLevel::Error;
 use binc::document::Document;
 use binc::repository::Repository;
 use binc::change::Change;
-use binc::id::Id;
+use binc::id::NodeId;
 
 pub struct SimpleApplication {
     pub document: Box<Document>,
-    pub roots: Vec<Id>,
-    pub selected_node: Option<Id>,
+    pub roots: Vec<NodeId>,
+    pub selected_node: Option<NodeId>,
     pub selected_node_name: String,
-    pub expanded_nodes: HashSet<Id>,
+    pub expanded_nodes: HashSet<NodeId>,
     pub is_editing: bool,
 }
 
@@ -38,7 +38,7 @@ impl SimpleApplication {
         self.select_node(None);
     }
 
-    pub fn select_node(&mut self, node_id: Option<Id>) {
+    pub fn select_node(&mut self, node_id: Option<NodeId>) {
         self.selected_node = node_id;
         if let Some(node_id) = node_id {
             let name = self.document.nodes.get(&node_id).as_ref().expect("Should exist").get_string_attribute("name");
@@ -49,8 +49,8 @@ impl SimpleApplication {
         }
     }
 
-    pub fn add_child(&mut self, parent_id: &Id, insertion_index: u64) {
-        let child_id = Id::default();
+    pub fn add_child(&mut self, parent_id: &NodeId, insertion_index: u64) {
+        let child_id = NodeId::default();
 
         let c1 = Change::AddNode { id: child_id };
         let c2 = Change::AddChild { parent: parent_id.clone(), child: child_id, insertion_index: insertion_index };
@@ -58,7 +58,7 @@ impl SimpleApplication {
         self.document.add_and_apply_change(c2);
     }
 
-    pub fn remove_node(&mut self, node_id: &Id) {
+    pub fn remove_node(&mut self, node_id: &NodeId) {
         let mut changes : Vec<Change> = vec![];
         if let Some(node) = self.document.nodes.get(node_id) {
             if let Some(parent) = node.parent {
@@ -77,7 +77,7 @@ impl SimpleApplication {
         self.document.commit_changes();
     }
 
-    pub fn get_previous_sibling(&self, node_id: Id) -> Option<Id> {
+    pub fn get_previous_sibling(&self, node_id: NodeId) -> Option<NodeId> {
         if let Some(node) = self.document.nodes.get(&node_id) {
             if let Some(parent) = node.parent {
                 let children = self.document.nodes.get(&parent).as_ref().expect("Should exist").children.clone();
@@ -90,7 +90,7 @@ impl SimpleApplication {
         None
     }
 
-    pub fn get_next_sibling(&self, node_id: Id) -> Option<Id> {
+    pub fn get_next_sibling(&self, node_id: NodeId) -> Option<NodeId> {
         if let Some(node) = self.document.nodes.get(&node_id) {
             if let Some(parent) = node.parent {
                 let children = self.document.nodes.get(&parent).as_ref().expect("Should exist").children.clone();
@@ -119,7 +119,7 @@ impl SimpleApplication {
         }
     }
 
-    pub fn is_node_expanded(&self, node: Id) -> bool {
+    pub fn is_node_expanded(&self, node: NodeId) -> bool {
         self.expanded_nodes.contains(&node)
     }
 
@@ -158,7 +158,7 @@ impl SimpleApplication {
         }
     }
 
-    pub fn get_first_child(&self, node_id: Id) -> Option<Id> {
+    pub fn get_first_child(&self, node_id: NodeId) -> Option<NodeId> {
         if let Some(node) = self.document.nodes.get(&node_id) {
             if !node.children.is_empty() {
                 return Some(node.children[0]);
@@ -167,7 +167,7 @@ impl SimpleApplication {
         None
     }
 
-    pub fn get_last_child(&self, node_id: Id) -> Option<Id> {
+    pub fn get_last_child(&self, node_id: NodeId) -> Option<NodeId> {
         if let Some(node) = self.document.nodes.get(&node_id) {
             if !node.children.is_empty() {
                 return Some(node.children[node.children.len() - 1]);
@@ -183,7 +183,7 @@ impl SimpleApplication {
         }
     }
 
-    pub fn set_node_expanded(&mut self, node: Id, expanded: bool) {
+    pub fn set_node_expanded(&mut self, node: NodeId, expanded: bool) {
         if expanded {
             self.expanded_nodes.insert(node);
         } else {
@@ -261,7 +261,7 @@ pub fn save_document(document: &mut Document) -> io::Result<bool> {
 
 pub fn new_document() -> Document {
     let mut document = Document::new(Repository::new());
-    let root = Id::default();
+    let root = NodeId::default();
     document.add_and_apply_change(Change::AddNode { id: root.clone() });
     document.add_and_apply_change(Change::SetString { node: root, attribute: "name".to_string(), value: "Root".to_string() });
     document

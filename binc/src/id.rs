@@ -5,35 +5,35 @@ use uuid::Uuid;
 use crate::document::Node;
 
 #[derive(PartialEq, Clone, Copy, Debug, Eq, Hash)]
-pub struct Id {
+pub struct NodeId {
     pub (crate) id: Uuid,
 }
 
-impl Default for Id {
+impl Default for NodeId {
     fn default() -> Self {
-        Id { id: Uuid::new_v4() }
+        NodeId { id: Uuid::new_v4() }
     }
 }
 
-impl Display for Id {
+impl Display for NodeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.id)
     }
 }
 
-pub struct IdStore {
-    map: HashMap<Id, Node>
+pub struct NodeStore {
+    map: HashMap<NodeId, Node>
 }
 
-impl IdStore {
-    pub fn new() -> IdStore {
-        IdStore {
+impl NodeStore {
+    pub fn new() -> NodeStore {
+        NodeStore {
             map: HashMap::new()
         }
     }
 
-    pub fn find_roots(&self) -> Vec<Id> {
-        let mut roots: Vec<Id> = vec![];
+    pub fn find_roots(&self) -> Vec<NodeId> {
+        let mut roots: Vec<NodeId> = vec![];
         for (_id, node) in &self.map {
             if node.parent.is_none() {
                 roots.push(node.id.clone());
@@ -42,19 +42,19 @@ impl IdStore {
         roots
     }
 
-    pub fn insert(&mut self, id: &Id, node: Node) -> Option<Node> {
+    pub fn insert(&mut self, id: &NodeId, node: Node) -> Option<Node> {
         self.map.insert(id.clone(), node)
     }
 
-    pub fn remove(&mut self, id: &Id) -> Option<Node> {
+    pub fn remove(&mut self, id: &NodeId) -> Option<Node> {
         self.map.remove(id)
     }
 
-    pub fn get(&self, id: &Id) -> Option<&Node> {
+    pub fn get(&self, id: &NodeId) -> Option<&Node> {
         self.map.get(id)
     }
 
-    pub fn get_mut(&mut self, id: &Id) -> Option<&mut Node> {
+    pub fn get_mut(&mut self, id: &NodeId) -> Option<&mut Node> {
         self.map.get_mut(id)
     }
 

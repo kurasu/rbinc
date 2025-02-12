@@ -7,18 +7,18 @@ use eframe::egui::{Button, Context, Image, RichText, Ui, Widget};
 use binc::document::{AttributeValue, Node};
 use uuid::Uuid;
 use binc::change::Change;
-use binc::id::Id;
+use binc::id::NodeId;
 use binc::util::shorten_uuid;
 use gui::gui::*;
 
 enum GuiAction {
     Undo,
     Redo,
-    SelectNode { node: Id },
-    AddNode { parent: Id, index: u64 },
-    RemoveNode { node: Id },
+    SelectNode { node: NodeId },
+    AddNode { parent: NodeId, index: u64 },
+    RemoveNode { node: NodeId },
     WrappedChange { change: Change },
-    SetNodeExpanded { node: Id, expanded: bool },
+    SetNodeExpanded { node: NodeId, expanded: bool },
     ToggleSelectedNodeExpanded,
     /// Commit pending changes
     Commit,
@@ -206,7 +206,7 @@ fn create_tree(ui: &mut Ui, app: &mut SimpleApplication, actions: &mut Vec<GuiAc
     }
 }
 
-fn create_node_tree(ui: &mut Ui, node_id: &Id, app: &SimpleApplication, actions: &mut Vec<GuiAction>) {
+fn create_node_tree(ui: &mut Ui, node_id: &NodeId, app: &SimpleApplication, actions: &mut Vec<GuiAction>) {
     if let Some(node) = app.document.nodes.get(node_id) {
         let children = &node.children.clone();
         let id_string = format!("ID: {:?}", shorten_uuid(node_id));

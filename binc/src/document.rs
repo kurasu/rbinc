@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io;
 use std::io::{Read, Write};
 use crate::change::Change;
-use crate::id::{Id, IdStore};
+use crate::id::{NodeId, NodeStore};
 use crate::repository::Repository;
 use crate::revision::Revision;
 
@@ -21,15 +21,15 @@ impl std::fmt::Display for AttributeValue {
 }
 
 pub struct Node {
-    pub id: Id,
-    pub parent: Option<Id>,
-    pub children: Vec<Id>,
+    pub id: NodeId,
+    pub parent: Option<NodeId>,
+    pub children: Vec<NodeId>,
     pub attributes: HashMap<String, AttributeValue>
 }
 
 impl Node {
 
-    pub fn new_with_id(id: &Id) -> Node {
+    pub fn new_with_id(id: &NodeId) -> Node {
         Node {
             id: id.clone(),
             parent: None,
@@ -69,15 +69,15 @@ pub struct Document {
     /// Repository containing all revisions
     pub repository: Repository,
     /// This is a cache of the current state of the document, as of the last revision and all pending changes
-    pub nodes: IdStore,
+    pub nodes: NodeStore,
     /// Changes that have not been committed to the repository
     pub pending_changes: Box<Revision>,
     /// Changes that have been undone and can be redone
     pub undo_changes: Vec<Change>,
 }
 
-fn compute_nodes(repository: &Repository) -> IdStore {
-    let mut nodes: IdStore = IdStore::new();
+fn compute_nodes(repository: &Repository) -> NodeStore {
+    let mut nodes: NodeStore = NodeStore::new();
     for rev in &repository.revisions {
         for change in &rev.changes {
             change.apply(&mut nodes);
@@ -88,7 +88,7 @@ fn compute_nodes(repository: &Repository) -> IdStore {
 
 impl Default for Document {
     fn default() -> Self {
-        Document { repository: Repository::new(), nodes: IdStore::new(), pending_changes: Box::new(Revision::new()), undo_changes: Vec::new() }
+        Document { repository: Repository::new(), nodes: NodeStore::new(), pending_changes: Box::new(Revision::new()), undo_changes: Vec::new() }
     }
 }
 
@@ -119,7 +119,7 @@ impl Document {
         self.nodes.len()
     }
 
-    pub fn find_roots(&self) -> Vec<Id> {
+    pub fn find_roots(&self) -> Vec<NodeId> {
         self.nodes.find_roots()
     }
 
