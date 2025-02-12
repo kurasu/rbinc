@@ -5,9 +5,7 @@ use std::any::Any;
 use eframe::egui;
 use eframe::egui::{Button, Context, Image, RichText, TextBuffer, Ui, Widget};
 use binc::document::{AttributeValue, Node};
-use uuid::Uuid;
 use binc::change::Change;
-use binc::util::shorten_uuid;
 use gui::gui::*;
 
 enum GuiAction {
@@ -233,7 +231,7 @@ fn create_node_tree(ui: &mut Ui, node: &Node, app: &SimpleApplication, actions: 
 
                 let mut checked = node.get_bool_attribute("completed").unwrap_or(false);
                 if ui.checkbox(&mut checked, "").clicked() {
-                    actions.push(GuiAction::WrappedChange { change: Change::SetBool { path: path.to_string(), attribute: "completed".to_string(), value: checked } });
+                    actions.push(GuiAction::WrappedChange { change: Change::SetBool { path: path.clone().to_string(), attribute: "completed".to_string(), value: checked } });
                 }
 
                 if selected && app.is_editing {
@@ -263,13 +261,17 @@ fn create_node_tree(ui: &mut Ui, node: &Node, app: &SimpleApplication, actions: 
                     }
                     let add_button = ui.label("⊞").on_hover_text("Add child node");
                     if add_button.clicked() {
-                        let new_path = path.clone() + "/new";
+                        let new_path = path.clone() + "/" + get_name_for_new_node(node).as_str();
                         actions.push(GuiAction::AddNode { path: new_path });
                     }
                 });
             }
         });
     }
+}
+
+fn get_name_for_new_node(node: &Node) -> String {
+    node.children.len().to_string()
 }
 
 fn get_label(id_string: String, name: &String) -> String {

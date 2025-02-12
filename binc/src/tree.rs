@@ -13,7 +13,7 @@ impl Tree {
             return (Some(&mut self.root), path[1..].to_string());
         }
 
-        let mut parts = path.split("/");
+        let parts = path.split("/");
         let name = parts.clone().last().unwrap().clone().to_string();
         
         if parts.count() == 1 {
@@ -92,6 +92,44 @@ mod tests {
         let node2 = tree.get("/child1");
         assert!(node2.is_some());
         assert_eq!(node2.unwrap().name, "child1");
+    }
+
+    #[test]
+    fn test_get_node_recursive() {
+        let mut tree = Tree::default();
+        let mut child1 = Node::new("1");
+        let mut child2 = Node::new("2");
+        let mut child3 = Node::new("3");
+        let mut child4 = Node::new("4");
+
+        child3.children.push(child4);
+        child2.children.push(child3);
+        child1.children.push(child2);
+        tree.root.children.push(child1);
+        tree.root.name = "root".to_string();
+
+        let node1 = tree.get("1");
+        assert!(node1.is_some());
+        assert_eq!(node1.unwrap().name, "1");
+        let node2 = tree.get("1/2");
+        assert!(node2.is_some());
+        assert_eq!(node2.unwrap().name, "2");
+        let node3 = tree.get_mut(&"1/2/3".to_string());
+        assert!(node3.is_some());
+        assert_eq!(node3.unwrap().name, "3");
+        let node4 = tree.get("/1/2/3/4");
+        assert!(node4.is_some());
+        assert_eq!(node4.unwrap().name, "4");
+
+        let (parent1, name1) = tree.get_parent_mut(&"1/3".to_string());
+        assert!(parent1.is_some());
+        assert_eq!(parent1.unwrap().name, "1");
+        assert_eq!(name1, "3");
+
+        let (parent2, name2) = tree.get_parent_mut(&"/a".to_string());
+        assert!(parent2.is_some());
+        assert_eq!(parent2.unwrap().name, "root");
+        assert_eq!(name2, "a");
     }
 
     #[test]
