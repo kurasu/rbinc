@@ -89,14 +89,22 @@ mod tests {
         let node = tree.get("child1");
         assert!(node.is_some());
         assert_eq!(node.unwrap().name, "child1");
+        let node2 = tree.get("/child1");
+        assert!(node2.is_some());
+        assert_eq!(node2.unwrap().name, "child1");
     }
 
     #[test]
     fn test_get_node_child1_sub() {
-        let tree = create_test_tree();
+        let mut tree = create_test_tree();
         let node = tree.get("child1/sub");
         assert!(node.is_some());
         assert_eq!(node.unwrap().name, "sub");
+
+        let (parent, name) = tree.get_parent_mut(&"child1/sub".to_string());
+        assert!(parent.is_some());
+        assert_eq!(parent.unwrap().name, "child1");
+        assert_eq!(name, "sub");
     }
 
     #[test]
