@@ -1,9 +1,9 @@
 use std::fmt::{Display, Formatter};
 use std::io;
 use std::io::{Read, Write};
-use crate::document::Node;
-use crate::node_id::{NodeId, NodeStore};
+use crate::node_id::NodeId;
 use crate::iowrappers::{ReadExt, WriteExt};
+use crate::node_store::{Node, NodeStore};
 
 pub(crate) struct ChangeType;
 
@@ -22,6 +22,7 @@ impl<T> OptionExt for Option<T> {
 impl ChangeType {
     pub const ADD_NODE: u64 = 0x01;
     pub const ADD_NODE_FROM_SOURCE: u64 = 0x02;
+    pub const MOVE_NODE: u64 = 0x04;
     pub const REMOVE_NODE: u64 = 0x08;
 
     pub const ADD_CHILD: u64 = 0x11;
@@ -79,17 +80,17 @@ pub enum Change {
 }
 
 impl Change {
-    pub(crate) fn apply(&self, nodes: &mut NodeStore) -> &mut NodeStore
+    pub(crate) fn apply(&self, nodes: &mut NodeStore)
     {
         match self {
             Change::AddNode {id, parent} => {
-                nodes.insert(id, Node::new_with_id(id)).expect_none("Node already exists");
+                nodes.add(id, parent);
             }
             Change::DeleteNode { id } => {
-                nodes.delete_recursive(id).expect("Node not found");
+                nodes.delete_recursive(id);
             }
             Change::MoveNode {id, new_parent} => {
-                // TODO
+                nodes.move_node(id, new_parent);
             }
             Change::SetString {node, attribute, value} => {
                 let x = nodes.get_mut(node).expect("Node not found");
@@ -103,7 +104,6 @@ impl Change {
                 // Do nothing
             }
         }
-        nodes
     }
 
     pub(crate) fn read(mut r: &mut dyn Read) -> io::Result<Change> {
@@ -111,12 +111,18 @@ impl Change {
         let change_size = r.read_length()?;
         match change_type {
             ChangeType::ADD_NODE => {
-                let node = r.read_id()?;
-                Ok(Change::AddNode {id: node})
+                let id = r.read_id()?;
+                let parent = r.read_id()?;
+                Ok(Change::AddNode {id, parent})
             }
             ChangeType::REMOVE_NODE => {
                 let node = r.read_id()?;
                 Ok(Change::DeleteNode {id: node})
+            }
+            ChangeType::MOVE_NODE => {
+                let id = r.read_id()?;
+                let new_parent = r.read_id()?;
+                Ok(Change::MoveNode {id, new_parent})
             }
             ChangeType::SET_STRING => {
                 let node = r.read_id()?;
@@ -140,8 +146,13 @@ impl Change {
 
     pub(crate) fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
         match self {
-            Change::AddNode {id} => {
-                w.write_id(id)
+            Change::AddNode {id, parent} => {
+                w.write_id(id)?;
+                w.write_id(parent)
+            }
+            Change::MoveNode {id, new_parent} => {
+                w.write_id(id)?;
+                w.write_id(new_parent)
             }
             Change::DeleteNode {id} => {
                 w.write_id(id)
@@ -164,10 +175,9 @@ impl Change {
 
     pub(crate) fn change_type(&self) -> u64 {
         match self {
-            Change::AddNode {id: _} => ChangeType::ADD_NODE,
+            Change::AddNode {id: _, parent: _} => ChangeType::ADD_NODE,
+            Change::MoveNode {id: _, new_parent: _} => ChangeType::MOVE_NODE,
             Change::DeleteNode {id: _} => ChangeType::REMOVE_NODE,
-            Change::AddChild {parent: _, child: _, insertion_index: _} => ChangeType::ADD_CHILD,
-            Change::RemoveChild {parent: _, child: _} => ChangeType::REMOVE_CHILD,
             Change::SetString {node: _, attribute: _, value: _} => ChangeType::SET_STRING,
             Change::SetBool {node: _, attribute: _, value: _} => ChangeType::SET_BOOL,
             Change::UnknownChange {change_type, data: _} => *change_type,
@@ -198,7 +208,8 @@ impl Change {
 impl Display for Change {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Change::AddNode {id} => write!(f, "AddNode({})", id),
+            Change::AddNode {id, parent} => write!(f, "AddNode({} in {})", id, parent),
+            Change::MoveNode {id, new_parent} => write!(f, "MoveNode({} to {})", id, new_parent),
             Change::DeleteNode {id} => write!(f, "RemoveNode({})", id),
             Change::SetString {node, attribute, value} => write!(f, "SetString({}, {} = {})", node, attribute, value),
             Change::SetBool {node, attribute, value} => write!(f, "SetBool({}, {} = {})", node, attribute, value),

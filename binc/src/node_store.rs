@@ -1,44 +1,65 @@
-use std::collections::HashMap;
+use std::ptr::copy_nonoverlapping;
 use crate::document::{AttributeValue};
 use crate::node_id::NodeId;
 
 pub type NodeStore = FlatNodeStore;
 
-struct FlatNodeStore {
-    nodes: Vec<Option<Node>>
+pub struct FlatNodeStore {
+    nodes: Vec<Node>
 }
 
 impl FlatNodeStore {
     pub fn new() -> NodeStore {
-        NodeStore {
-            nodes: vec![]
+        let mut nodes = vec![Node::default()];
+        nodes[0].id = NodeId::ROOT_NODE;
+        nodes[0].parent = NodeId::NO_NODE;
+
+        NodeStore { nodes }
+    }
+
+    pub fn find_roots(&self) -> &Vec<NodeId> {
+        let x = self.nodes.get(0).expect("Root node should exist");
+        x.children.as_ref()
+    }
+
+    pub(crate) fn add(&mut self, id: &NodeId, parent: &NodeId) {
+        let i = id.index();
+        let p = parent.index();
+
+        if i >= self.nodes.len() {
+            self.nodes.resize_with(i + 1, || Node::default());
         }
+
+        self.nodes[i] = Node::new_with_id(id.clone());
+        self.nodes[p].children.push(id.clone());
     }
 
-    pub fn find_roots(&self) -> Vec<NodeId> {
-        self.nodes.get(0).expect("Root node should exist").get
-    }
-
-    pub fn insert(&mut self, id: &NodeId, node: Node) -> Option<Node> {
-        let index = id.index();
-        if index >= self.nodes.len() {
-            self.nodes.resize_with(32 + index - self.nodes.len(), || None);
+    pub(crate) fn delete_recursive(&mut self, id: &NodeId) {
+        let i = id.index();
+        for c in self.nodes[i].children.clone() {
+            self.delete_recursive(&c);
         }
-        let old = self.nodes.remove(index);
-        self.nodes[index] = Some(node);
-        old
+        let p = self.nodes[i].parent.index();
+        self.nodes[p].children.retain(|x| *x != *id);
+        self.nodes[i] = Node::default();
     }
 
-    pub fn remove(&mut self, id: &NodeId) -> Option<Node> {
-        self.nodes.remove(id.index())
+    pub (crate) fn move_node(&mut self, id: &NodeId, new_parent: &NodeId) {
+        let i = id.index();
+        let p1 = self.nodes[i].parent.index();
+        let p2 = new_parent.index();
+
+        self.nodes[p1].children.retain(|x| *x != *id);
+        self.nodes[p2].children.push(id.clone());
+        self.nodes[i].parent = new_parent.clone();
     }
 
     pub fn get(&self, id: &NodeId) -> Option<&Node> {
-        self.nodes.get(id.index()).unwrap().as_ref()
+        self.nodes.get(id.index())
     }
 
     pub fn get_mut(&mut self, id: &NodeId) -> Option<&mut Node> {
-        self.nodes.get_mut(id.index()).unwrap().as_mut()
+        self.nodes.get_mut(id.index())
     }
 
     pub(crate) fn len(&self) -> usize {
@@ -47,22 +68,57 @@ impl FlatNodeStore {
 }
 
 
-
 pub struct Node {
     pub id: NodeId,
-    pub parent: Option<NodeId>,
+    pub parent: NodeId,
     pub children: Vec<NodeId>,
-    pub attributes: HashMap<String, AttributeValue>
+    pub attributes: AttributeStore
+}
+
+#[derive(Debug, Clone, Default)]
+struct AttributeStore {
+    attributes: Vec<AttributeEntry>
+}
+
+#[derive(Debug, Clone)]
+struct AttributeEntry {
+    key: String,
+    value: AttributeValue
+}
+
+impl AttributeStore {
+    pub fn insert(&mut self, key: &str, value: AttributeValue) {
+        self.attributes.push(AttributeEntry { key: key.to_string(), value });
+    }
+
+    pub fn get(&self, key: &str) -> Option<&AttributeValue> {
+        self.attributes.iter().find(|x| x.key == key).map(|x| &x.value)
+    }
+
+    pub fn get_mut(&mut self, key: &str) -> Option<&mut AttributeValue> {
+        self.attributes.iter_mut().find(|x| x.key == key).map(|x| &mut x.value)
+    }
+}
+
+impl Default for Node {
+    fn default() -> Self {
+        Node {
+            id: NodeId::NO_NODE,
+            parent: NodeId::NO_NODE,
+            children: vec![],
+            attributes: AttributeStore::default(),
+        }
+    }
 }
 
 impl Node {
 
-    pub fn new_with_id(id: &NodeId) -> Node {
+    pub fn new_with_id(id: NodeId) -> Node {
         Node {
-            id: id.clone(),
-            parent: None,
+            id,
+            parent: NodeId::ROOT_NODE,
             children: vec![],
-            attributes: HashMap::new(),
+            attributes: AttributeStore::default(),
         }
     }
 
@@ -70,8 +126,16 @@ impl Node {
         self.attributes.insert(key, Box::new(value));
     }*/
 
+    pub fn set_attribute(&mut self, key: &str, value: AttributeValue) {
+        self.attributes.insert(key, value);
+    }
+
+    pub fn get_attribute(&self, key: &str) -> Option<&AttributeValue> {
+        self.attributes.get(key)
+    }
+
     pub fn set_string_attribute(&mut self, key: &String, value: &String) {
-        self.attributes.insert(key.clone(), AttributeValue::String(value.clone()));
+        self.attributes.insert(key, AttributeValue::String(value.clone()));
     }
 
     pub fn get_string_attribute(&self, key: &str) -> Option<String> {
@@ -82,7 +146,7 @@ impl Node {
     }
 
     pub fn set_bool_attribute(&mut self, key: &String, value: bool) {
-        self.attributes.insert(key.clone(), AttributeValue::Bool(value));
+        self.attributes.insert(key, AttributeValue::Bool(value));
     }
 
     pub fn get_bool_attribute(&self, key: &str) -> Option<bool> {
@@ -90,5 +154,49 @@ impl Node {
             Some(AttributeValue::Bool(s)) => Some(s.clone()),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_node_store() {
+        let store = FlatNodeStore::new();
+        assert_eq!(store.nodes[0].parent, NodeId::NO_NODE);
+        assert_eq!(store.nodes[0].id, NodeId::ROOT_NODE);
+        assert_eq!(store.len(), 1);
+    }
+
+    #[test]
+    fn test_insert_and_get_node() {
+        let mut store = FlatNodeStore::new();
+        let node_id = NodeId::new(1);
+        store.add(&node_id, &NodeId::ROOT_NODE);
+        assert!(store.get(&node_id).is_some());
+        assert!(store.get(&node_id).expect("Node not found").parent == NodeId::ROOT_NODE);
+        assert!(store.get(&node_id).expect("Node not found").id == node_id);
+    }
+
+    #[test]
+    fn test_set_and_get_attribute() {
+        let mut node = Node::new_with_id(NodeId::new(1));
+        node.set_string_attribute(&"key".to_string(), &"value".to_string());
+        assert_eq!(node.get_string_attribute("key"), Some("value".to_string()));
+    }
+
+    #[test]
+    fn test_find_roots() {
+        let mut store = FlatNodeStore::new();
+        let root_node = Node::new_with_id(NodeId::new(0));
+        store.nodes.push(root_node);
+        let roots = store.find_roots();
+        assert_eq!(roots.len(), 0);
+        let node_id = NodeId::new(1);
+        store.add(&node_id, &NodeId::ROOT_NODE);
+        let roots = store.find_roots();
+        assert_eq!(roots.len(), 1);
+        assert!(roots[0] == node_id);
     }
 }

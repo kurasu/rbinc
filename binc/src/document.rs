@@ -1,12 +1,12 @@
-use std::collections::HashMap;
 use std::io;
 use std::io::{Read, Write};
 use crate::change::Change;
-use crate::node_id::{NodeId, NodeStore};
+use crate::node_id::NodeId;
 use crate::node_store::NodeStore;
 use crate::repository::Repository;
 use crate::revision::Revision;
 
+#[derive(Debug, Clone)]
 pub enum AttributeValue {
     String(String),
     Bool(bool),
@@ -63,7 +63,7 @@ impl Document {
         self.nodes = compute_nodes(&self.repository);
 
         for change in &self.pending_changes.changes {
-            change.apply(&mut self.nodes).expect("Error applying change");
+            change.apply(&mut self.nodes);
         }
     }
 
@@ -75,13 +75,13 @@ impl Document {
         self.nodes.len()
     }
 
-    pub fn find_roots(&self) -> Vec<NodeId> {
+    pub fn find_roots(&self) -> &Vec<NodeId> {
         self.nodes.find_roots()
     }
 
     pub fn add_and_apply_change(&mut self, change: Change) {
         self.undo_changes.clear();
-        change.apply(&mut self.nodes).expect("Error applying change");
+        change.apply(&mut self.nodes);
 
         let last_change = self.pending_changes.changes.last();
         let combined_change = if last_change.is_some() { change.combine_change(last_change.unwrap()) } else { None };

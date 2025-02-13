@@ -1,7 +1,4 @@
 use std::fmt::Display;
-use std::{io, vec};
-use crate::change::Change;
-use crate::document::Node;
 
 #[derive(PartialEq, Clone, Copy, Debug, Eq, Hash)]
 pub struct NodeId {
@@ -9,7 +6,10 @@ pub struct NodeId {
 }
 
 impl NodeId {
-    const ROOT_NODE: usize = 0;
+    pub const ROOT_NODE_ID: usize = 0;
+    pub const NO_NODE_ID: usize = 0xFFFFFFFF;
+    pub const ROOT_NODE: NodeId = NodeId { id: Self::ROOT_NODE_ID };
+    pub const NO_NODE: NodeId = NodeId { id: Self::NO_NODE_ID };
 
     pub fn index(&self) -> usize {
         self.id
@@ -20,26 +20,32 @@ impl NodeId {
     }
 
     pub fn is_root(&self) -> bool {
-        self.id == Self::ROOT_NODE
+        self.id == Self::ROOT_NODE_ID
     }
-}
-
-impl Default for NodeId {
-    fn default() -> Self {
-        NodeId { id: get_next_id() }
-    }
-}
-
-fn get_next_id() -> usize {
-    static mut NEXT_ID: usize = 1;
-    unsafe {
-        NEXT_ID += 1;
-        NEXT_ID
+    
+    pub fn exists(&self) -> bool {
+        self.id != Self::NO_NODE_ID
     }
 }
 
 impl Display for NodeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.id)
+    }
+}
+
+pub struct NodeIdGenerator {
+    next_id: usize,
+}
+
+impl NodeIdGenerator {
+    pub fn new() -> NodeIdGenerator {
+        NodeIdGenerator { next_id: 1 }
+    }
+
+    pub fn next_id(&mut self) -> NodeId {
+        let id = self.next_id;
+        self.next_id += 1;
+        NodeId::new(id)
     }
 }

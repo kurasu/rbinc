@@ -207,7 +207,7 @@ pub trait ReadExt: Read {
     }
 
     fn read_id(&mut self) -> io::Result<NodeId> {
-        self.read_length().map(|id| NodeId {id: id as u32})
+        self.read_length().map(|id| NodeId {id: id as usize})
     }
 
     fn read_uuid(&mut self) -> io::Result<Uuid> {

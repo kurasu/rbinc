@@ -5,5 +5,4 @@ pub mod document;
 pub mod change;
 pub mod util;
 pub mod node_id;
-mod node_store;
-mod node;
+pub mod node_store;
