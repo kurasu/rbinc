@@ -8,7 +8,7 @@ mod tests {
     use binc::revision::*;
     use binc::change::*;
     use binc::document::*;
-    use binc::id::NodeId;
+    use binc::node_id::NodeId;
 
     #[test]
     fn test_create_example_document() {
@@ -23,7 +23,7 @@ mod tests {
         let id = NodeId::default();
         let id2 = NodeId::default();
         rev.add_change(Change::AddNode{id});
-        rev.add_change(Change::RemoveNode{id});
+        rev.add_change(Change::DeleteNode {id});
         rev.add_change(Change::AddNode{id: id2});
         rev.add_change(Change::SetString{node: id2, attribute: "name".to_string(), value: "my value".to_string()});
         repo.add_revision(rev);

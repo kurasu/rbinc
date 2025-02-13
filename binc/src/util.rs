@@ -1,5 +1,5 @@
 use uuid::Uuid;
-use crate::id::NodeId;
+use crate::node_id::NodeId;
 
 pub fn shorten_uuid(uuid: &NodeId) -> String {
     let s = uuid.to_string();

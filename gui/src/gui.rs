@@ -6,7 +6,7 @@ use rfd::MessageLevel::Error;
 use binc::document::Document;
 use binc::repository::Repository;
 use binc::change::Change;
-use binc::id::NodeId;
+use binc::node_id::NodeId;
 
 pub struct SimpleApplication {
     pub document: Box<Document>,
@@ -65,7 +65,7 @@ impl SimpleApplication {
                 changes.push(Change::RemoveChild { parent: parent.clone(), child: node_id.clone() });
             }
         }
-        changes.push(Change::RemoveNode { id: node_id.clone() });
+        changes.push(Change::DeleteNode { id: node_id.clone() });
         for c in changes {
             self.document.add_and_apply_change(c);
         }

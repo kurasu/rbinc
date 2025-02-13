@@ -4,4 +4,6 @@ pub mod iowrappers;
 pub mod document;
 pub mod change;
 pub mod util;
-pub mod id;
+pub mod node_id;
+mod node_store;
+mod node;

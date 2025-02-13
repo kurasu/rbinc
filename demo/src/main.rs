@@ -6,7 +6,7 @@ use eframe::egui;
 use eframe::egui::{Context, RichText, Ui};
 use binc::document::Node;
 use binc::change::Change;
-use binc::id::NodeId;
+use binc::node_id::NodeId;
 use binc::util::shorten_uuid;
 use gui::gui::*;
 

@@ -1,6 +1,6 @@
 use std::io::{self, Error, ErrorKind, Read, Write};
 use uuid::Uuid;
-use crate::id::NodeId;
+use crate::node_id::NodeId;
 
 /// Extend `Write` with additional methods for writing primitive types.
 pub trait WriteExt: Write {

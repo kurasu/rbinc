@@ -3,7 +3,7 @@ mod server;
 use std::io;
 use clap::{Parser, Subcommand};
 use binc::document::{AttributeValue, Document};
-use binc::id::NodeId;
+use binc::node_id::NodeId;
 use binc::repository::Repository;
 use binc::util::shorten_uuid;
 
