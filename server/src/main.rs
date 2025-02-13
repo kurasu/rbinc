@@ -1,7 +1,7 @@
 mod server;
 
 use std::io;
-use clap::{Args, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use binc::document::{AttributeValue, Document};
 use binc::id::NodeId;
 use binc::repository::Repository;
@@ -42,7 +42,7 @@ fn main() -> io::Result<()> {
         Commands::History { store } => {
             println!("Listing revisions for store {}", store);
 
-            let mut repo = Repository::read(&mut std::fs::File::open(store)?)?;
+            let repo = Repository::read(&mut std::fs::File::open(store)?)?;
             let mut index = 1;
             for rev in &repo.revisions {
                 println!("{}: {} {} {} {}", index, rev.user_name, rev.date, rev.id, rev.message);

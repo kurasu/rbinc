@@ -3,9 +3,8 @@
 
 use std::any::Any;
 use eframe::egui;
-use eframe::egui::{Button, Context, Image, RichText, Ui, Widget};
-use binc::document::{AttributeValue, Node};
-use uuid::Uuid;
+use eframe::egui::{Context, RichText, Ui};
+use binc::document::Node;
 use binc::change::Change;
 use binc::id::NodeId;
 use binc::util::shorten_uuid;
@@ -67,7 +66,7 @@ fn main() -> eframe::Result {
     })
 }
 
-fn check_keyboard(ctx: &Context, app: &SimpleApplication, mut actions: &mut Vec<GuiAction>) {
+fn check_keyboard(ctx: &Context, app: &SimpleApplication, actions: &mut Vec<GuiAction>) {
     if ctx.input(|i| i.key_pressed(egui::Key::Z) && i.modifiers.command) {
         actions.push(GuiAction::Undo);
     }
@@ -182,22 +181,6 @@ fn create_history(ui: &mut Ui, app: &SimpleApplication, actions: &mut Vec<GuiAct
         }
     });
     ui.allocate_space(ui.available_size());
-}
-
-fn attribute_value_to_string(value: &dyn Any) -> String {
-    if let Some(value) = value.downcast_ref::<String>() {
-        value.clone()
-    } else if let Some(value) = value.downcast_ref::<&str>() {
-        value.to_string()
-    } else if let Some(value) = value.downcast_ref::<bool>() {
-        value.to_string()
-    } else if let Some(value) = value.downcast_ref::<i32>() {
-        value.to_string()
-    } else if let Some(value) = value.downcast_ref::<f64>() {
-        value.to_string()
-    } else {
-        "None".to_string()
-    }
 }
 
 fn create_tree(ui: &mut Ui, app: &mut SimpleApplication, actions: &mut Vec<GuiAction>) {
