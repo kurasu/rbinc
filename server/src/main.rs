@@ -2,10 +2,9 @@ mod server;
 
 use std::io;
 use clap::{Args, Parser, Subcommand};
-use uuid::Uuid;
 use binc::document::{AttributeValue, Document};
+use binc::id::NodeId;
 use binc::repository::Repository;
-use binc::revision::Revision;
 use binc::util::shorten_uuid;
 
 /// A simple command line tool for creating, manipulating, viewing and serving BINC documents
@@ -20,15 +19,6 @@ struct Cli {
 enum Commands {
     /// Create a new store
     CreateStore { filename: String },
-
-    /// Add a new node to the document
-    AddNode { store: String, uuid: Uuid },
-
-    /// Remove a node from the document
-    RemoveNode { store: String, uuid: Uuid },
-
-    /// Add a child to a node in the document
-    AddChild { store: String, parent: Uuid, child: Uuid },
 
     /// Print the history of the document
     History { store: String },
@@ -48,22 +38,6 @@ fn main() -> io::Result<()> {
         Commands::CreateStore { filename } => {
             println!("Creating store {}", filename);
             Repository::new().write(&mut std::fs::File::create(filename)?)
-        }
-        Commands::AddNode { store, uuid } => {
-            println!("Adding node {} to store {}", uuid, store);
-            let mut repo = Repository::read(&mut std::fs::File::open(store)?)?;
-            let revision = Revision::new();
-            repo.add_revision(revision);
-            Ok(())
-            //repo.write_changes();
-        }
-        Commands::RemoveNode { store, uuid } => {
-            println!("Removing node {} from store {}", uuid, store);
-            Ok(())
-        }
-        Commands::AddChild { store, parent, child } => {
-            println!("Adding child {} to parent {} in store {}", child, parent, store);
-            Ok(())
         }
         Commands::History { store } => {
             println!("Listing revisions for store {}", store);
@@ -105,7 +79,7 @@ fn get_label(id_string: String, name: Option<&AttributeValue>) -> String {
     } else { id_string }
 }
 
-fn print_tree(document: &Document, root: &Uuid, depth: i32) {
+fn print_tree(document: &Document, root: &NodeId, depth: i32) {
     if let Some(node) = document.nodes.get(root) {
         let children = &node.children.clone();
         let id_string = format!("ID: {:?}", shorten_uuid(root));
