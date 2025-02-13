@@ -7,41 +7,48 @@ use binc::document::Document;
 use binc::repository::Repository;
 use binc::change::Change;
 use binc::node_id::NodeId;
+use binc::node_store::Node;
 
 pub struct SimpleApplication {
     pub document: Box<Document>,
-    pub roots: Vec<NodeId>,
-    pub selected_node: Option<NodeId>,
+    pub root: NodeId,
+    pub selected_node: NodeId,
     pub selected_node_name: String,
     pub expanded_nodes: HashSet<NodeId>,
     pub is_editing: bool,
 }
 
 impl SimpleApplication {
+    pub fn get_selected_node(&self) -> Option<&Node> {
+        if self.selected_node.exists() {
+            return self.document.nodes.get(self.selected_node);
+        }
+        None
+    }
+}
+
+impl SimpleApplication {
     pub fn new() -> SimpleApplication {
-        let mut app = SimpleApplication {
+        SimpleApplication {
             document: Box::from(new_document()),
-            roots: Vec::new(),
-            selected_node: None,
+            root: NodeId::ROOT_NODE,
+            selected_node: NodeId::NO_NODE,
             selected_node_name: String::new(),
             expanded_nodes: HashSet::new(),
             is_editing: false,
-        };
-        app.roots = app.document.find_roots();
-        //app.select_node(app.roots.get(0).);
-        app
+        }
     }
 
     pub fn set_document(&mut self, document: Document) {
         self.document = Box::from(document);
-        self.roots = self.document.find_roots();
-        self.select_node(None);
+        self.root = NodeId::ROOT_NODE;
+        self.select_node(NodeId::NO_NODE);
     }
 
-    pub fn select_node(&mut self, node_id: Option<NodeId>) {
+    pub fn select_node(&mut self, node_id: NodeId) {
         self.selected_node = node_id;
-        if let Some(node_id) = node_id {
-            let name = self.document.nodes.get(&node_id).as_ref().expect("Should exist").get_string_attribute("name");
+        if node_id.exists() {
+            let name = self.document.nodes.get(node_id).as_ref().expect("Should exist").get_string_attribute("name");
             self.selected_node_name = name.unwrap_or(String::new());
         }
         else {
@@ -50,27 +57,23 @@ impl SimpleApplication {
     }
 
     pub fn add_child(&mut self, parent_id: &NodeId, insertion_index: u64) {
-        let child_id = NodeId::default();
+        let child_id = self.document.next_id();
 
-        let c1 = Change::AddNode { id: child_id };
-        let c2 = Change::AddChild { parent: parent_id.clone(), child: child_id, insertion_index: insertion_index };
+        let c1 = Change::AddNode { id: child_id, parent: parent_id.clone() };
         self.document.add_and_apply_change(c1);
-        self.document.add_and_apply_change(c2);
     }
 
     pub fn remove_node(&mut self, node_id: &NodeId) {
-        let mut changes : Vec<Change> = vec![];
-        if let Some(node) = self.document.nodes.get(node_id) {
-            if let Some(parent) = node.parent {
-                changes.push(Change::RemoveChild { parent: parent.clone(), child: node_id.clone() });
-            }
+        let c = Change::DeleteNode { id: node_id.clone() };
+        self.document.add_and_apply_change(c);
+        self.select_node(NodeId::NO_NODE);
+        if !self.node_exists(self.root) {
+            self.root = NodeId::ROOT_NODE;
         }
-        changes.push(Change::DeleteNode { id: node_id.clone() });
-        for c in changes {
-            self.document.add_and_apply_change(c);
-        }
-        self.select_node(None);
-        self.roots = self.document.find_roots();
+    }
+
+    fn node_exists(&self, id: NodeId) -> bool {
+        self.document.nodes.exists(id)
     }
 
     pub fn commit(&mut self) {
@@ -78,9 +81,9 @@ impl SimpleApplication {
     }
 
     pub fn get_previous_sibling(&self, node_id: NodeId) -> Option<NodeId> {
-        if let Some(node) = self.document.nodes.get(&node_id) {
-            if let Some(parent) = node.parent {
-                let children = self.document.nodes.get(&parent).as_ref().expect("Should exist").children.clone();
+        if let Some(node) = self.document.nodes.get(node_id) {
+            if let parent = node.parent {
+                let children = self.document.nodes.get(parent).as_ref().expect("Should exist").children.clone();
                 let index = children.iter().position(|x| *x == node_id).expect("Should exist");
                 if index > 0 {
                     return Some(children[index - 1]);
@@ -91,9 +94,9 @@ impl SimpleApplication {
     }
 
     pub fn get_next_sibling(&self, node_id: NodeId) -> Option<NodeId> {
-        if let Some(node) = self.document.nodes.get(&node_id) {
-            if let Some(parent) = node.parent {
-                let children = self.document.nodes.get(&parent).as_ref().expect("Should exist").children.clone();
+        if let Some(node) = self.document.nodes.get(node_id) {
+            if let parent = node.parent {
+                let children = self.document.nodes.get(parent).as_ref().expect("Should exist").children.clone();
                 let index = children.iter().position(|x| *x == node_id).expect("Should exist");
                 if index < children.len() - 1 {
                     return Some(children[index + 1]);
@@ -104,16 +107,17 @@ impl SimpleApplication {
     }
 
     pub fn select_next(&mut self) {
-        if let Some(selected_node) = self.selected_node {
+        let selected_node = self.selected_node;
+        if selected_node.exists() {
             if self.expanded_nodes.contains(&selected_node) {
                 self.select_first_child();
             }
-            else if let Some(node) = self.document.nodes.get(&selected_node) {
+            else if let Some(node) = self.document.nodes.get(selected_node) {
                 if let Some(sibling) = self.get_next_sibling(selected_node) {
-                    self.select_node(Some(sibling));
+                    self.select_node(sibling);
                 }
-                else if let Some(parent) = node.parent {
-                    self.select_node(self.get_next_sibling(parent));
+                else if node.parent.exists() {
+                    self.get_next_sibling(node.parent).take().map(|x| self.select_node(x));
                 }
             }
         }
@@ -124,7 +128,7 @@ impl SimpleApplication {
     }
 
     pub fn select_previous(&mut self) {
-        if let Some(selected_node) = self.selected_node {
+       /* if let Some(selected_node) = self.selected_node {
             if let Some(sibling) = self.get_previous_sibling(selected_node) {
                 if self.is_node_expanded(sibling) && !self.document.nodes.get(&sibling).unwrap().children.is_empty() {
                     self.select_node(self.get_last_child(sibling));
@@ -134,53 +138,53 @@ impl SimpleApplication {
             } else {
                 self.select_parent()
             }
-        }
+        }*/
     }
 
     pub fn select_parent(&mut self) {
-        if let Some(selected_node) = self.selected_node {
+       /* if let Some(selected_node) = self.selected_node {
             if let Some(node) = self.document.nodes.get(&selected_node) {
                 if let Some(parent) = node.parent {
                     self.select_node(Some(parent));
                 }
             }
-        }
+        }*/
     }
 
     pub fn select_first_child(&mut self) {
-        if let Some(selected_node) = self.selected_node {
+        /*if let Some(selected_node) = self.selected_node {
             self.set_node_expanded(selected_node, true);
             if let Some(node) = self.document.nodes.get(&selected_node) {
                 if !node.children.is_empty() {
                     self.select_node(Some(node.children[0]));
                 }
             }
-        }
+        }*/
     }
 
     pub fn get_first_child(&self, node_id: NodeId) -> Option<NodeId> {
-        if let Some(node) = self.document.nodes.get(&node_id) {
+        /*if let Some(node) = self.document.nodes.get(&node_id) {
             if !node.children.is_empty() {
                 return Some(node.children[0]);
             }
-        }
+        }*/
         None
     }
 
     pub fn get_last_child(&self, node_id: NodeId) -> Option<NodeId> {
-        if let Some(node) = self.document.nodes.get(&node_id) {
+        /*if let Some(node) = self.document.nodes.get(&node_id) {
             if !node.children.is_empty() {
                 return Some(node.children[node.children.len() - 1]);
             }
-        }
+        }*/
         None
     }
 
     pub fn toggle_selected_node_expanded(&mut self) {
-        if let Some(selected_node) = self.selected_node {
+        /*if let Some(selected_node) = self.selected_node {
             let is_expanded = self.expanded_nodes.contains(&selected_node);
             self.set_node_expanded(selected_node, !is_expanded);
-        }
+        }*/
     }
 
     pub fn set_node_expanded(&mut self, node: NodeId, expanded: bool) {
@@ -261,8 +265,8 @@ pub fn save_document(document: &mut Document) -> io::Result<bool> {
 
 pub fn new_document() -> Document {
     let mut document = Document::new(Repository::new());
-    let root = NodeId::default();
-    document.add_and_apply_change(Change::AddNode { id: root.clone() });
-    document.add_and_apply_change(Change::SetString { node: root, attribute: "name".to_string(), value: "Root".to_string() });
+    let id = document.next_id();
+    document.add_and_apply_change(Change::AddNode { id: id, parent: NodeId::ROOT_NODE });
+    document.add_and_apply_change(Change::SetString { node: id, attribute: "name".to_string(), value: "Root".to_string() });
     document
 }

@@ -84,20 +84,20 @@ impl Change {
     {
         match self {
             Change::AddNode {id, parent} => {
-                nodes.add(id, parent);
+                nodes.add(*id, *parent);
             }
             Change::DeleteNode { id } => {
-                nodes.delete_recursive(id);
+                nodes.delete_recursive(*id);
             }
             Change::MoveNode {id, new_parent} => {
-                nodes.move_node(id, new_parent);
+                nodes.move_node(*id, *new_parent);
             }
             Change::SetString {node, attribute, value} => {
-                let x = nodes.get_mut(node).expect("Node not found");
+                let x = nodes.get_mut(*node).expect("Node not found");
                 x.set_string_attribute(attribute, value);
             }
             Change::SetBool {node, attribute, value} => {
-                let x = nodes.get_mut(node).expect("Node not found");
+                let x = nodes.get_mut(*node).expect("Node not found");
                 x.set_bool_attribute(attribute, *value);
             }
             Change::UnknownChange {change_type: _, data: _} => {

@@ -1,10 +1,10 @@
-use std::io;
-use std::io::{Read, Write};
 use crate::change::Change;
-use crate::node_id::NodeId;
+use crate::node_id::{NodeId, NodeIdGenerator};
 use crate::node_store::NodeStore;
 use crate::repository::Repository;
 use crate::revision::Revision;
+use std::io;
+use std::io::{Read, Write};
 
 #[derive(Debug, Clone)]
 pub enum AttributeValue {
@@ -30,6 +30,7 @@ pub struct Document {
     pub pending_changes: Box<Revision>,
     /// Changes that have been undone and can be redone
     pub undo_changes: Vec<Change>,
+    node_id_generator: NodeIdGenerator,
 }
 
 fn compute_nodes(repository: &Repository) -> NodeStore {
@@ -44,14 +45,30 @@ fn compute_nodes(repository: &Repository) -> NodeStore {
 
 impl Default for Document {
     fn default() -> Self {
-        Document { repository: Repository::new(), nodes: NodeStore::new(), pending_changes: Box::new(Revision::new()), undo_changes: Vec::new() }
+        Document {
+            repository: Repository::new(),
+            nodes: NodeStore::new(),
+            pending_changes: Box::new(Revision::new()),
+            undo_changes: Vec::new(),
+            node_id_generator: NodeIdGenerator::new(),
+        }
     }
 }
 
 impl Document {
+    pub fn next_id(&mut self) -> NodeId {
+        self.node_id_generator.next_id()
+    }
+
     pub fn new(repository: Repository) -> Document {
         let nodes = compute_nodes(&repository);
-        Document { repository, nodes, pending_changes: Box::new(Revision::new()), undo_changes: vec![] }
+        Document {
+            repository,
+            nodes,
+            pending_changes: Box::new(Revision::new()),
+            undo_changes: vec![],
+            node_id_generator: NodeIdGenerator::new(),
+        }
     }
 
     pub fn read(file: &mut dyn Read) -> io::Result<Document> {
@@ -84,13 +101,16 @@ impl Document {
         change.apply(&mut self.nodes);
 
         let last_change = self.pending_changes.changes.last();
-        let combined_change = if last_change.is_some() { change.combine_change(last_change.unwrap()) } else { None };
+        let combined_change = if last_change.is_some() {
+            change.combine_change(last_change.unwrap())
+        } else {
+            None
+        };
 
         if let Some(combined_change) = combined_change {
             self.pending_changes.changes.pop();
             self.pending_changes.changes.push(combined_change);
-        }
-        else {
+        } else {
             self.pending_changes.changes.push(change);
         }
     }
