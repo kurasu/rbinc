@@ -71,8 +71,8 @@ impl ChangeType {
 }
 
 pub enum Change {
-    AddNode {id: NodeId, parent: NodeId },
-    MoveNode {id: NodeId, new_parent: NodeId},
+    AddNode {id: NodeId, parent: NodeId, index_in_parent: u64},
+    MoveNode {id: NodeId, new_parent: NodeId, index_in_new_parent: u64},
     DeleteNode {id: NodeId },
     SetString {node: NodeId, attribute: String, value: String},
     SetBool {node: NodeId, attribute: String, value: bool},
@@ -83,14 +83,14 @@ impl Change {
     pub(crate) fn apply(&self, nodes: &mut NodeStore)
     {
         match self {
-            Change::AddNode {id, parent} => {
-                nodes.add(*id, *parent);
+            Change::AddNode {id, parent, index_in_parent} => {
+                nodes.add(*id, *parent, index_in_parent);
             }
             Change::DeleteNode { id } => {
                 nodes.delete_recursive(*id);
             }
-            Change::MoveNode {id, new_parent} => {
-                nodes.move_node(*id, *new_parent);
+            Change::MoveNode {id, new_parent, index_in_new_parent} => {
+                nodes.move_node(*id, *new_parent, index_in_new_parent);
             }
             Change::SetString {node, attribute, value} => {
                 let x = nodes.get_mut(*node).expect("Node not found");
@@ -113,7 +113,8 @@ impl Change {
             ChangeType::ADD_NODE => {
                 let id = r.read_id()?;
                 let parent = r.read_id()?;
-                Ok(Change::AddNode {id, parent})
+                let index_in_parent = r.read_length()?;
+                Ok(Change::AddNode {id, parent, index_in_parent})
             }
             ChangeType::REMOVE_NODE => {
                 let node = r.read_id()?;
@@ -122,7 +123,8 @@ impl Change {
             ChangeType::MOVE_NODE => {
                 let id = r.read_id()?;
                 let new_parent = r.read_id()?;
-                Ok(Change::MoveNode {id, new_parent})
+                let index_in_new_parent = r.read_length()?;
+                Ok(Change::MoveNode {id, new_parent, index_in_new_parent})
             }
             ChangeType::SET_STRING => {
                 let node = r.read_id()?;
@@ -146,13 +148,15 @@ impl Change {
 
     pub(crate) fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
         match self {
-            Change::AddNode {id, parent} => {
+            Change::AddNode {id, parent, index_in_parent} => {
                 w.write_id(id)?;
-                w.write_id(parent)
+                w.write_id(parent)?;
+                w.write_length(*index_in_parent)
             }
-            Change::MoveNode {id, new_parent} => {
+            Change::MoveNode {id, new_parent, index_in_new_parent} => {
                 w.write_id(id)?;
-                w.write_id(new_parent)
+                w.write_id(new_parent)?;
+                w.write_length(*index_in_new_parent)
             }
             Change::DeleteNode {id} => {
                 w.write_id(id)
@@ -175,8 +179,8 @@ impl Change {
 
     pub(crate) fn change_type(&self) -> u64 {
         match self {
-            Change::AddNode {id: _, parent: _} => ChangeType::ADD_NODE,
-            Change::MoveNode {id: _, new_parent: _} => ChangeType::MOVE_NODE,
+            Change::AddNode {id: _, parent: _, index_in_parent: _} => ChangeType::ADD_NODE,
+            Change::MoveNode {id: _, new_parent: _, index_in_new_parent: _} => ChangeType::MOVE_NODE,
             Change::DeleteNode {id: _} => ChangeType::REMOVE_NODE,
             Change::SetString {node: _, attribute: _, value: _} => ChangeType::SET_STRING,
             Change::SetBool {node: _, attribute: _, value: _} => ChangeType::SET_BOOL,
@@ -208,8 +212,8 @@ impl Change {
 impl Display for Change {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Change::AddNode {id, parent} => write!(f, "AddNode({} in {})", id, parent),
-            Change::MoveNode {id, new_parent} => write!(f, "MoveNode({} to {})", id, new_parent),
+            Change::AddNode {id, parent, index_in_parent} => write!(f, "AddNode({} in {}[{}])", id, parent, index_in_parent),
+            Change::MoveNode {id, new_parent, index_in_new_parent} => write!(f, "MoveNode({} to {}[{}])", id, new_parent, index_in_new_parent),
             Change::DeleteNode {id} => write!(f, "RemoveNode({})", id),
             Change::SetString {node, attribute, value} => write!(f, "SetString({}, {} = {})", node, attribute, value),
             Change::SetBool {node, attribute, value} => write!(f, "SetBool({}, {} = {})", node, attribute, value),
