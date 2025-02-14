@@ -7,6 +7,12 @@ pub struct Changes {
 }
 
 impl Changes {
+    pub fn new() -> Changes {
+        Changes::default()
+    }
+}
+
+impl Changes {
     pub fn add_node(&mut self, id: NodeId, parent: NodeId, index_in_parent: u64) -> &mut Self {
         self.changes.push(Change::AddNode { id, parent, index_in_parent });
         self

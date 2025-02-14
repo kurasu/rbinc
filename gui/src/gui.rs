@@ -267,9 +267,9 @@ pub fn save_document(document: &mut Document) -> io::Result<bool> {
 pub fn new_document() -> Document {
     let mut document = Document::new(Repository::new());
     let id = document.next_id();
-    let changes = Changes::default()
-        .add_node(id, NodeId::ROOT_NODE, 0)
+    let mut changes = Changes::new();
+    changes.add_node(id, NodeId::ROOT_NODE, 0)
         .set_string(id, "name".to_string(), "First".to_string());
-    document.apply_changes(changes);
+    document.apply_changes(&changes);
     document
 }
