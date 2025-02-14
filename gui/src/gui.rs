@@ -126,7 +126,7 @@ impl SimpleApplication {
     pub fn select_next(&mut self) {
         let selected_node = self.ui.selected_node;
         if selected_node.exists() {
-            if self.is_node_expanded(selected_node) {
+            if self.is_node_expanded(selected_node) && !self.get(selected_node).unwrap().children.is_empty() {
                 self.select_first_child();
             }
             else if let Some(node) = self.document.nodes.get(selected_node) {
@@ -149,7 +149,7 @@ impl SimpleApplication {
 
         if selected_node.exists() {
             if let Some(sibling) = self.get_previous_sibling(selected_node) {
-                if self.is_node_expanded(sibling) && self.document.nodes.get(sibling).unwrap().children.is_empty() {
+                if self.is_node_expanded(sibling) && !self.get(sibling).unwrap().children.is_empty() {
                     self.select_node(self.get_last_child(sibling).unwrap());
                 } else {
                     self.select_node(sibling);
