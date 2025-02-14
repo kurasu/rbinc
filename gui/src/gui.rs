@@ -6,6 +6,7 @@ use rfd::MessageLevel::Error;
 use binc::document::Document;
 use binc::repository::Repository;
 use binc::change::Change;
+use binc::changes::Changes;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
 
@@ -266,7 +267,9 @@ pub fn save_document(document: &mut Document) -> io::Result<bool> {
 pub fn new_document() -> Document {
     let mut document = Document::new(Repository::new());
     let id = document.next_id();
-    document.add_and_apply_change(Change::AddNode { id: id, parent: NodeId::ROOT_NODE, index_in_parent: 0 });
-    document.add_and_apply_change(Change::SetString { node: id, attribute: "name".to_string(), value: "First".to_string() });
+    let changes = Changes::default()
+        .add_node(id, NodeId::ROOT_NODE, 0)
+        .set_string(id, "name".to_string(), "First".to_string());
+    document.apply_changes(changes);
     document
 }

@@ -1,4 +1,5 @@
 use crate::change::Change;
+use crate::changes::Changes;
 use crate::node_id::{NodeId, NodeIdGenerator};
 use crate::node_store::NodeStore;
 use crate::repository::Repository;
@@ -94,6 +95,14 @@ impl Document {
 
     pub fn find_roots(&self) -> &Vec<NodeId> {
         self.nodes.find_roots()
+    }
+
+    pub fn apply_changes(&mut self, changes: &Changes) -> &mut Self
+    {
+        for change in &changes.changes {
+            change.apply(&mut self.nodes);
+        }
+        self
     }
 
     pub fn add_and_apply_change(&mut self, change: Change) {

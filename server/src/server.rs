@@ -2,7 +2,7 @@ use std::{fs, io};
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use binc::iowrappers::*;
+use binc::readwrite::*;
 
 pub(crate) fn server() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();

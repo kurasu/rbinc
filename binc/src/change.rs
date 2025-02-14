@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 use std::io;
 use std::io::{Read, Write};
 use crate::node_id::NodeId;
-use crate::iowrappers::{ReadExt, WriteExt};
+use crate::readwrite::{ReadExt, WriteExt};
 use crate::node_store::{Node, NodeStore};
 
 pub(crate) struct ChangeType;
@@ -70,6 +70,7 @@ impl ChangeType {
     pub const ERROR: u64 = 0x7FFFFF; // Only used internally
 }
 
+#[derive(Debug, Clone)]
 pub enum Change {
     AddNode {id: NodeId, parent: NodeId, index_in_parent: u64},
     MoveNode {id: NodeId, new_parent: NodeId, index_in_new_parent: u64},
