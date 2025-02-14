@@ -11,13 +11,25 @@ use binc::changes::Changes;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct UiState {
     pub root: NodeId,
     pub selected_node: NodeId,
     pub selected_node_name: String,
     pub expanded_nodes: HashSet<NodeId>,
     pub is_editing: bool
+}
+
+impl Default for UiState {
+    fn default() -> Self {
+        UiState {
+            root: NodeId::ROOT_NODE,
+            selected_node: NodeId::NO_NODE,
+            selected_node_name: String::new(),
+            expanded_nodes: HashSet::new(),
+            is_editing: false
+        }
+    }
 }
 
 pub struct SimpleApplication {

@@ -185,12 +185,12 @@ fn create_history(ui: &mut Ui, app: &SimpleApplication, actions: &mut Vec<GuiAct
 }
 
 fn create_tree(ui: &mut Ui, app: &mut SimpleApplication, actions: &mut Vec<GuiAction>) {
-    create_node_tree(ui, app.ui.root, app, actions, 0);
+    //create_node_tree(ui, app.ui.root, app, actions, 0);
+    create_node_tree_children(app, app.ui.root, actions, ui);
 }
 
 fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actions: &mut Vec<GuiAction>, index_in_parent: usize) {
     if let Some(node) = app.document.nodes.get(node_id) {
-        let children = &node.children.clone();
         let id_string = format!("{}: ID{}", index_in_parent, node_id.index());
         let name = node.get_string_attribute("name");
         let mut node_name = name.unwrap_or(String::new()).clone();
@@ -235,18 +235,24 @@ fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actio
 
             if is_expanded {
                 ui.indent(node_id, |ui| {
-                    let mut index: usize = 0;
-                    for child_id in children {
-                        create_node_tree(ui, *child_id, app, actions, index);
-                        index += 1;
-                    }
-                    let add_button = ui.label("⊞").on_hover_text("Add child node");
-                    if add_button.clicked() {
-                        actions.push(GuiAction::AddNode { parent: node_id, index: children.len() as u64 });
-                    }
+                    create_node_tree_children(app, node_id, actions, ui);
                 });
             }
         });
+    }
+}
+
+fn create_node_tree_children(app: &SimpleApplication, node_id: NodeId, actions: &mut Vec<GuiAction>, ui: &mut Ui) {
+    let mut index: usize = 0;
+    let children =  &app.document.nodes.get(node_id).expect("").children;
+    
+    for child_id in children {
+        create_node_tree(ui, *child_id, app, actions, index);
+        index += 1;
+    }
+    let add_button = ui.label("⊞").on_hover_text("Add child node");
+    if add_button.clicked() {
+        actions.push(GuiAction::AddNode { parent: node_id, index: children.len() as u64 });
     }
 }
 
