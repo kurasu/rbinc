@@ -1,5 +1,4 @@
 use std::ops::Deref;
-use std::ptr::copy_nonoverlapping;
 use crate::document::{AttributeValue};
 use crate::node_id::NodeId;
 
@@ -92,7 +91,14 @@ pub struct AttributeEntry {
 }
 
 impl AttributeStore {
-    pub fn insert(&mut self, key: &str, value: AttributeValue) {
+    pub fn set(&mut self, key: &str, value: AttributeValue) {
+        for a in &mut self.attributes {
+            if a.key == key {
+                a.value = value;
+                return;
+            }
+        }
+
         self.attributes.push(AttributeEntry { key: key.to_string(), value });
     }
 
@@ -136,7 +142,7 @@ impl Node {
     }*/
 
     pub fn set_attribute(&mut self, key: &str, value: AttributeValue) {
-        self.attributes.insert(key, value);
+        self.attributes.set(key, value);
     }
 
     pub fn get_attribute(&self, key: &str) -> Option<&AttributeValue> {
@@ -144,7 +150,11 @@ impl Node {
     }
 
     pub fn set_string_attribute(&mut self, key: &String, value: &String) {
-        self.attributes.insert(key, AttributeValue::String(value.clone()));
+        self.set_attribute(key, AttributeValue::String(value.clone()));
+    }
+
+    pub fn set_bool_attribute(&mut self, key: &String, value: bool) {
+        self.set_attribute(key, AttributeValue::Bool(value));
     }
 
     pub fn get_string_attribute(&self, key: &str) -> Option<String> {
@@ -152,10 +162,6 @@ impl Node {
             Some(AttributeValue::String(s)) => Some(s.clone()),
             _ => None,
         }
-    }
-
-    pub fn set_bool_attribute(&mut self, key: &String, value: bool) {
-        self.attributes.insert(key, AttributeValue::Bool(value));
     }
 
     pub fn get_bool_attribute(&self, key: &str) -> Option<bool> {
