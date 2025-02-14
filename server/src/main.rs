@@ -5,7 +5,6 @@ use clap::{Parser, Subcommand};
 use binc::document::{AttributeValue, Document};
 use binc::node_id::NodeId;
 use binc::repository::Repository;
-use binc::util::shorten_uuid;
 
 /// A simple command line tool for creating, manipulating, viewing and serving BINC documents
 #[derive(Parser, Debug)]
