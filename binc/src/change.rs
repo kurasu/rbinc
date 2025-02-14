@@ -84,13 +84,13 @@ impl Change {
     {
         match self {
             Change::AddNode {id, parent, index_in_parent} => {
-                nodes.add(*id, *parent, index_in_parent);
+                nodes.add(*id, *parent, *index_in_parent as usize);
             }
             Change::DeleteNode { id } => {
                 nodes.delete_recursive(*id);
             }
             Change::MoveNode {id, new_parent, index_in_new_parent} => {
-                nodes.move_node(*id, *new_parent, index_in_new_parent);
+                nodes.move_node(*id, *new_parent, *index_in_new_parent as usize);
             }
             Change::SetString {node, attribute, value} => {
                 let x = nodes.get_mut(*node).expect("Node not found");

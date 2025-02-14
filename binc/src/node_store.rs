@@ -27,7 +27,7 @@ impl FlatNodeStore {
         self.nodes.get(id.index()).is_some()
     }
 
-    pub(crate) fn add(&mut self, id: NodeId, parent: NodeId) {
+    pub(crate) fn add(&mut self, id: NodeId, parent: NodeId, index_in_parent: usize) {
         let i = id.index();
         let p = parent.index();
 
@@ -36,7 +36,7 @@ impl FlatNodeStore {
         }
 
         self.nodes[i] = Node::new_with_id(id.clone());
-        self.nodes[p].children.push(id.clone());
+        self.nodes[p].children.insert(index_in_parent, id.clone());
     }
 
     pub(crate) fn delete_recursive(&mut self, id: NodeId) {
@@ -49,13 +49,13 @@ impl FlatNodeStore {
         self.nodes[i] = Node::default();
     }
 
-    pub (crate) fn move_node(&mut self, id: NodeId, new_parent: NodeId) {
+    pub (crate) fn move_node(&mut self, id: NodeId, new_parent: NodeId, index_in_new_parent: usize) {
         let i = id.index();
         let p1 = self.nodes[i].parent.index();
         let p2 = new_parent.index();
 
         self.nodes[p1].children.retain(|x| *x != id);
-        self.nodes[p2].children.push(id.clone());
+        self.nodes[p2].children.insert(index_in_new_parent, id.clone());
         self.nodes[i].parent = new_parent.clone();
     }
 
@@ -182,7 +182,7 @@ mod tests {
     fn test_insert_and_get_node() {
         let mut store = FlatNodeStore::new();
         let node_id = NodeId::new(1);
-        store.add(node_id, NodeId::ROOT_NODE);
+        store.add(node_id, NodeId::ROOT_NODE, 0);
         assert!(store.get(node_id).is_some());
         assert!(store.get(node_id).expect("Node not found").parent == NodeId::ROOT_NODE);
         assert!(store.get(node_id).expect("Node not found").id == node_id);
@@ -203,7 +203,7 @@ mod tests {
         let roots = store.find_roots();
         assert_eq!(roots.len(), 0);
         let node_id = NodeId::new(1);
-        store.add(node_id, NodeId::ROOT_NODE);
+        store.add(node_id, NodeId::ROOT_NODE, 0);
         let roots = store.find_roots();
         assert_eq!(roots.len(), 1);
         assert!(roots[0] == node_id);

@@ -59,7 +59,7 @@ impl SimpleApplication {
     pub fn add_child(&mut self, parent_id: &NodeId, insertion_index: u64) {
         let child_id = self.document.next_id();
 
-        let c1 = Change::AddNode { id: child_id, parent: parent_id.clone() };
+        let c1 = Change::AddNode { id: child_id, parent: parent_id.clone(), index_in_parent: insertion_index };
         self.document.add_and_apply_change(c1);
     }
 
@@ -266,7 +266,7 @@ pub fn save_document(document: &mut Document) -> io::Result<bool> {
 pub fn new_document() -> Document {
     let mut document = Document::new(Repository::new());
     let id = document.next_id();
-    document.add_and_apply_change(Change::AddNode { id: id, parent: NodeId::ROOT_NODE });
-    document.add_and_apply_change(Change::SetString { node: id, attribute: "name".to_string(), value: "Root".to_string() });
+    document.add_and_apply_change(Change::AddNode { id: id, parent: NodeId::ROOT_NODE, index_in_parent: 0 });
+    document.add_and_apply_change(Change::SetString { node: id, attribute: "name".to_string(), value: "First".to_string() });
     document
 }
