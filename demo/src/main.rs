@@ -1,14 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(rustdoc::missing_crate_level_docs)]
 
-use std::any::Any;
 use eframe::egui;
-use eframe::egui::{Button, Context, Image, RichText, Ui, Widget};
-use binc::document::{AttributeValue, Node};
-use uuid::Uuid;
+use eframe::egui::{Context, RichText, Ui};
 use binc::change::Change;
-use binc::id::NodeId;
-use binc::util::shorten_uuid;
+use binc::node_id::NodeId;
+use binc::node_store::Node;
 use gui::gui::*;
 
 enum GuiAction {
@@ -38,6 +35,9 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
+    let mut name = "hello".to_string(); //&mut app.selected_node_name;
+    
+
     eframe::run_simple_native("BINC Demo", options, move |ctx, _frame| {
         let mut actions: Vec<GuiAction> = vec![];
 
@@ -48,8 +48,7 @@ fn main() -> eframe::Result {
             create_toolbar(&mut app, ui);
         });
         egui::SidePanel::right("inspector_panel").default_width(200f32).show(ctx, |ui| {
-            let selected_node = if let Some(id) = &app.selected_node { app.document.nodes.get(id) } else { None };
-            create_inspector(ui, selected_node, &mut app.selected_node_name, &mut actions);
+            create_inspector(ui, app.get_selected_node(), &mut name, &mut actions);
         });
         egui::TopBottomPanel::bottom("history_panel").default_height(160f32).show(ctx, |ui| {
             egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
@@ -67,7 +66,7 @@ fn main() -> eframe::Result {
     })
 }
 
-fn check_keyboard(ctx: &Context, app: &SimpleApplication, mut actions: &mut Vec<GuiAction>) {
+fn check_keyboard(ctx: &Context, app: &SimpleApplication, actions: &mut Vec<GuiAction>) {
     if ctx.input(|i| i.key_pressed(egui::Key::Z) && i.modifiers.command) {
         actions.push(GuiAction::Undo);
     }
@@ -81,10 +80,11 @@ fn check_keyboard(ctx: &Context, app: &SimpleApplication, mut actions: &mut Vec<
         actions.push(GuiAction::SelectNext);
     }
 
-    if !app.is_editing {
-        if let Some(node) = app.selected_node {
+    if !app.ui.is_editing {
+        if app.ui.selected_node.exists() {
+            let node = app.ui.selected_node;
             if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
-                if app.expanded_nodes.contains(&node) {
+                if app.is_node_expanded(node) {
                     actions.push(GuiAction::SetNodeExpanded { node, expanded: false });
                 } else {
                     actions.push(GuiAction::SelectParent);
@@ -107,7 +107,7 @@ fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
     {
         Some(action) => {
             match action {
-                GuiAction::SelectNode { node } => app.select_node(Some(node)),
+                GuiAction::SelectNode { node } => app.select_node(node),
                 GuiAction::AddNode { parent, index } => app.add_child(&parent, index),
                 GuiAction::RemoveNode { node } => app.remove_node(&node),
                 GuiAction::Commit => app.commit(),
@@ -147,9 +147,9 @@ fn create_inspector(ui: &mut Ui, node: Option<&Node>, node_name: &mut String, ac
                 ui.label(node.id.to_string());
                 ui.end_row();
 
-                for (key, value) in &node.attributes {
-                    ui.label(key);
-                    ui.label(format!("{}", value));
+                for at in node.attributes.iter() {
+                    ui.label(&at.key);
+                    ui.label(format!("{}", at.value));
                     ui.end_row();
                 }
             });
@@ -173,8 +173,8 @@ fn create_history(ui: &mut Ui, app: &SimpleApplication, actions: &mut Vec<GuiAct
         }
     }
     let pending = &app.document.pending_changes;
-    ui.collapsing("Pending", |ui| {
-        if ui.button("Commit").clicked() {
+    ui.collapsing("Pending changes", |ui| {
+        if ui.button("Snapshot").clicked() {
             actions.push(GuiAction::Commit);
         }
         for change in &pending.changes {
@@ -184,85 +184,75 @@ fn create_history(ui: &mut Ui, app: &SimpleApplication, actions: &mut Vec<GuiAct
     ui.allocate_space(ui.available_size());
 }
 
-fn attribute_value_to_string(value: &dyn Any) -> String {
-    if let Some(value) = value.downcast_ref::<String>() {
-        value.clone()
-    } else if let Some(value) = value.downcast_ref::<&str>() {
-        value.to_string()
-    } else if let Some(value) = value.downcast_ref::<bool>() {
-        value.to_string()
-    } else if let Some(value) = value.downcast_ref::<i32>() {
-        value.to_string()
-    } else if let Some(value) = value.downcast_ref::<f64>() {
-        value.to_string()
-    } else {
-        "None".to_string()
-    }
-}
-
 fn create_tree(ui: &mut Ui, app: &mut SimpleApplication, actions: &mut Vec<GuiAction>) {
-    for root in app.roots.clone() {
-        create_node_tree(ui, &root, app, actions);
-    }
+    //create_node_tree(ui, app.ui.root, app, actions, 0);
+    create_node_tree_children(app, app.ui.root, actions, ui);
 }
 
-fn create_node_tree(ui: &mut Ui, node_id: &NodeId, app: &SimpleApplication, actions: &mut Vec<GuiAction>) {
+fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actions: &mut Vec<GuiAction>, index_in_parent: usize) {
     if let Some(node) = app.document.nodes.get(node_id) {
-        let children = &node.children.clone();
-        let id_string = format!("ID: {:?}", shorten_uuid(node_id));
+        let id_string = format!("{}: ID{}", index_in_parent, node_id.index());
         let name = node.get_string_attribute("name");
         let mut node_name = name.unwrap_or(String::new()).clone();
         let label = get_label(id_string, &node_name);
-        let selected = app.selected_node == Some(*node_id);
+        let selected = app.ui.selected_node == node_id;
         let mut text = RichText::new(label);
         if selected {
             text = text.color(ui.visuals().strong_text_color());
         }
-        let is_expanded = app.expanded_nodes.contains(node_id);
+        let is_expanded = app.is_node_expanded(node_id);
 
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 let expand_icon = if is_expanded { "⏷" } else { "⏵" };
                 if ui.label(expand_icon).on_hover_text("Expand/collapse node").clicked() {
-                    actions.push(GuiAction::SetNodeExpanded { node: *node_id, expanded: !is_expanded });
+                    actions.push(GuiAction::SetNodeExpanded { node: node_id, expanded: !is_expanded });
                 }
 
                 let mut checked = node.get_bool_attribute("completed").unwrap_or(false);
                 if ui.checkbox(&mut checked, "").clicked() {
-                    actions.push(GuiAction::WrappedChange { change: Change::SetBool { node: *node_id, attribute: "completed".to_string(), value: checked } });
+                    actions.push(GuiAction::WrappedChange { change: Change::SetBool { node: node_id, attribute: "completed".to_string(), value: checked } });
                 }
 
-                if selected && app.is_editing {
+                if selected && app.ui.is_editing {
                     let text_edit = ui.text_edit_singleline(&mut node_name);
                     text_edit.request_focus();
                     if text_edit.changed() {
-                        actions.push(GuiAction::WrappedChange { change: Change::SetString { node: *node_id, attribute: "name".to_string(), value: node_name.clone() } });
+                        actions.push(GuiAction::WrappedChange { change: Change::SetString { node: node_id, attribute: "name".to_string(), value: node_name.clone() } });
                     }
                 } else {
                     let label = ui.label(text);
-                    if label.clicked() { actions.push(GuiAction::SelectNode { node: *node_id }); }
+                    if label.clicked() { actions.push(GuiAction::SelectNode { node: node_id }); }
                     if label.double_clicked() { actions.push(GuiAction::ToggleEditing); }
                 }
 
                 ui.spacing();
 
                 if selected {
-                    if ui.label("✖").clicked() { actions.push(GuiAction::RemoveNode { node: *node_id }); }
+                    if ui.label("✖").clicked() { actions.push(GuiAction::RemoveNode { node: node_id }); }
                 }
             });
 
             if is_expanded {
                 ui.indent(node_id, |ui| {
-                    for child_id in children {
-                        create_node_tree(ui, child_id, app, actions);
-                    }
-                    let add_button = ui.label("⊞").on_hover_text("Add child node");
-                    if add_button.clicked() {
-                        actions.push(GuiAction::AddNode { parent: *node_id, index: children.len() as u64 });
-                    }
+                    create_node_tree_children(app, node_id, actions, ui);
                 });
             }
         });
+    }
+}
+
+fn create_node_tree_children(app: &SimpleApplication, node_id: NodeId, actions: &mut Vec<GuiAction>, ui: &mut Ui) {
+    let mut index: usize = 0;
+    let children =  &app.document.nodes.get(node_id).expect("").children;
+    
+    for child_id in children {
+        create_node_tree(ui, *child_id, app, actions, index);
+        index += 1;
+    }
+    let add_button = ui.label("⊞").on_hover_text("Add child node");
+    if add_button.clicked() {
+        actions.push(GuiAction::AddNode { parent: node_id, index: children.len() as u64 });
     }
 }
 

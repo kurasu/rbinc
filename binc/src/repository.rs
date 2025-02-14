@@ -1,7 +1,7 @@
 use io::Write;
 use std::io;
 use std::io::Read;
-use crate::iowrappers::{ReadExt, WriteExt};
+use crate::readwrite::{ReadExt, WriteExt};
 use crate::revision::*;
 
 pub struct Repository {

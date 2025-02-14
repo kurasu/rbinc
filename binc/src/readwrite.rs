@@ -1,6 +1,6 @@
 use std::io::{self, Error, ErrorKind, Read, Write};
 use uuid::Uuid;
-use crate::id::NodeId;
+use crate::node_id::NodeId;
 
 /// Extend `Write` with additional methods for writing primitive types.
 pub trait WriteExt: Write {
@@ -79,7 +79,7 @@ pub trait WriteExt: Write {
     }
     
     fn write_id(&mut self, id: &NodeId) -> io::Result<()> {
-        self.write_uuid(&id.id)
+        self.write_length(id.id as u64)
     }
 
     fn write_uuid(&mut self, value: &Uuid) -> io::Result<()> {
@@ -207,7 +207,7 @@ pub trait ReadExt: Read {
     }
 
     fn read_id(&mut self) -> io::Result<NodeId> {
-        self.read_uuid().map(|id| NodeId {id})
+        self.read_length().map(|id| NodeId {id: id as usize})
     }
 
     fn read_uuid(&mut self) -> io::Result<Uuid> {

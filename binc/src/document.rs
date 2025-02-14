@@ -1,11 +1,13 @@
-use std::collections::HashMap;
-use std::io;
-use std::io::{Read, Write};
 use crate::change::Change;
-use crate::id::{NodeId, NodeStore};
+use crate::changes::Changes;
+use crate::node_id::{NodeId, NodeIdGenerator};
+use crate::node_store::NodeStore;
 use crate::repository::Repository;
 use crate::revision::Revision;
+use std::io;
+use std::io::{Read, Write};
 
+#[derive(Debug, Clone)]
 pub enum AttributeValue {
     String(String),
     Bool(bool),
@@ -20,51 +22,6 @@ impl std::fmt::Display for AttributeValue {
     }
 }
 
-pub struct Node {
-    pub id: NodeId,
-    pub parent: Option<NodeId>,
-    pub children: Vec<NodeId>,
-    pub attributes: HashMap<String, AttributeValue>
-}
-
-impl Node {
-
-    pub fn new_with_id(id: &NodeId) -> Node {
-        Node {
-            id: id.clone(),
-            parent: None,
-            children: vec![],
-            attributes: HashMap::new(),
-        }
-    }
-
-    /*pub fn set_attribute<T>(&mut self, key: String, value: T) {
-        self.attributes.insert(key, Box::new(value));
-    }*/
-
-    pub fn set_string_attribute(&mut self, key: &String, value: &String) {
-        self.attributes.insert(key.clone(), AttributeValue::String(value.clone()));
-    }
-
-    pub fn get_string_attribute(&self, key: &str) -> Option<String> {
-        match self.attributes.get(key) {
-            Some(AttributeValue::String(s)) => Some(s.clone()),
-            _ => None,
-        }
-    }
-
-    pub fn set_bool_attribute(&mut self, key: &String, value: bool) {
-        self.attributes.insert(key.clone(), AttributeValue::Bool(value));
-    }
-
-    pub fn get_bool_attribute(&self, key: &str) -> Option<bool> {
-        match self.attributes.get(key) {
-            Some(AttributeValue::Bool(s)) => Some(s.clone()),
-            _ => None,
-        }
-    }
-}
-
 pub struct Document {
     /// Repository containing all revisions
     pub repository: Repository,
@@ -74,6 +31,7 @@ pub struct Document {
     pub pending_changes: Box<Revision>,
     /// Changes that have been undone and can be redone
     pub undo_changes: Vec<Change>,
+    node_id_generator: NodeIdGenerator,
 }
 
 fn compute_nodes(repository: &Repository) -> NodeStore {
@@ -88,14 +46,30 @@ fn compute_nodes(repository: &Repository) -> NodeStore {
 
 impl Default for Document {
     fn default() -> Self {
-        Document { repository: Repository::new(), nodes: NodeStore::new(), pending_changes: Box::new(Revision::new()), undo_changes: Vec::new() }
+        Document {
+            repository: Repository::new(),
+            nodes: NodeStore::new(),
+            pending_changes: Box::new(Revision::new()),
+            undo_changes: Vec::new(),
+            node_id_generator: NodeIdGenerator::new(),
+        }
     }
 }
 
 impl Document {
+    pub fn next_id(&mut self) -> NodeId {
+        self.node_id_generator.next_id()
+    }
+
     pub fn new(repository: Repository) -> Document {
         let nodes = compute_nodes(&repository);
-        Document { repository, nodes, pending_changes: Box::new(Revision::new()), undo_changes: vec![] }
+        Document {
+            repository,
+            nodes,
+            pending_changes: Box::new(Revision::new()),
+            undo_changes: vec![],
+            node_id_generator: NodeIdGenerator::new(),
+        }
     }
 
     pub fn read(file: &mut dyn Read) -> io::Result<Document> {
@@ -107,7 +81,7 @@ impl Document {
         self.nodes = compute_nodes(&self.repository);
 
         for change in &self.pending_changes.changes {
-            change.apply(&mut self.nodes).expect("Error applying change");
+            change.apply(&mut self.nodes);
         }
     }
 
@@ -119,22 +93,33 @@ impl Document {
         self.nodes.len()
     }
 
-    pub fn find_roots(&self) -> Vec<NodeId> {
+    pub fn find_roots(&self) -> &Vec<NodeId> {
         self.nodes.find_roots()
+    }
+
+    pub fn apply_changes(&mut self, changes: &Changes) -> &mut Self
+    {
+        for change in &changes.changes {
+            change.apply(&mut self.nodes);
+        }
+        self
     }
 
     pub fn add_and_apply_change(&mut self, change: Change) {
         self.undo_changes.clear();
-        change.apply(&mut self.nodes).expect("Error applying change");
+        change.apply(&mut self.nodes);
 
         let last_change = self.pending_changes.changes.last();
-        let combined_change = if last_change.is_some() { change.combine_change(last_change.unwrap()) } else { None };
+        let combined_change = if last_change.is_some() {
+            change.combine_change(last_change.unwrap())
+        } else {
+            None
+        };
 
         if let Some(combined_change) = combined_change {
             self.pending_changes.changes.pop();
             self.pending_changes.changes.push(combined_change);
-        }
-        else {
+        } else {
             self.pending_changes.changes.push(change);
         }
     }
