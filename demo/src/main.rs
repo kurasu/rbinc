@@ -84,7 +84,7 @@ fn check_keyboard(ctx: &Context, app: &SimpleApplication, actions: &mut Vec<GuiA
         if app.ui.selected_node.exists() {
             let node = app.ui.selected_node;
             if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
-                if app.ui.expanded_nodes.contains(&node) {
+                if app.is_node_expanded(node) {
                     actions.push(GuiAction::SetNodeExpanded { node, expanded: false });
                 } else {
                     actions.push(GuiAction::SelectParent);
@@ -200,7 +200,7 @@ fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actio
         if selected {
             text = text.color(ui.visuals().strong_text_color());
         }
-        let is_expanded = app.ui.expanded_nodes.contains(&node_id);
+        let is_expanded = app.is_node_expanded(node_id);
 
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
