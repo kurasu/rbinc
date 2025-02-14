@@ -7,6 +7,12 @@ pub struct Changes {
 }
 
 impl Changes {
+    pub fn add_change(&self, p0: Change) {
+        todo!()
+    }
+}
+
+impl Changes {
     pub fn new() -> Changes {
         Changes::default()
     }
@@ -28,13 +34,13 @@ impl Changes {
         self
     }
 
-    pub fn set_string(&mut self, node: NodeId, attribute: String, value: String) -> &mut Self {
-        self.changes.push(Change::SetString { node, attribute, value });
+    pub fn set_string(&mut self, node: NodeId, attribute: &str, value: &str) -> &mut Self {
+        self.changes.push(Change::SetString { node, attribute: attribute.to_string(), value: value.to_string() });
         self
     }
 
-    pub fn set_bool(&mut self, node: NodeId, attribute: String, value: bool) -> &mut Self {
-        self.changes.push(Change::SetBool { node, attribute, value });
+    pub fn set_bool(&mut self, node: NodeId, attribute: &str, value: bool) -> &mut Self {
+        self.changes.push(Change::SetBool { node, attribute: attribute.to_string(), value });
         self
     }
 }

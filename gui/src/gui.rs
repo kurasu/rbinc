@@ -269,7 +269,7 @@ pub fn new_document() -> Document {
     let id = document.next_id();
     let mut changes = Changes::new();
     changes.add_node(id, NodeId::ROOT_NODE, 0)
-        .set_string(id, "name".to_string(), "First".to_string());
+        .set_string(id, "name", "First");
     document.apply_changes(&changes);
     document
 }

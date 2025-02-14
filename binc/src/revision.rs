@@ -6,6 +6,7 @@ use crate::readwrite::WriteExt;
 use chrono::Utc;
 use whoami::username;
 use crate::change::Change;
+use crate::changes::Changes;
 
 pub struct Revision {
     pub changes: Vec<Change>,
@@ -15,6 +16,14 @@ pub struct Revision {
     pub user_name: String,
     pub message: String,
     pub tags: Vec<String>,
+}
+
+impl From<Changes> for Revision {
+    fn from(changes: Changes) -> Self {
+        let mut revision = Revision::new();
+        revision.changes = changes.changes;
+        revision
+    }
 }
 
 impl Revision {

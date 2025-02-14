@@ -34,7 +34,7 @@ impl FlatNodeStore {
             self.nodes.resize_with(i + 1, || Node::default());
         }
 
-        self.nodes[i] = Node::new_with_id(id.clone());
+        self.nodes[i] = Node::new_with_id(id, parent);
         self.nodes[p].children.insert(index_in_parent, id.clone());
     }
 
@@ -44,7 +44,9 @@ impl FlatNodeStore {
             self.delete_recursive(c);
         }
         let p = self.nodes[i].parent.index();
-        self.nodes[p].children.retain(|x| *x != id);
+
+        let position = self.nodes[p].get_child_index(id).expect("Node not found");
+        self.nodes[p].children.remove(position);
         self.nodes[i] = Node::default();
     }
 
@@ -128,10 +130,10 @@ impl Default for Node {
 
 impl Node {
 
-    pub fn new_with_id(id: NodeId) -> Node {
+    pub fn new_with_id(id: NodeId, parent: NodeId) -> Node {
         Node {
             id,
-            parent: NodeId::ROOT_NODE,
+            parent,
             children: vec![],
             attributes: AttributeStore::default(),
         }
@@ -149,11 +151,11 @@ impl Node {
         self.attributes.get(key)
     }
 
-    pub fn set_string_attribute(&mut self, key: &String, value: &String) {
+    pub fn set_string_attribute(&mut self, key: &str, value: &String) {
         self.set_attribute(key, AttributeValue::String(value.clone()));
     }
 
-    pub fn set_bool_attribute(&mut self, key: &String, value: bool) {
+    pub fn set_bool_attribute(&mut self, key: &str, value: bool) {
         self.set_attribute(key, AttributeValue::Bool(value));
     }
 
@@ -169,6 +171,10 @@ impl Node {
             Some(AttributeValue::Bool(s)) => Some(s.clone()),
             _ => None,
         }
+    }
+
+    pub (crate) fn get_child_index(&self, id: NodeId) -> Option<usize> {
+        self.children.iter().position(|x| *x == id)
     }
 }
 
@@ -196,7 +202,7 @@ mod tests {
 
     #[test]
     fn test_set_and_get_attribute() {
-        let mut node = Node::new_with_id(NodeId::new(1));
+        let mut node = Node::new_with_id(NodeId::new(1), NodeId::ROOT_NODE);
         node.set_string_attribute(&"key".to_string(), &"value".to_string());
         assert_eq!(node.get_string_attribute("key"), Some("value".to_string()));
     }
@@ -204,7 +210,7 @@ mod tests {
     #[test]
     fn test_find_roots() {
         let mut store = FlatNodeStore::new();
-        let root_node = Node::new_with_id(NodeId::new(0));
+        let root_node = Node::new_with_id(NodeId::new(1), NodeId::ROOT_NODE);
         store.nodes.push(root_node);
         let roots = store.find_roots();
         assert_eq!(roots.len(), 0);
@@ -213,5 +219,31 @@ mod tests {
         let roots = store.find_roots();
         assert_eq!(roots.len(), 1);
         assert!(roots[0] == node_id);
+    }
+
+    #[test]
+    fn test_delete() {
+        let mut store = FlatNodeStore::new();
+        let id1 = NodeId::new(1);
+        let id2 = NodeId::new(2);
+        store.add(id1, NodeId::ROOT_NODE, 0);
+        store.add(id2, id1, 0);
+        assert_eq!(store.get(id1).unwrap().parent, NodeId::ROOT_NODE);
+        assert_eq!(store.get(id2).unwrap().parent, id1);
+        store.delete_recursive(id2);
+        assert_eq!(store.nodes.len(), 3);
+        assert_eq!(store.find_roots().len(), 1)
+    }
+
+    #[test]
+    fn test_delete_recursive() {
+        let mut store = FlatNodeStore::new();
+        let id1 = NodeId::new(1);
+        let id2 = NodeId::new(2);
+        store.add(id1, NodeId::ROOT_NODE, 0);
+        store.add(id2, id1, 0);
+        store.delete_recursive(id1);
+        assert_eq!(store.nodes.len(), 3);
+        assert_eq!(store.find_roots().len(), 0)
     }
 }

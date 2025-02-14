@@ -7,6 +7,7 @@ mod tests {
     use binc::repository::*;
     use binc::revision::*;
     use binc::change::*;
+    use binc::changes::Changes;
     use binc::document::*;
     use binc::node_id::{NodeId, NodeIdGenerator};
 
@@ -19,15 +20,17 @@ mod tests {
     fn create_example_repository() -> Repository {
         let mut repo = Repository::new();
 
-        let mut rev = Revision::new();
         let mut generator = NodeIdGenerator::new();
         let id = generator.next_id();
         let id2 = generator.next_id();
-        rev.add_change(Change::AddNode{id, parent: NodeId::ROOT_NODE});
-        rev.add_change(Change::DeleteNode {id});
-        rev.add_change(Change::AddNode{id: id2, parent: NodeId::ROOT_NODE});
-        rev.add_change(Change::SetString{node: id2, attribute: "name".to_string(), value: "my value".to_string()});
-        repo.add_revision(rev);
+
+        let mut changes = Changes::new();
+        changes.add_node(id, NodeId::ROOT_NODE, 0);
+        changes.remove_node(id);
+        changes.add_node(id2, NodeId::ROOT_NODE, 0);
+        changes.set_string(id2, "name", "my value");
+
+        repo.add_revision(Revision::from(changes));
         repo
     }
 

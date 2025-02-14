@@ -16,6 +16,8 @@ impl NodeId {
     }
 
     pub fn new(id: usize) -> NodeId {
+        assert_ne!(id, Self::NO_NODE_ID);
+        assert_ne!(id, Self::ROOT_NODE_ID);
         NodeId { id }
     }
 
