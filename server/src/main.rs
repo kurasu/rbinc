@@ -5,7 +5,6 @@ use clap::{Parser, Subcommand};
 use binc::document::{AttributeValue, Document};
 use binc::node_id::NodeId;
 use binc::repository::Repository;
-use binc::util::shorten_uuid;
 
 /// A simple command line tool for creating, manipulating, viewing and serving BINC documents
 #[derive(Parser, Debug)]
@@ -59,7 +58,7 @@ fn main() -> io::Result<()> {
 
             let roots = document.find_roots();
             for root in roots {
-                print_tree(&document, &root, 0);
+                print_tree(&document, *root, 0);
             }
 
             Ok(())
@@ -79,10 +78,10 @@ fn get_label(id_string: String, name: Option<&AttributeValue>) -> String {
     } else { id_string }
 }
 
-fn print_tree(document: &Document, root: &NodeId, depth: i32) {
-    if let Some(node) = document.nodes.get(root) {
-        let children = &node.children.clone();
-        let id_string = format!("ID: {:?}", shorten_uuid(root));
+fn print_tree(document: &Document, id: NodeId, depth: i32) {
+    if let Some(node) = document.nodes.get(id) {
+        let children = &node.children;
+        let id_string = format!("ID{}", id);
         let name = node.attributes.get("name");
         let label = get_label(id_string, name);
 
@@ -94,11 +93,11 @@ fn print_tree(document: &Document, root: &NodeId, depth: i32) {
         if node.attributes.len() > 0 {
             print!(" (");
             let mut first = true;
-            node.attributes.iter().for_each(|(key, value)| {
+            node.attributes.iter().for_each(|a| {
                 if !first {
                     print!(", ");
                 }
-                print!("{}: {}", key, value);
+                print!("{}: {}", a.key, a.value);
                 first = false;
             });
             print!(")");
@@ -106,7 +105,7 @@ fn print_tree(document: &Document, root: &NodeId, depth: i32) {
         println!();
 
         for child_id in children {
-            print_tree(document, child_id, depth + 1);
+            print_tree(document, child_id.clone(), depth + 1);
         }
     }
 }

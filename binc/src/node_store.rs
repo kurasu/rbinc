@@ -115,6 +115,10 @@ impl AttributeStore {
     pub fn iter(&self) -> std::slice::Iter<AttributeEntry> {
         self.attributes.iter()
     }
+
+    pub fn len(&self) -> usize {
+        self.attributes.len()
+    }
 }
 
 impl Default for Node {
