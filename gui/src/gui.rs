@@ -131,63 +131,60 @@ impl SimpleApplication {
     }
 
     pub fn select_previous(&mut self) {
-       /* if let Some(selected_node) = self.selected_node {
+        let selected_node = self.ui.selected_node;
+
+        if selected_node.exists() {
             if let Some(sibling) = self.get_previous_sibling(selected_node) {
-                if self.is_node_expanded(sibling) && !self.document.nodes.get(&sibling).unwrap().children.is_empty() {
-                    self.select_node(self.get_last_child(sibling));
+                if self.is_node_expanded(sibling) && self.document.nodes.get(sibling).unwrap().children.is_empty() {
+                    self.select_node(self.get_last_child(sibling).unwrap());
                 } else {
-                    self.select_node(Some(sibling));
+                    self.select_node(sibling);
                 }
             } else {
                 self.select_parent()
             }
-        }*/
+        }
     }
 
     pub fn select_parent(&mut self) {
-       /* if let Some(selected_node) = self.selected_node {
-            if let Some(node) = self.document.nodes.get(&selected_node) {
-                if let Some(parent) = node.parent {
-                    self.select_node(Some(parent));
-                }
+        if let Some(selected_node) = self.ui.selected_node {
+            if let Some(parent) = self.document.nodes.get(selected_node).map(|x| x.parent) {
+                self.select_node(parent);
             }
-        }*/
+        }
     }
 
     pub fn select_first_child(&mut self) {
-        /*if let Some(selected_node) = self.selected_node {
-            self.set_node_expanded(selected_node, true);
-            if let Some(node) = self.document.nodes.get(&selected_node) {
-                if !node.children.is_empty() {
-                    self.select_node(Some(node.children[0]));
-                }
+        if let Some(selected_node) = self.ui.selected_node {
+            if let Some(first_child) = self.get_first_child(selected_node) {
+                self.select_node(first_child);
             }
-        }*/
+        }
     }
 
     pub fn get_first_child(&self, node_id: NodeId) -> Option<NodeId> {
-        /*if let Some(node) = self.document.nodes.get(&node_id) {
+        if let Some(node) = self.get(node_id) {
             if !node.children.is_empty() {
                 return Some(node.children[0]);
             }
-        }*/
+        }
         None
     }
 
     pub fn get_last_child(&self, node_id: NodeId) -> Option<NodeId> {
-        /*if let Some(node) = self.document.nodes.get(&node_id) {
+        if let Some(node) = self.get(node_id) {
             if !node.children.is_empty() {
                 return Some(node.children[node.children.len() - 1]);
             }
-        }*/
+        }
         None
     }
 
     pub fn toggle_selected_node_expanded(&mut self) {
-        /*if let Some(selected_node) = self.selected_node {
-            let is_expanded = self.expanded_nodes.contains(&selected_node);
+        if let Some(selected_node) = self.ui.selected_node {
+            let is_expanded = self.ui.expanded_nodes.contains(&selected_node);
             self.set_node_expanded(selected_node, !is_expanded);
-        }*/
+        }
     }
 
     pub fn set_node_expanded(&mut self, node: NodeId, expanded: bool) {
@@ -196,6 +193,14 @@ impl SimpleApplication {
         } else {
             self.ui.expanded_nodes.remove(&node);
         }
+    }
+
+    pub fn get(&self, node_id: NodeId) -> Option<&Node> {
+        self.document.nodes.get(node_id)
+    }
+
+    pub fn get_mut(&mut self, node_id: NodeId) -> Option<&mut Node> {
+        self.document.nodes.get_mut(node_id)
     }
 
     pub fn toggle_editing(&mut self) {
