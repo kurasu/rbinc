@@ -124,20 +124,36 @@ impl SimpleApplication {
     }
 
     pub fn select_next(&mut self) {
-        let selected_node = self.ui.selected_node;
-        if selected_node.exists() {
-            if self.is_node_expanded(selected_node) && !self.get(selected_node).unwrap().children.is_empty() {
-                self.select_first_child();
-            }
-            else if let Some(node) = self.document.nodes.get(selected_node) {
-                if let Some(sibling) = self.get_next_sibling(selected_node) {
-                    self.select_node(sibling);
-                }
-                else if node.parent.exists() {
-                    self.get_next_sibling(node.parent).take().map(|x| self.select_node(x));
+        let next = self.get_next(self.ui.selected_node);
+        if let Some(next) = next {
+            self.select_node(next);
+        }
+    }
+
+    fn get_next(&self, node_id: NodeId) -> Option<NodeId> {
+        if node_id.exists() {
+            if let Some(node) = self.get(node_id) {
+                if self.is_node_expanded(node_id) && !node.children.is_empty() {
+                    return self.get_first_child(node_id);
+                } else {
+                    return self.get_next_tail(node_id);
                 }
             }
         }
+        None
+    }
+
+    fn get_next_tail(&self, node_id: NodeId) -> Option<NodeId> {
+        if node_id.exists() {
+            if let Some(node) = self.get(node_id) {
+                if let Some(sibling) = self.get_next_sibling(node_id) {
+                    return Some(sibling);
+                } else if node.parent.exists() {
+                    return self.get_next_tail(node.parent);
+                }
+            }
+        }
+        None
     }
 
     pub fn is_node_expanded(&self, node: NodeId) -> bool {
@@ -145,19 +161,34 @@ impl SimpleApplication {
     }
 
     pub fn select_previous(&mut self) {
-        let selected_node = self.ui.selected_node;
+        let previous = self.get_previous(self.ui.selected_node);
+        if let Some(previous) = previous {
+            self.select_node(previous);
+        }
+    }
 
-        if selected_node.exists() {
-            if let Some(sibling) = self.get_previous_sibling(selected_node) {
+    pub fn get_previous(&self, node_id: NodeId) -> Option<NodeId> {
+         if node_id.exists() {
+            if let Some(sibling) = self.get_previous_sibling(node_id) {
                 if self.is_node_expanded(sibling) && !self.get(sibling).unwrap().children.is_empty() {
-                    self.select_node(self.get_last_child(sibling).unwrap());
+                    return self.get_last_child(sibling);
                 } else {
-                    self.select_node(sibling);
+                    return Some(sibling);
                 }
             } else {
-                self.select_parent()
+                return self.get_parent(node_id);
             }
         }
+        None
+    }
+
+    pub fn get_parent(&self, node_id: NodeId) -> Option<NodeId> {
+        if let Some(node) = self.get(node_id) {
+            if node.parent.exists() {
+                return Some(node.parent);
+            }
+        }
+        None
     }
 
     pub fn select_parent(&mut self) {
