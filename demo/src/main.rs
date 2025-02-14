@@ -80,11 +80,11 @@ fn check_keyboard(ctx: &Context, app: &SimpleApplication, actions: &mut Vec<GuiA
         actions.push(GuiAction::SelectNext);
     }
 
-    if !app.is_editing {
-        if app.selected_node.exists() {
-            let node = app.selected_node;
+    if !app.ui.is_editing {
+        if app.ui.selected_node.exists() {
+            let node = app.ui.selected_node;
             if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
-                if app.expanded_nodes.contains(&node) {
+                if app.ui.expanded_nodes.contains(&node) {
                     actions.push(GuiAction::SetNodeExpanded { node, expanded: false });
                 } else {
                     actions.push(GuiAction::SelectParent);
@@ -173,8 +173,8 @@ fn create_history(ui: &mut Ui, app: &SimpleApplication, actions: &mut Vec<GuiAct
         }
     }
     let pending = &app.document.pending_changes;
-    ui.collapsing("Pending", |ui| {
-        if ui.button("Commit").clicked() {
+    ui.collapsing("Pending changes", |ui| {
+        if ui.button("Snapshot").clicked() {
             actions.push(GuiAction::Commit);
         }
         for change in &pending.changes {
@@ -185,7 +185,7 @@ fn create_history(ui: &mut Ui, app: &SimpleApplication, actions: &mut Vec<GuiAct
 }
 
 fn create_tree(ui: &mut Ui, app: &mut SimpleApplication, actions: &mut Vec<GuiAction>) {
-    create_node_tree(ui, app.root, app, actions, 0);
+    create_node_tree(ui, app.ui.root, app, actions, 0);
 }
 
 fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actions: &mut Vec<GuiAction>, index_in_parent: usize) {
@@ -195,12 +195,12 @@ fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actio
         let name = node.get_string_attribute("name");
         let mut node_name = name.unwrap_or(String::new()).clone();
         let label = get_label(id_string, &node_name);
-        let selected = app.selected_node == node_id;
+        let selected = app.ui.selected_node == node_id;
         let mut text = RichText::new(label);
         if selected {
             text = text.color(ui.visuals().strong_text_color());
         }
-        let is_expanded = app.expanded_nodes.contains(&node_id);
+        let is_expanded = app.ui.expanded_nodes.contains(&node_id);
 
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
@@ -214,7 +214,7 @@ fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actio
                     actions.push(GuiAction::WrappedChange { change: Change::SetBool { node: node_id, attribute: "completed".to_string(), value: checked } });
                 }
 
-                if selected && app.is_editing {
+                if selected && app.ui.is_editing {
                     let text_edit = ui.text_edit_singleline(&mut node_name);
                     text_edit.request_focus();
                     if text_edit.changed() {

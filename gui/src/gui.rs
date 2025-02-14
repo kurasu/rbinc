@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io;
 use eframe::egui::{Button, Sense, Ui, Widget};
+use eframe::egui::scroll_area::State;
 use rfd::MessageLevel::Error;
 use binc::document::Document;
 use binc::repository::Repository;
@@ -10,19 +11,24 @@ use binc::changes::Changes;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
 
-pub struct SimpleApplication {
-    pub document: Box<Document>,
+#[derive(Debug, Default)]
+pub struct UiState {
     pub root: NodeId,
     pub selected_node: NodeId,
     pub selected_node_name: String,
     pub expanded_nodes: HashSet<NodeId>,
-    pub is_editing: bool,
+    pub is_editing: bool
+}
+
+pub struct SimpleApplication {
+    pub document: Box<Document>,
+    pub ui: UiState,
 }
 
 impl SimpleApplication {
     pub fn get_selected_node(&self) -> Option<&Node> {
-        if self.selected_node.exists() {
-            return self.document.nodes.get(self.selected_node);
+        if self.ui.selected_node.exists() {
+            return self.document.nodes.get(self.ui.selected_node);
         }
         None
     }
@@ -32,28 +38,24 @@ impl SimpleApplication {
     pub fn new() -> SimpleApplication {
         SimpleApplication {
             document: Box::from(new_document()),
-            root: NodeId::ROOT_NODE,
-            selected_node: NodeId::NO_NODE,
-            selected_node_name: String::new(),
-            expanded_nodes: HashSet::new(),
-            is_editing: false,
+            ui: UiState::default()
         }
     }
 
     pub fn set_document(&mut self, document: Document) {
         self.document = Box::from(document);
-        self.root = NodeId::ROOT_NODE;
+        self.ui.root = NodeId::ROOT_NODE;
         self.select_node(NodeId::NO_NODE);
     }
 
     pub fn select_node(&mut self, node_id: NodeId) {
-        self.selected_node = node_id;
+        self.ui.selected_node = node_id;
         if node_id.exists() {
             let name = self.document.nodes.get(node_id).as_ref().expect("Should exist").get_string_attribute("name");
-            self.selected_node_name = name.unwrap_or(String::new());
+            self.ui.selected_node_name = name.unwrap_or(String::new());
         }
         else {
-            self.selected_node_name = String::new();
+            self.ui.selected_node_name = String::new();
         }
     }
 
@@ -68,8 +70,8 @@ impl SimpleApplication {
         let c = Change::DeleteNode { id: node_id.clone() };
         self.document.add_and_apply_change(c);
         self.select_node(NodeId::NO_NODE);
-        if !self.node_exists(self.root) {
-            self.root = NodeId::ROOT_NODE;
+        if !self.node_exists(self.ui.root) {
+            self.ui.root = NodeId::ROOT_NODE;
         }
     }
 
@@ -108,9 +110,9 @@ impl SimpleApplication {
     }
 
     pub fn select_next(&mut self) {
-        let selected_node = self.selected_node;
+        let selected_node = self.ui.selected_node;
         if selected_node.exists() {
-            if self.expanded_nodes.contains(&selected_node) {
+            if self.ui.expanded_nodes.contains(&selected_node) {
                 self.select_first_child();
             }
             else if let Some(node) = self.document.nodes.get(selected_node) {
@@ -125,7 +127,7 @@ impl SimpleApplication {
     }
 
     pub fn is_node_expanded(&self, node: NodeId) -> bool {
-        self.expanded_nodes.contains(&node)
+        self.ui.expanded_nodes.contains(&node)
     }
 
     pub fn select_previous(&mut self) {
@@ -190,14 +192,14 @@ impl SimpleApplication {
 
     pub fn set_node_expanded(&mut self, node: NodeId, expanded: bool) {
         if expanded {
-            self.expanded_nodes.insert(node);
+            self.ui.expanded_nodes.insert(node);
         } else {
-            self.expanded_nodes.remove(&node);
+            self.ui.expanded_nodes.remove(&node);
         }
     }
 
     pub fn toggle_editing(&mut self) {
-        self.is_editing = !self.is_editing;
+        self.ui.is_editing = !self.ui.is_editing;
     }
 }
 

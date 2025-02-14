@@ -5,6 +5,12 @@ pub struct NodeId {
     pub (crate) id: usize,
 }
 
+impl Default for NodeId {
+    fn default() -> Self {
+        NodeId { id: Self::NO_NODE_ID }
+    }
+}
+
 impl NodeId {
     pub const ROOT_NODE_ID: usize = 0;
     pub const NO_NODE_ID: usize = 0xFFFFFFFF;
