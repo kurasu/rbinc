@@ -77,6 +77,11 @@ impl SimpleApplication {
         let c1 = Change::AddNode { id: child_id, parent: parent_id.clone(), index_in_parent: insertion_index };
         self.document.add_and_apply_change(c1);
     }
+    
+    pub fn move_node(&mut self, node_id: &NodeId, new_parent_id: &NodeId, insertion_index: u64) {
+        let c = Change::MoveNode { id: node_id.clone(), new_parent: new_parent_id.clone(), index_in_new_parent: insertion_index };
+        self.document.add_and_apply_change(c);
+    }
 
     pub fn remove_node(&mut self, node_id: &NodeId) {
         let c = Change::DeleteNode { id: node_id.clone() };

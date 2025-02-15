@@ -1,9 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(rustdoc::missing_crate_level_docs)]
 
+use std::process::id;
 use eframe::egui;
-use eframe::egui::{Context, RichText, Ui};
+use eframe::egui::{Context, Frame, Id, RichText, Ui};
 use binc::change::Change;
+use binc::node_id;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
 use gui::gui::*;
@@ -13,6 +15,7 @@ enum GuiAction {
     Redo,
     SelectNode { node: NodeId },
     AddNode { parent: NodeId, index: u64 },
+    MoveNode { node: NodeId, new_parent: NodeId, index_in_new_parent: u64 },
     RemoveNode { node: NodeId },
     WrappedChange { change: Change },
     SetNodeExpanded { node: NodeId, expanded: bool },
@@ -24,6 +27,10 @@ enum GuiAction {
     SelectParent,
     SelectFirstChild,
     ToggleEditing,
+}
+
+enum DragDropPayload {
+    NodeId(NodeId),
 }
 
 fn main() -> eframe::Result {
@@ -50,7 +57,7 @@ fn main() -> eframe::Result {
         egui::SidePanel::right("inspector_panel").default_width(200f32).show(ctx, |ui| {
             create_inspector(ui, app.get_selected_node(), &mut name, &mut actions);
         });
-        egui::TopBottomPanel::bottom("history_panel").default_height(160f32).show(ctx, |ui| {
+        egui::TopBottomPanel::bottom("history_panel").default_height(160f32).resizable(true).show(ctx, |ui| {
             egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
                 create_history(ui, &app, &mut actions);
             });
@@ -109,6 +116,7 @@ fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
             match action {
                 GuiAction::SelectNode { node } => app.select_node(node),
                 GuiAction::AddNode { parent, index } => app.add_child(&parent, index),
+                GuiAction::MoveNode { node, new_parent, index_in_new_parent } => app.move_node(&node, &new_parent, index_in_new_parent),
                 GuiAction::RemoveNode { node } => app.remove_node(&node),
                 GuiAction::Commit => app.commit(),
                 GuiAction::WrappedChange { change } => app.document.add_and_apply_change(change),
@@ -204,6 +212,10 @@ fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actio
 
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
+                ui.dnd_drag_source(Id::new(node_id), node_id, |ui| {
+                    ui.label("☰").on_hover_text("Drag to move");
+                });
+
                 let expand_icon = if is_expanded { "⏷" } else { "⏵" };
                 if ui.label(expand_icon).on_hover_text("Expand/collapse node").clicked() {
                     actions.push(GuiAction::SetNodeExpanded { node: node_id, expanded: !is_expanded });
@@ -250,9 +262,17 @@ fn create_node_tree_children(app: &SimpleApplication, node_id: NodeId, actions: 
         create_node_tree(ui, *child_id, app, actions, index);
         index += 1;
     }
-    let add_button = ui.label("⊞").on_hover_text("Add child node");
-    if add_button.clicked() {
-        actions.push(GuiAction::AddNode { parent: node_id, index: children.len() as u64 });
+    let frame = Frame::default().inner_margin(2.0);
+
+    let (_, dropped_payload) = ui.dnd_drop_zone::<NodeId, ()>(frame, |ui| {
+        let add_button = ui.label("⊞").on_hover_text("Add child node");
+        if add_button.clicked() {
+            actions.push(GuiAction::AddNode { parent: node_id, index: children.len() as u64 });
+        }
+    });
+
+    if let Some(dropped_id) = dropped_payload {
+        actions.push(GuiAction::MoveNode { node: *dropped_id, new_parent: node_id, index_in_new_parent: children.len() as u64 });
     }
 }
 
