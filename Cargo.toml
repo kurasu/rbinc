@@ -2,5 +2,5 @@
 members = [
     "binc",
     "server",
-    "demo", "gui",
+    "explorer", "gui",
 ]

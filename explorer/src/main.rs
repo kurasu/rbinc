@@ -1,11 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(rustdoc::missing_crate_level_docs)]
 
-use std::process::id;
 use eframe::egui;
 use eframe::egui::{Context, Frame, Id, RichText, Ui};
 use binc::change::Change;
-use binc::node_id;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
 use gui::gui::*;
@@ -42,10 +40,7 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
-    let mut name = "hello".to_string(); //&mut app.selected_node_name;
-    
-
-    eframe::run_simple_native("BINC Demo", options, move |ctx, _frame| {
+    eframe::run_simple_native("BINC Explorer", options, move |ctx, _frame| {
         let mut actions: Vec<GuiAction> = vec![];
 
         check_keyboard(ctx, &app, &mut actions);
@@ -55,7 +50,7 @@ fn main() -> eframe::Result {
             create_toolbar(&mut app, ui);
         });
         egui::SidePanel::right("inspector_panel").default_width(200f32).show(ctx, |ui| {
-            create_inspector(ui, app.get_selected_node(), &mut name, &mut actions);
+            create_inspector(ui, app.get_selected_node(), &mut actions);
         });
         egui::TopBottomPanel::bottom("history_panel").default_height(160f32).resizable(true).show(ctx, |ui| {
             egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
@@ -135,7 +130,7 @@ fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
     }
 }
 
-fn create_inspector(ui: &mut Ui, node: Option<&Node>, node_name: &mut String, actions: &mut Vec<GuiAction>) {
+fn create_inspector(ui: &mut Ui, node: Option<&Node>, actions: &mut Vec<GuiAction>) {
     ui.vertical(|ui| {
         if let Some(node) = node {
             egui::Grid::new("inspector_grid").num_columns(2).show(ui, |ui| {
@@ -145,11 +140,11 @@ fn create_inspector(ui: &mut Ui, node: Option<&Node>, node_name: &mut String, ac
                 }
                 ui.end_row();
 
-                ui.label("name");
+                /*ui.label("name");
                 if ui.text_edit_singleline(node_name).changed() {
                     actions.push(GuiAction::WrappedChange { change: Change::SetString { node: node.id, attribute: "name".to_string(), value: node_name.clone() } });
                 }
-                ui.end_row();
+                ui.end_row();*/
 
                 ui.label("ID");
                 ui.label(node.id.to_string());
