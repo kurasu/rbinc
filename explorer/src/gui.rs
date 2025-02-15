@@ -3,7 +3,6 @@ use std::fs::File;
 use std::io;
 use eframe::egui::{Button, Sense, Ui, Widget};
 use eframe::egui::scroll_area::State;
-use rfd::MessageLevel::Error;
 use binc::document::Document;
 use binc::repository::Repository;
 use binc::change::Change;
@@ -77,7 +76,7 @@ impl SimpleApplication {
         let c1 = Change::AddNode { id: child_id, parent: parent_id.clone(), index_in_parent: insertion_index };
         self.document.add_and_apply_change(c1);
     }
-    
+
     pub fn move_node(&mut self, node_id: &NodeId, new_parent_id: &NodeId, insertion_index: u64) {
         let c = Change::MoveNode { id: node_id.clone(), new_parent: new_parent_id.clone(), index_in_new_parent: insertion_index };
         self.document.add_and_apply_change(c);
@@ -298,7 +297,7 @@ pub fn create_toolbar(app: &mut SimpleApplication, ui: &mut Ui) {
 pub fn show_error<T>(result: io::Result<T>, description: &str) {
     if let Err(error) = result {
         let text = format!("{}\n\n{}", description.to_string(), error.to_string());
-        rfd::MessageDialog::new().set_level(Error).set_title("Error").set_description(text).show();
+        rfd::MessageDialog::new().set_level(rfd::MessageLevel::Error).set_title("Error").set_description(text).show();
     }
 }
 

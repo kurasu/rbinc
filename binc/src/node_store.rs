@@ -55,8 +55,14 @@ impl FlatNodeStore {
         let p1 = self.nodes[i].parent.index();
         let p2 = new_parent.index();
 
+        let insert_index = if p1 == p2 && index_in_new_parent > i {
+            index_in_new_parent - 1
+        } else {
+            index_in_new_parent
+        };
+
         self.nodes[p1].children.retain(|x| *x != id);
-        self.nodes[p2].children.insert(index_in_new_parent, id.clone());
+        self.nodes[p2].children.insert(insert_index, id.clone());
         self.nodes[i].parent = new_parent.clone();
     }
 
@@ -249,5 +255,17 @@ mod tests {
         store.delete_recursive(id1);
         assert_eq!(store.nodes.len(), 3);
         assert_eq!(store.find_roots().len(), 0)
+    }
+
+    #[test]
+    fn test_move_node() {
+        let mut store = FlatNodeStore::new();
+        let id1 = NodeId::new(1);
+        let id2 = NodeId::new(2);
+        let id3 = NodeId::new(3);
+        store.add(id1, NodeId::ROOT_NODE, 0);
+        store.add(id2, NodeId::ROOT_NODE, 1);
+        store.add(id3, NodeId::ROOT_NODE, 2);
+        store.move_node(id1, NodeId::ROOT_NODE, 3);
     }
 }

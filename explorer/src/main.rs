@@ -6,7 +6,9 @@ use eframe::egui::{Context, Frame, Id, RichText, Ui};
 use binc::change::Change;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
-use gui::gui::*;
+use crate::gui::{create_toolbar, SimpleApplication};
+
+pub mod gui;
 
 enum GuiAction {
     Undo,
