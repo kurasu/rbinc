@@ -48,6 +48,18 @@ impl Revision {
     }
 
     pub fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
+        let mut bytes: Vec<u8> = vec![];
+        self.write_content(&mut bytes)?;
+        w.write_all(&bytes);
+        let hash = blake3::hash(&bytes);
+        w.write_hash(&hash)?;
+
+        // TODO hash should include has of parent revisions
+        // for now hash is merely used as a placeholder
+        Ok(())
+    }
+
+    fn write_content(&self, mut w: &mut dyn Write) -> io::Result<()> {
         w.write_u32(Self::CHANGE_LIST_ID)?;
         w.write_uuid(&self.id)?;
         w.write_uuid_array(&self.uuid_of_parents)?;
@@ -68,6 +80,15 @@ impl Revision {
     }
 
     pub fn read(mut r: &mut dyn Read) -> io::Result<Revision> {
+
+        let result = Self::read_content(r);
+        let hash = r.read_hash()?;
+        // TODO verify hash
+
+        result
+    }
+
+    fn read_content(mut r: &mut dyn Read) -> io::Result<Revision> {
         let id = r.read_u32()?;
         if id != Self::CHANGE_LIST_ID {
             return Err(io::Error::from(io::ErrorKind::InvalidData));
@@ -91,3 +112,22 @@ impl Revision {
         Ok(revision)
     }
 }
+
+/*
+struct HashReader {
+    r: dyn &Read,
+    bytes: Vec<u8>,
+}
+
+impl Read for HashReader {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let result = self.r.read(buf)?;
+        self.bytes.extend_from_slice(&buf[..result.clone()]);
+        result
+    }
+
+    fn get_hash(&self) -> Hash {
+        hash(&self.bytes)
+    }
+}
+*/

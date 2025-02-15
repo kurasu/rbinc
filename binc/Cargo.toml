@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.39"
 whoami = "1.3"
+blake3 = "1.5.5"
 
 [dependencies.uuid]
 version = "1.4.1"

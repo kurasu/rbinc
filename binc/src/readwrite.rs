@@ -1,4 +1,5 @@
 use std::io::{self, Error, ErrorKind, Read, Write};
+use blake3::Hash;
 use uuid::Uuid;
 use crate::node_id::NodeId;
 
@@ -99,6 +100,11 @@ pub trait WriteExt: Write {
         for s in value {
             self.write_string(s)?;
         }
+        Ok(())
+    }
+
+    fn write_hash(&mut self, value: &Hash) -> io::Result<()> {
+        self.write_all(value.as_bytes())?;
         Ok(())
     }
 }
@@ -234,6 +240,11 @@ pub trait ReadExt: Read {
         Ok(strings)
     }
 
+    fn read_hash(&mut self) -> io::Result<Hash> {
+        let mut buf = [0; 32];
+        self.read_exact(&mut buf)?;
+        Ok(Hash::from(buf))
+    }
 }
 
 /// Implement `ReadExt` for all types that implement `Read`.
