@@ -101,6 +101,11 @@ fn check_keyboard(ctx: &Context, app: &SimpleApplication, actions: &mut Vec<GuiA
             }
         }
     }
+    else {
+        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+            actions.push(GuiAction::ToggleEditing);
+        }
+    }
 
     if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
         actions.push(GuiAction::ToggleEditing);
@@ -206,7 +211,6 @@ fn create_tree(ui: &mut Ui, app: &mut SimpleApplication, actions: &mut Vec<GuiAc
 fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actions: &mut Vec<GuiAction>, index_in_parent: usize) {
     if let Some(node) = app.document.nodes.get(node_id) {
         let label = get_label(node, index_in_parent, node_id);
-        let mut node_name = label.clone();
         let selected = app.ui.selected_node == node_id;
         let mut text = RichText::new(label);
         if selected {
@@ -231,10 +235,11 @@ fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actio
                 }
 
                 if selected && app.ui.is_editing {
+                    let mut node_name = node.name.clone().unwrap_or_default();
                     let text_edit = ui.text_edit_singleline(&mut node_name);
                     text_edit.request_focus();
                     if text_edit.changed() {
-                        actions.push(GuiAction::WrappedChange { change: Change::SetString { node: node_id, attribute: "name".to_string(), value: node_name.clone() } });
+                        actions.push(GuiAction::WrappedChange { change: Change::SetName { node: node_id, name: node_name.clone() } });
                     }
                 } else {
                     let label = ui.label(text);
