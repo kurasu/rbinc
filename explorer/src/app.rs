@@ -290,14 +290,6 @@ pub fn create_toolbar(app: &mut SimpleApplication, ui: &mut Ui) {
                         } else { show_error(result, "Failed to import document"); }
                     }
                 }
-
-
-                if ui.button("XML").clicked() {
-                    let result = open_document();
-                    if let Ok(Some(result)) = result {
-                        app.set_document(result);
-                    } else { show_error(result, "Failed to import XML document"); }
-                }
             });
         });
 
