@@ -49,7 +49,7 @@ impl Default for Document {
         Document {
             repository: Repository::new(),
             nodes: NodeStore::new(),
-            pending_changes: Box::new(Revision::new()),
+            pending_changes: Box::new(Revision::new(None)),
             undo_changes: Vec::new(),
             node_id_generator: NodeIdGenerator::new(),
         }
@@ -63,13 +63,15 @@ impl Document {
 
     pub fn new(repository: Repository) -> Document {
         let nodes = compute_nodes(&repository);
+        let pending_changes = Box::new(Revision::new(repository.revisions.last()));
         Document {
             repository,
             nodes,
-            pending_changes: Box::new(Revision::new()),
+            pending_changes,
             undo_changes: vec![],
             node_id_generator: NodeIdGenerator::new(),
         }
+        
     }
 
     pub fn read(file: &mut dyn Read) -> io::Result<Document> {
@@ -125,7 +127,8 @@ impl Document {
     }
 
     pub fn commit_changes(&mut self) {
-        let pending = std::mem::replace(&mut self.pending_changes, Box::new(Revision::new()));
+        let src = Box::new(Revision::new(Some(&self.pending_changes)));
+        let pending = std::mem::replace(&mut self.pending_changes, src);
         self.repository.add_revision(*pending);
     }
 

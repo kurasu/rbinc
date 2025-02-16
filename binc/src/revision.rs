@@ -20,7 +20,7 @@ pub struct Revision {
 
 impl From<Changes> for Revision {
     fn from(changes: Changes) -> Self {
-        let mut revision = Revision::new();
+        let mut revision = Revision::new(None);
         revision.changes = changes.changes;
         revision
     }
@@ -30,8 +30,8 @@ impl Revision {
 
     pub const CHANGE_LIST_ID: u32 = 0x43686E67;
 
-    pub fn new() -> Revision {
-        Revision{
+    pub fn new(last_revision: Option<&Revision>) -> Revision {
+        let mut revision = Revision {
             changes: vec![],
             id: Uuid::new_v4(),
             uuid_of_parents: vec![],
@@ -39,7 +39,11 @@ impl Revision {
             user_name: username(),
             message: String::new(),
             tags: vec![],
+        };
+        if let Some(last_revision) = last_revision {
+            revision.uuid_of_parents.push(last_revision.id);
         }
+        revision
     }
 
     pub fn add_change(&mut self, change: Change)
@@ -94,7 +98,7 @@ impl Revision {
             return Err(io::Error::from(io::ErrorKind::InvalidData));
         }
 
-        let mut revision = Revision::new();
+        let mut revision = Revision::new(None);
         revision.id = r.read_uuid()?;
         revision.uuid_of_parents = r.read_uuid_array()?;
         revision.date = r.read_string()?;
