@@ -9,6 +9,7 @@ use binc::node_store::Node;
 use crate::gui::{create_toolbar, SimpleApplication};
 
 pub mod gui;
+mod importer;
 
 enum GuiAction {
     Undo,

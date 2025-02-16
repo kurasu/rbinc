@@ -1,11 +1,20 @@
 use io::Write;
 use std::io;
 use std::io::Read;
+use crate::changes::Changes;
 use crate::readwrite::{ReadExt, WriteExt};
 use crate::revision::*;
 
 pub struct Repository {
     pub revisions: Vec<Revision>
+}
+
+impl From<Changes> for Repository {
+    fn from(changes: Changes) -> Repository {
+        let mut r = Self::new();
+        r.add_revision(Revision::from(changes));
+        r
+    }
 }
 
 impl Repository {
