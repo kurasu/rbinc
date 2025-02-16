@@ -6,9 +6,9 @@ use eframe::egui::{Context, Frame, Id, RichText, Ui};
 use binc::change::Change;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
-use crate::gui::{create_toolbar, SimpleApplication};
+use crate::app::{create_toolbar, SimpleApplication};
 
-pub mod gui;
+pub mod app;
 mod importer;
 
 enum GuiAction {

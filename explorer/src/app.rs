@@ -2,13 +2,13 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io;
 use eframe::egui::{Button, Sense, Ui, Widget};
-use eframe::egui::scroll_area::State;
 use binc::document::Document;
 use binc::repository::Repository;
 use binc::change::Change;
 use binc::changes::Changes;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
+use crate::importer::{Import, Importer, IMPORTERS};
 
 #[derive(Debug)]
 pub struct UiState {
@@ -264,18 +264,42 @@ impl SimpleApplication {
 
 pub fn create_toolbar(app: &mut SimpleApplication, ui: &mut Ui) {
     ui.horizontal(|ui| {
-        if ui.button("New").clicked() {
-            app.set_document(new_document());
-        }
-        if ui.button("Open").clicked() {
-            let result = open_document();
-            if let Ok(Some(result)) = result {
-                app.set_document(result);
-            } else { show_error(result, "Failed to open document"); }
-        }
-        if ui.button("Save").clicked() {
-            save_document(&mut app.document);
-        }
+
+        ui.menu_button("File", |ui| {
+            if ui.button("New").clicked() {
+                app.set_document(new_document());
+            }
+            if ui.button("Open").clicked() {
+                let result = open_document();
+                if let Ok(Some(result)) = result {
+                    app.set_document(result);
+                } else { show_error(result, "Failed to open document"); }
+            }
+            if ui.button("Save").clicked() {
+                save_document(&mut app.document);
+            }
+
+            ui.separator();
+
+            ui.menu_button("Import", |ui| {
+                for importer in IMPORTERS {
+                    if ui.button(importer.get_name()).clicked() {
+                        let result = import_document_from_file(&importer);
+                        if let Ok(Some(result)) = result {
+                            app.set_document(result);
+                        } else { show_error(result, "Failed to import document"); }
+                    }
+                }
+
+
+                if ui.button("XML").clicked() {
+                    let result = open_document();
+                    if let Ok(Some(result)) = result {
+                        app.set_document(result);
+                    } else { show_error(result, "Failed to import XML document"); }
+                }
+            });
+        });
 
         ui.separator();
 
@@ -290,6 +314,12 @@ pub fn create_toolbar(app: &mut SimpleApplication, ui: &mut Ui) {
 
         if redo.ui(ui).clicked() {
             app.document.redo();
+        }
+
+        ui.separator();
+
+        if ui.button("Commit").clicked() {
+            app.commit();
         }
     });
 }
@@ -307,6 +337,20 @@ pub fn open_document() -> io::Result<Option<Document>> {
     if let Some(path) = path {
         let mut file = File::open(path)?;
         let document = Document::read(&mut file)?;
+        return Ok(Some(document));
+    }
+
+    Ok(None)
+}
+
+pub fn import_document_from_file(importer: &Importer) -> io::Result<Option<Document>> {
+    let extensions = importer.file_extensions();
+    let path = rfd::FileDialog::new().add_filter(importer.get_name(), &extensions).pick_file();
+
+    if let Some(path) = path {
+        let mut file = File::open(path)?;
+        let repo = importer.import(&mut file);
+        let document = Document::new(repo?);
         return Ok(Some(document));
     }
 

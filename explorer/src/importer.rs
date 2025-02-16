@@ -7,12 +7,16 @@ use binc::changes::Changes;
 use binc::node_id::NodeIdGenerator;
 use binc::repository::Repository;
 
-enum Importer {
+pub const IMPORTERS: [Importer; 1] = [Importer::XML];
+
+pub enum Importer {
     XML,
 }
 
-trait Import {
+pub trait Import {
     fn import<R: Read>(&self, reader: &mut R) -> io::Result<Repository>;
+    fn get_name(&self) -> &str;
+    fn file_extensions(&self) -> Vec<&str>;
 }
 
 impl Import for Importer {
@@ -21,6 +25,18 @@ impl Import for Importer {
             Importer::XML => {
                 import_xml(reader)
             }
+        }
+    }
+
+    fn get_name(&self) -> &str {
+        match self {
+            Importer::XML => "XML",
+        }
+    }
+
+    fn file_extensions(&self) -> Vec<&str> {
+        match self {
+            Importer::XML => vec!["xml"],
         }
     }
 }
