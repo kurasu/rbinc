@@ -143,11 +143,19 @@ fn create_inspector(ui: &mut Ui, node: Option<&Node>, actions: &mut Vec<GuiActio
                 }
                 ui.end_row();
 
-                /*ui.label("name");
-                if ui.text_edit_singleline(node_name).changed() {
-                    actions.push(GuiAction::WrappedChange { change: Change::SetString { node: node.id, attribute: "name".to_string(), value: node_name.clone() } });
+                let mut name = node.name.clone().unwrap_or_default();
+                ui.label("name");
+                if ui.text_edit_singleline(&mut name).changed() {
+                    actions.push(GuiAction::WrappedChange { change: Change::SetName { node: node.id, name: name.clone() } });
                 }
-                ui.end_row();*/
+                ui.end_row();
+
+                let mut type_name = node.type_name.clone().unwrap_or_default();
+                ui.label("type");
+                if ui.text_edit_singleline(& mut type_name).changed() {
+                    actions.push(GuiAction::WrappedChange { change: Change::SetType { node: node.id, type_name: type_name.clone() }});
+                }
+                ui.end_row();
 
                 ui.label("ID");
                 ui.label(node.id.to_string());
@@ -197,10 +205,8 @@ fn create_tree(ui: &mut Ui, app: &mut SimpleApplication, actions: &mut Vec<GuiAc
 
 fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actions: &mut Vec<GuiAction>, index_in_parent: usize) {
     if let Some(node) = app.document.nodes.get(node_id) {
-        let id_string = format!("{}: ID{}", index_in_parent, node_id.index());
-        let name = node.get_string_attribute("name");
-        let mut node_name = name.unwrap_or(String::new()).clone();
-        let label = get_label(id_string, &node_name);
+        let label = get_label(node, index_in_parent, node_id);
+        let mut node_name = label.clone();
         let selected = app.ui.selected_node == node_id;
         let mut text = RichText::new(label);
         if selected {
@@ -252,6 +258,27 @@ fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actio
     }
 }
 
+fn get_label(node: &Node, index_in_parent: usize, node_id: NodeId) -> String {
+    let name = node.get_name();
+    let type_name = node.get_type();
+
+    if let Some(name) = name {
+        if let Some(t) = type_name {
+            return format!("{}: [{}] {}", index_in_parent, t, name);
+        }
+        else
+        {
+            return format!("{}: {}", index_in_parent, name);
+        }
+    }
+
+    if let Some(t) = type_name {
+        return format!("{}: [{}]", index_in_parent, t);
+    }
+
+    format!("{}: ID{}", index_in_parent, node_id.index())
+}
+
 fn create_node_tree_children(app: &SimpleApplication, node_id: NodeId, actions: &mut Vec<GuiAction>, ui: &mut Ui) {
     let mut index: usize = 0;
     let children =  &app.document.nodes.get(node_id).expect("").children;
@@ -272,11 +299,4 @@ fn create_node_tree_children(app: &SimpleApplication, node_id: NodeId, actions: 
     if let Some(dropped_id) = dropped_payload {
         actions.push(GuiAction::MoveNode { node: *dropped_id, new_parent: node_id, index_in_new_parent: children.len() as u64 });
     }
-}
-
-fn get_label(id_string: String, name: &String) -> String {
-    if !name.is_empty() {
-        let name = name;
-        format!("{}", name)
-    } else { id_string }
 }

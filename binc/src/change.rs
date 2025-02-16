@@ -22,8 +22,10 @@ impl<T> OptionExt for Option<T> {
 impl ChangeType {
     pub const ADD_NODE: u64 = 0x01;
     pub const ADD_NODE_FROM_SOURCE: u64 = 0x02;
-    pub const MOVE_NODE: u64 = 0x04;
-    pub const REMOVE_NODE: u64 = 0x08;
+    pub const MOVE_NODE: u64 = 0x03;
+    pub const REMOVE_NODE: u64 = 0x04;
+    pub const SET_TYPE: u64 = 0x05;
+    pub const SET_NAME: u64 = 0x06;
 
     pub const ADD_CHILD: u64 = 0x11;
     pub const REMOVE_CHILD: u64 = 0x12;
@@ -75,6 +77,8 @@ pub enum Change {
     AddNode {id: NodeId, parent: NodeId, index_in_parent: u64},
     MoveNode {id: NodeId, new_parent: NodeId, index_in_new_parent: u64},
     DeleteNode {id: NodeId },
+    SetType {node: NodeId, type_name: String},
+    SetName {node: NodeId, name: String},
     SetString {node: NodeId, attribute: String, value: String},
     SetBool {node: NodeId, attribute: String, value: bool},
     UnknownChange {change_type: u64, data: Vec<u8>},
@@ -92,6 +96,14 @@ impl Change {
             }
             Change::MoveNode {id, new_parent, index_in_new_parent} => {
                 nodes.move_node(*id, *new_parent, *index_in_new_parent as usize);
+            }
+            Change::SetType {node, type_name} => {
+                let x = nodes.get_mut(*node).expect("Node not found");
+                x.set_type(type_name);
+            }
+            Change::SetName {node, name } => {
+                let x = nodes.get_mut(*node).expect("Node not found");
+                x.set_name(name);
             }
             Change::SetString {node, attribute, value} => {
                 let x = nodes.get_mut(*node).expect("Node not found");
@@ -162,6 +174,14 @@ impl Change {
             Change::DeleteNode {id} => {
                 w.write_id(id)
             }
+            Change::SetName {node, name: label } => {
+                w.write_id(node)?;
+                w.write_string(label)
+            }
+            Change::SetType {node, type_name} => {
+                w.write_id(node)?;
+                w.write_string(type_name)
+            }
             Change::SetString {node, attribute, value} => {
                 w.write_id(node)?;
                 w.write_string(attribute)?;
@@ -183,6 +203,8 @@ impl Change {
             Change::AddNode {id: _, parent: _, index_in_parent: _} => ChangeType::ADD_NODE,
             Change::MoveNode {id: _, new_parent: _, index_in_new_parent: _} => ChangeType::MOVE_NODE,
             Change::DeleteNode {id: _} => ChangeType::REMOVE_NODE,
+            Change::SetName {node: _, name: _} => ChangeType::SET_NAME,
+            Change::SetType {node: _, type_name: _} => ChangeType::SET_TYPE,
             Change::SetString {node: _, attribute: _, value: _} => ChangeType::SET_STRING,
             Change::SetBool {node: _, attribute: _, value: _} => ChangeType::SET_BOOL,
             Change::UnknownChange {change_type, data: _} => *change_type,
@@ -206,6 +228,22 @@ impl Change {
             }
         }
 
+        if let Change::SetName {node, name: label } = self {
+            if let Change::SetName {node: node2, name: _label2} = last_change {
+                if node == node2 {
+                    return Some(Change::SetName {node: node.clone(), name: label.clone()});
+                }
+            }
+        }
+
+        if let Change::SetType {node, type_name} = self {
+            if let Change::SetType {node: node2, type_name: _type_name2} = last_change {
+                if node == node2 {
+                    return Some(Change::SetType {node: node.clone(), type_name: type_name.clone()});
+                }
+            }
+        }
+
         None
     }
 }
@@ -216,6 +254,8 @@ impl Display for Change {
             Change::AddNode {id, parent, index_in_parent} => write!(f, "AddNode({} in {}[{}])", id, parent, index_in_parent),
             Change::MoveNode {id, new_parent, index_in_new_parent} => write!(f, "MoveNode({} to {}[{}])", id, new_parent, index_in_new_parent),
             Change::DeleteNode {id} => write!(f, "RemoveNode({})", id),
+            Change::SetType {node, type_name} => write!(f, "SetType({}, {})", node, type_name),
+            Change::SetName {node, name: label } => write!(f, "SetLabel({}, {})", node, label),
             Change::SetString {node, attribute, value} => write!(f, "SetString({}, {} = {})", node, attribute, value),
             Change::SetBool {node, attribute, value} => write!(f, "SetBool({}, {} = {})", node, attribute, value),
             Change::UnknownChange {change_type, data} => write!(f, "UnknownChange({}, {} bytes)", change_type, data.len()),

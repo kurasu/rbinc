@@ -46,6 +46,8 @@ fn import_xml<R: Read>(reader: &mut R) -> io::Result<Repository> {
     let mut changes = Changes::new();
     let mut depth = 0;
     let mut parent_id_stack = Vec::<NodeId>::new();
+    let mut count_stack = Vec::<u64>::new();
+    count_stack.push(0);
     parent_id_stack.push(NodeId::ROOT_NODE);
     let mut id_provider = NodeIdGenerator::new();
 
@@ -57,20 +59,32 @@ fn import_xml<R: Read>(reader: &mut R) -> io::Result<Repository> {
                 //println!("{:spaces$}+{name}", "", spaces = depth * 2);
                 current_id = id_provider.next_id();
                 let parent_id = parent_id_stack.last().expect("StartElement/EndElement mismatch");
-                changes.add_node(current_id, *parent_id, 0);
-                changes.set_string(current_id, "xml:name", name.local_name.as_str());
+                let index_in_parent = count_stack.pop().expect("Count stack is empty");
+                count_stack.push(index_in_parent + 1);
+                changes.add_node(current_id, *parent_id, index_in_parent);
+                changes.set_type(current_id, name.local_name.as_str());
 
                 for attr in attributes {
-                    let key = format!("attr:{}", attr.name.local_name);
-                    changes.set_string(current_id, key.as_str(), attr.value.as_str());
+                    changes.set_string(current_id, attr.name.local_name.as_str(), attr.value.as_str());
                 }
                 depth += 1;
                 parent_id_stack.push(current_id);
+                count_stack.push(0);
+            }
+            Ok(XmlEvent::Characters(text)) => {
+                let parent_id = parent_id_stack.last().expect("StartElement/EndElement mismatch");
+                let index_in_parent = count_stack.pop().expect("Count stack is empty");
+                count_stack.push(index_in_parent + 1);
+                current_id = id_provider.next_id();
+                changes.add_node(current_id, *parent_id, index_in_parent);
+
+                changes.set_string(*parent_id, "text", text.as_str());
             }
             Ok(XmlEvent::EndElement { name }) => {
                 depth -= 1;
                 //println!("{:spaces$}-{name}", "", spaces = depth * 2);
                 parent_id_stack.pop();
+                count_stack.pop();
             }
             Err(e) => {
                 eprintln!("Error: {e}");

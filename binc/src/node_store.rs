@@ -82,6 +82,8 @@ impl FlatNodeStore {
 
 pub struct Node {
     pub id: NodeId,
+    pub name: Option<String>,
+    pub type_name: Option<String>,
     pub parent: NodeId,
     pub children: Vec<NodeId>,
     pub attributes: AttributeStore
@@ -132,6 +134,8 @@ impl Default for Node {
         Node {
             id: NodeId::NO_NODE,
             parent: NodeId::NO_NODE,
+            name: None,
+            type_name: None,
             children: vec![],
             attributes: AttributeStore::default(),
         }
@@ -144,6 +148,8 @@ impl Node {
         Node {
             id,
             parent,
+            name: None,
+            type_name: None,
             children: vec![],
             attributes: AttributeStore::default(),
         }
@@ -153,6 +159,22 @@ impl Node {
         self.attributes.insert(key, Box::new(value));
     }*/
 
+    pub fn set_type(&mut self, type_name: &String) {
+        self.type_name = if type_name.is_empty() { None } else { Some(type_name.clone()) };
+    }
+
+    pub fn set_name(&mut self, label: &String) {
+        self.name = if label.is_empty() { None } else { Some(label.clone()) };
+    }
+
+    pub fn get_name(&self) -> Option<&String> {
+        self.name.as_ref()
+    }
+
+    pub fn get_type(&self) -> Option<&String> {
+        self.type_name.as_ref()
+    }
+    
     pub fn set_attribute(&mut self, key: &str, value: AttributeValue) {
         self.attributes.set(key, value);
     }

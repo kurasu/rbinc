@@ -34,6 +34,16 @@ impl Changes {
         self
     }
 
+    pub fn set_type(&mut self, node: NodeId, type_name: &str) -> &mut Self {
+        self.changes.push(Change::SetType { node, type_name: type_name.to_string() });
+        self
+    }
+
+    pub fn set_name(&mut self, node: NodeId, label: &str) -> &mut Self {
+        self.changes.push(Change::SetName { node, name: label.to_string() });
+        self
+    }
+
     pub fn set_string(&mut self, node: NodeId, attribute: &str, value: &str) -> &mut Self {
         self.changes.push(Change::SetString { node, attribute: attribute.to_string(), value: value.to_string() });
         self
