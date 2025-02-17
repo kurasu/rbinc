@@ -62,7 +62,9 @@ fn main() -> eframe::Result {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            create_tree(ui, &mut app, &mut actions);
+            egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
+                create_tree(ui, &mut app, &mut actions);
+            });
         });
 
         for action in actions {
