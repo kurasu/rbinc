@@ -19,6 +19,7 @@ impl From<Changes> for Repository {
 
 impl Repository {
     pub const CONTAINER_ID: u32 =  0x42494E43;
+    pub const CONTAINER_VERSION: u32 =  1;
 
     pub fn new() -> Repository {
         Repository { revisions: Vec::new() }
@@ -30,6 +31,7 @@ impl Repository {
 
     pub fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
         w.write_u32(Repository::CONTAINER_ID)?;
+        w.write_u32(Repository::CONTAINER_VERSION)?;
 
         for revision in &self.revisions {
             revision.write(w)?;
@@ -40,8 +42,12 @@ impl Repository {
     pub fn read(mut r: &mut dyn Read) -> io::Result<Repository> {
         let mut doc = Repository::new();
         let container_id = r.read_u32()?;
+        let container_version = r.read_u32()?;
 
         if container_id != Repository::CONTAINER_ID {
+            return Err(io::Error::from(io::ErrorKind::InvalidData));
+        }
+        else if container_version != Repository::CONTAINER_VERSION {
             return Err(io::Error::from(io::ErrorKind::InvalidData));
         }
 
