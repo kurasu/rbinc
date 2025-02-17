@@ -1,8 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(rustdoc::missing_crate_level_docs)]
 
-use eframe::egui;
-use eframe::egui::{Context, Frame, Id, RichText, Ui};
+use std::any::Any;
+use eframe::{egui, emath};
+use eframe::egui::{Context, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Sense, Ui, UiBuilder};
 use binc::change::Change;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
@@ -243,40 +244,87 @@ fn expandable_node_header(
     let node_name = get_label(node, index_in_parent);
     let node_id = node.id;
 
-    ui.horizontal(|ui| {
-        ui.dnd_drag_source(Id::new(node_id), node_id, |ui| {
+    dnd_drag_source2(ui, Id::new(node_id), node_id, |ui| {
+        ui.horizontal(|ui| {
             ui.label("☰").on_hover_text("Drag to move");
-        });
 
-        let expand_icon = if is_expanded { "⏷" } else { "⏵" };
-        if ui.label(expand_icon).on_hover_text("Expand/collapse node").clicked() {
-            actions.push(GuiAction::SetNodeExpanded { node: node_id, expanded: !is_expanded });
-        }
-
-        let mut checked = false; // Replace with actual logic to get the checked state
-        if ui.checkbox(&mut checked, "").clicked() {
-            actions.push(GuiAction::WrappedChange { change: Change::SetBool { node: node_id, attribute: "completed".to_string(), value: checked } });
-        }
-
-        if selected {
-            let mut node_name = node_name.to_string();
-            let text_edit = ui.text_edit_singleline(&mut node_name);
-            text_edit.request_focus();
-            if text_edit.changed() {
-                actions.push(GuiAction::WrappedChange { change: Change::SetName { node: node_id, name: node_name.clone() } });
+            let expand_icon = if is_expanded { "⏷" } else { "⏵" };
+            if ui.label(expand_icon).on_hover_text("Expand/collapse node").clicked() {
+                actions.push(GuiAction::SetNodeExpanded { node: node_id, expanded: !is_expanded });
             }
-        } else {
-            let label = ui.label(node_name);
-            if label.clicked() { actions.push(GuiAction::SelectNode { node: node_id }); }
-            if label.double_clicked() { actions.push(GuiAction::ToggleEditing); }
-        }
 
-        ui.spacing();
+            let mut checked = false; // Replace with actual logic to get the checked state
+            if ui.checkbox(&mut checked, "").clicked() {
+                actions.push(GuiAction::WrappedChange { change: Change::SetBool { node: node_id, attribute: "completed".to_string(), value: checked } });
+            }
 
-        if selected {
-            if ui.label("✖").clicked() { actions.push(GuiAction::RemoveNode { node: node_id }); }
-        }
+            if selected {
+                let mut node_name = node_name.to_string();
+                let text_edit = ui.text_edit_singleline(&mut node_name);
+                text_edit.request_focus();
+                if text_edit.changed() {
+                    actions.push(GuiAction::WrappedChange { change: Change::SetName { node: node_id, name: node_name.clone() } });
+                }
+            } else {
+                let label = ui.label(node_name);
+                if label.clicked() { actions.push(GuiAction::SelectNode { node: node_id }); }
+                if label.double_clicked() { actions.push(GuiAction::ToggleEditing); }
+            }
+
+            ui.spacing();
+
+            if selected {
+                if ui.label("✖").clicked() { actions.push(GuiAction::RemoveNode { node: node_id }); }
+            }
+        });
     });
+}
+
+pub fn dnd_drag_source2<Payload, R>(
+    ui: &mut Ui,
+    id: Id,
+    payload: Payload,
+    add_contents: impl FnOnce(&mut Ui) -> R,
+) -> InnerResponse<R>
+where
+    Payload: Any + Send + Sync,
+{
+    let is_being_dragged = ui.ctx().is_being_dragged(id);
+
+    if is_being_dragged {
+        DragAndDrop::set_payload(ui.ctx(), payload);
+
+        // Paint the body to a new layer:
+        let layer_id = LayerId::new(Order::Tooltip, id);
+        let InnerResponse { inner, response } =
+            ui.scope_builder(UiBuilder::new().layer_id(layer_id), add_contents);
+
+        // Now we move the visuals of the body to where the mouse is.
+        // Normally you need to decide a location for a widget first,
+        // because otherwise that widget cannot interact with the mouse.
+        // However, a dragged component cannot be interacted with anyway
+        // (anything with `Order::Tooltip` always gets an empty [`Response`])
+        // So this is fine!
+
+        if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
+            let delta = pointer_pos - response.rect.center();
+            ui.ctx()
+                .transform_layer_shapes(layer_id, emath::TSTransform::from_translation(delta));
+        }
+
+        InnerResponse::new(inner, response)
+    } else {
+        let InnerResponse { inner, response } = ui.scope(add_contents);
+
+        // Check for drags:
+        let mut small_rect = response.rect.clone();
+        small_rect.set_width(20f32);
+        let dnd_response = ui
+            .interact(small_rect, id, Sense::drag())
+            .on_hover_cursor(CursorIcon::Grab);
+
+        InnerResponse::new(inner, dnd_response | response)
+    }
 }
 
 fn get_label(node: &Node, index_in_parent: usize) -> String {
