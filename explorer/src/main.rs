@@ -212,7 +212,7 @@ fn create_tree(ui: &mut Ui, app: &mut SimpleApplication, actions: &mut Vec<GuiAc
 
 fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actions: &mut Vec<GuiAction>, index_in_parent: usize) {
     if let Some(node) = app.document.nodes.get(node_id) {
-        let label = get_label(node, index_in_parent, node_id);
+        let label = get_label(node, index_in_parent);
         let selected = app.ui.selected_node == node_id;
         let mut text = RichText::new(label);
         if selected {
@@ -221,40 +221,7 @@ fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actio
         let is_expanded = app.is_node_expanded(node_id);
 
         ui.vertical(|ui| {
-            ui.horizontal(|ui| {
-                ui.dnd_drag_source(Id::new(node_id), node_id, |ui| {
-                    ui.label("☰").on_hover_text("Drag to move");
-                });
-
-                let expand_icon = if is_expanded { "⏷" } else { "⏵" };
-                if ui.label(expand_icon).on_hover_text("Expand/collapse node").clicked() {
-                    actions.push(GuiAction::SetNodeExpanded { node: node_id, expanded: !is_expanded });
-                }
-
-                let mut checked = node.get_bool_attribute("completed").unwrap_or(false);
-                if ui.checkbox(&mut checked, "").clicked() {
-                    actions.push(GuiAction::WrappedChange { change: Change::SetBool { node: node_id, attribute: "completed".to_string(), value: checked } });
-                }
-
-                if selected && app.ui.is_editing {
-                    let mut node_name = node.name.clone().unwrap_or_default();
-                    let text_edit = ui.text_edit_singleline(&mut node_name);
-                    text_edit.request_focus();
-                    if text_edit.changed() {
-                        actions.push(GuiAction::WrappedChange { change: Change::SetName { node: node_id, name: node_name.clone() } });
-                    }
-                } else {
-                    let label = ui.label(text);
-                    if label.clicked() { actions.push(GuiAction::SelectNode { node: node_id }); }
-                    if label.double_clicked() { actions.push(GuiAction::ToggleEditing); }
-                }
-
-                ui.spacing();
-
-                if selected {
-                    if ui.label("✖").clicked() { actions.push(GuiAction::RemoveNode { node: node_id }); }
-                }
-            });
+            expandable_node_header(ui, node, is_expanded, selected, index_in_parent, actions);
 
             if is_expanded {
                 ui.indent(node_id, |ui| {
@@ -265,7 +232,54 @@ fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actio
     }
 }
 
-fn get_label(node: &Node, index_in_parent: usize, node_id: NodeId) -> String {
+fn expandable_node_header(
+    ui: &mut Ui,
+    node: &Node,
+    is_expanded: bool,
+    selected: bool,
+    index_in_parent: usize,
+    actions: &mut Vec<GuiAction>,
+) {
+    let node_name = get_label(node, index_in_parent);
+    let node_id = node.id;
+
+    ui.horizontal(|ui| {
+        ui.dnd_drag_source(Id::new(node_id), node_id, |ui| {
+            ui.label("☰").on_hover_text("Drag to move");
+        });
+
+        let expand_icon = if is_expanded { "⏷" } else { "⏵" };
+        if ui.label(expand_icon).on_hover_text("Expand/collapse node").clicked() {
+            actions.push(GuiAction::SetNodeExpanded { node: node_id, expanded: !is_expanded });
+        }
+
+        let mut checked = false; // Replace with actual logic to get the checked state
+        if ui.checkbox(&mut checked, "").clicked() {
+            actions.push(GuiAction::WrappedChange { change: Change::SetBool { node: node_id, attribute: "completed".to_string(), value: checked } });
+        }
+
+        if selected {
+            let mut node_name = node_name.to_string();
+            let text_edit = ui.text_edit_singleline(&mut node_name);
+            text_edit.request_focus();
+            if text_edit.changed() {
+                actions.push(GuiAction::WrappedChange { change: Change::SetName { node: node_id, name: node_name.clone() } });
+            }
+        } else {
+            let label = ui.label(node_name);
+            if label.clicked() { actions.push(GuiAction::SelectNode { node: node_id }); }
+            if label.double_clicked() { actions.push(GuiAction::ToggleEditing); }
+        }
+
+        ui.spacing();
+
+        if selected {
+            if ui.label("✖").clicked() { actions.push(GuiAction::RemoveNode { node: node_id }); }
+        }
+    });
+}
+
+fn get_label(node: &Node, index_in_parent: usize) -> String {
     let name = node.get_name();
     let type_name = node.get_type();
 
@@ -283,7 +297,7 @@ fn get_label(node: &Node, index_in_parent: usize, node_id: NodeId) -> String {
         return format!("{}: [{}]", index_in_parent, t);
     }
 
-    format!("{}: ID{}", index_in_parent, node_id.index())
+    format!("{}: ID{}", index_in_parent, node.id.index())
 }
 
 fn create_node_tree_children(app: &SimpleApplication, node_id: NodeId, actions: &mut Vec<GuiAction>, ui: &mut Ui) {
