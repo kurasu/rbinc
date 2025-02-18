@@ -3,7 +3,7 @@
 
 use std::any::Any;
 use eframe::{egui, emath};
-use eframe::egui::{Context, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Sense, Ui, UiBuilder};
+use eframe::egui::{Color32, Context, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Sense, Ui, UiBuilder};
 use binc::change::Change;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
@@ -47,24 +47,28 @@ fn main() -> eframe::Result {
     eframe::run_simple_native("BINC Explorer", options, move |ctx, _frame| {
         let mut actions: Vec<GuiAction> = vec![];
 
-        check_keyboard(ctx, &app, &mut actions);
+        let mut on_action = |a| {
+            actions.push(a);
+        };
+
+        check_keyboard(ctx, &app, &mut on_action);
 
         let frame = egui::Frame::default().inner_margin(8.0).fill(ctx.style().visuals.panel_fill);
         egui::TopBottomPanel::top("toolbar").frame(frame).show(ctx, |ui| {
             create_toolbar(&mut app, ui);
         });
         egui::SidePanel::right("inspector_panel").default_width(200f32).show(ctx, |ui| {
-            create_inspector(ui, app.get_selected_node(), &mut actions);
+            create_inspector(ui, app.get_selected_node(), &mut on_action);
         });
         egui::TopBottomPanel::bottom("history_panel").default_height(160f32).resizable(true).show(ctx, |ui| {
             egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
-                create_history(ui, &app, &mut actions);
+                create_history(ui, &app, &mut on_action);
             });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
-                create_tree(ui, &mut app, &mut actions);
+                create_tree(ui, &mut app, &mut on_action);
             });
         });
 
@@ -74,18 +78,18 @@ fn main() -> eframe::Result {
     })
 }
 
-fn check_keyboard(ctx: &Context, app: &Application, actions: &mut Vec<GuiAction>) {
+fn check_keyboard(ctx: &Context, app: &Application, on_action: &mut impl FnMut(GuiAction)) {
     if ctx.input(|i| i.key_pressed(egui::Key::Z) && i.modifiers.command) {
-        actions.push(GuiAction::Undo);
+        on_action(GuiAction::Undo);
     }
     if ctx.input(|i| i.key_pressed(egui::Key::Y) && i.modifiers.command) {
-        actions.push(GuiAction::Redo);
+        on_action(GuiAction::Redo);
     }
     if ctx.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
-        actions.push(GuiAction::SelectPrevious);
+        on_action(GuiAction::SelectPrevious);
     }
     if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
-        actions.push(GuiAction::SelectNext);
+        on_action(GuiAction::SelectNext);
     }
 
     if !app.ui.is_editing {
@@ -93,25 +97,25 @@ fn check_keyboard(ctx: &Context, app: &Application, actions: &mut Vec<GuiAction>
             let node = app.ui.selected_node;
             if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
                 if app.is_node_expanded(node) {
-                    actions.push(GuiAction::SetNodeExpanded { node, expanded: false });
+                    on_action(GuiAction::SetNodeExpanded { node, expanded: false });
                 } else {
-                    actions.push(GuiAction::SelectParent);
+                    on_action(GuiAction::SelectParent);
                 }
-                actions.push(GuiAction::SetNodeExpanded { node, expanded: false });
+                on_action(GuiAction::SetNodeExpanded { node, expanded: false });
             }
             if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
-                actions.push(GuiAction::SetNodeExpanded { node, expanded: true });
+                on_action(GuiAction::SetNodeExpanded { node, expanded: true });
             }
         }
     }
     else {
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-            actions.push(GuiAction::ToggleEditing);
+            on_action(GuiAction::ToggleEditing);
         }
     }
 
     if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
-        actions.push(GuiAction::ToggleEditing);
+        on_action(GuiAction::ToggleEditing);
     }
 }
 
@@ -141,27 +145,27 @@ fn process_action(action: Option<GuiAction>, app: &mut Application) {
     }
 }
 
-fn create_inspector(ui: &mut Ui, node: Option<&Node>, actions: &mut Vec<GuiAction>) {
+fn create_inspector(ui: &mut Ui, node: Option<&Node>, on_action: &mut impl FnMut(GuiAction)) {
     ui.vertical(|ui| {
         if let Some(node) = node {
             egui::Grid::new("inspector_grid").num_columns(2).show(ui, |ui| {
                 ui.label("Inspector");
                 if ui.button("Delete Node").clicked() {
-                    actions.push(GuiAction::RemoveNode { node: node.id });
+                    on_action(GuiAction::RemoveNode { node: node.id });
                 }
                 ui.end_row();
 
                 let mut name = node.name.clone().unwrap_or_default();
                 ui.label("name");
                 if ui.text_edit_singleline(&mut name).changed() {
-                    actions.push(GuiAction::WrappedChange { change: Change::SetName { node: node.id, name: name.clone() } });
+                    on_action(GuiAction::WrappedChange { change: Change::SetName { node: node.id, name: name.clone() } });
                 }
                 ui.end_row();
 
                 let mut type_name = node.type_name.clone().unwrap_or_default();
                 ui.label("type");
                 if ui.text_edit_singleline(& mut type_name).changed() {
-                    actions.push(GuiAction::WrappedChange { change: Change::SetType { node: node.id, type_name: type_name.clone() }});
+                    on_action(GuiAction::WrappedChange { change: Change::SetType { node: node.id, type_name: type_name.clone() }});
                 }
                 ui.end_row();
 
@@ -183,7 +187,7 @@ fn create_inspector(ui: &mut Ui, node: Option<&Node>, actions: &mut Vec<GuiActio
     });
 }
 
-fn create_history(ui: &mut Ui, app: &Application, actions: &mut Vec<GuiAction>) {
+fn create_history(ui: &mut Ui, app: &Application, on_action: &mut impl FnMut(GuiAction)) {
     for revision in &app.document.repository.revisions {
         let label = format!("{} by {} on {}", revision.message, revision.user_name, revision.date);
         if ui.collapsing(label, |ui| {
@@ -197,7 +201,7 @@ fn create_history(ui: &mut Ui, app: &Application, actions: &mut Vec<GuiAction>) 
     let pending = &app.document.pending_changes;
     ui.collapsing("Pending changes", |ui| {
         if ui.button("Snapshot").clicked() {
-            actions.push(GuiAction::Commit);
+            on_action(GuiAction::Commit);
         }
         for change in &pending.changes {
             ui.label(change.to_string());
@@ -206,12 +210,12 @@ fn create_history(ui: &mut Ui, app: &Application, actions: &mut Vec<GuiAction>) 
     ui.allocate_space(ui.available_size());
 }
 
-fn create_tree(ui: &mut Ui, app: &mut Application, actions: &mut Vec<GuiAction>) {
+fn create_tree(ui: &mut Ui, app: &mut Application, on_action: &mut impl FnMut(GuiAction)) {
     //create_node_tree(ui, app.ui.root, app, actions, 0);
-    create_node_tree_children(app, app.ui.root, actions, ui);
+    create_node_tree_children(app, app.ui.root, on_action, ui);
 }
 
-fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &Application, actions: &mut Vec<GuiAction>, index_in_parent: usize) {
+fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &Application, on_action: &mut impl FnMut(GuiAction), index_in_parent: usize) {
     if let Some(node) = app.document.nodes.get(node_id) {
         let label = get_label(node, index_in_parent);
         let selected = app.ui.selected_node == node_id;
@@ -222,11 +226,11 @@ fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &Application, actions: &m
         let is_expanded = app.is_node_expanded(node_id);
 
         ui.vertical(|ui| {
-            expandable_node_header(ui, node, is_expanded, selected, index_in_parent, actions);
+            expandable_node_header(ui, node, is_expanded, selected, index_in_parent, on_action);
 
             if is_expanded {
                 ui.indent(node_id, |ui| {
-                    create_node_tree_children(app, node_id, actions, ui);
+                    create_node_tree_children(app, node_id, on_action, ui);
                 });
             }
         });
@@ -239,12 +243,15 @@ fn expandable_node_header(
     is_expanded: bool,
     selected: bool,
     index_in_parent: usize,
-    actions: &mut Vec<GuiAction>,
+    on_action: &mut impl FnMut(GuiAction),
 ) {
     let node_name = get_label(node, index_in_parent);
     let node_id = node.id;
+    let mut gui_action : Option<GuiAction> = None;
 
-    dnd_area(ui, node_id, index_in_parent, DragDropPayload::WithNode(node_id), |ui| {
+    dnd_area(ui, node_id, index_in_parent, DragDropPayload::WithNode(node_id),
+             |action| gui_action = Some(action),
+             |ui| {
         ui.horizontal(|ui| {
             let mut label_color = ui.visuals().text_color();
             if !is_hovering(ui, node_id) {   
@@ -254,12 +261,12 @@ fn expandable_node_header(
 
             let expand_icon = if is_expanded { "⏷" } else { "⏵" };
             if ui.label(expand_icon).on_hover_cursor(CursorIcon::Default).on_hover_text("Expand/collapse node").clicked() {
-                actions.push(GuiAction::SetNodeExpanded { node: node_id, expanded: !is_expanded });
+                on_action(GuiAction::SetNodeExpanded { node: node_id, expanded: !is_expanded });
             }
 
             let mut checked = false; // Replace with actual logic to get the checked state
             if ui.checkbox(&mut checked, "").clicked() {
-                actions.push(GuiAction::WrappedChange { change: Change::SetBool { node: node_id, attribute: "completed".to_string(), value: checked } });
+                on_action(GuiAction::WrappedChange { change: Change::SetBool { node: node_id, attribute: "completed".to_string(), value: checked } });
             }
 
             if selected {
@@ -267,48 +274,46 @@ fn expandable_node_header(
                 let text_edit = ui.text_edit_singleline(&mut node_name);
                 text_edit.request_focus();
                 if text_edit.changed() {
-                    actions.push(GuiAction::WrappedChange { change: Change::SetName { node: node_id, name: node_name.clone() } });
+                    on_action(GuiAction::WrappedChange { change: Change::SetName { node: node_id, name: node_name.clone() } });
                 }
             } else {
                 let label = ui.label(node_name);
-                if label.clicked() { actions.push(GuiAction::SelectNode { node: node_id }); }
-                if label.double_clicked() { actions.push(GuiAction::ToggleEditing); }
+                if label.clicked() { on_action(GuiAction::SelectNode { node: node_id }); }
+                if label.double_clicked() { on_action(GuiAction::ToggleEditing); }
             }
 
             ui.spacing();
 
             if selected {
-                if ui.label("✖").clicked() { actions.push(GuiAction::RemoveNode { node: node_id }); }
+                if ui.label("✖").clicked() { on_action(GuiAction::RemoveNode { node: node_id }); }
             }
         });
     });
+    
+    if let Some(action) = gui_action {
+        on_action(action);
+    }
 }
 
 fn is_hovering(ui: &Ui, node_id: NodeId) -> bool {
-    if let Some(r) = ui.ctx().read_response(Id::new(node_id))
-    {
+    if let Some(r) = ui.ctx().read_response(Id::new(node_id)) {
         r.hovered()
     } else {
         false
     }
 }
 
-pub fn dnd_area<Payload, R>(
+pub fn dnd_area<R>(
     ui: &mut Ui,
     node_id: NodeId,
     index_in_parent: usize,
-    payload: Payload,
+    payload: DragDropPayload,
+    on_action: impl FnOnce(GuiAction) -> (),
     add_contents: impl FnOnce(&mut Ui) -> R,
 ) -> InnerResponse<R>
-where
-    Payload: Any + Send + Sync,
 {
     let id= Id::new(node_id);
     let is_self_being_dragged = ui.ctx().is_being_dragged(id);
-
-    let is_anything_else_being_dragged = DragAndDrop::has_any_payload(ui.ctx());
-    let can_accept_what_is_being_dragged =
-        DragAndDrop::has_payload_of_type::<Payload>(ui.ctx());
 
     if is_self_being_dragged {
         DragAndDrop::set_payload(ui.ctx(), payload);
@@ -318,13 +323,6 @@ where
         let InnerResponse { inner, response } =
             ui.scope_builder(UiBuilder::new().layer_id(layer_id), add_contents);
 
-        // Now we move the visuals of the body to where the mouse is.
-        // Normally you need to decide a location for a widget first,
-        // because otherwise that widget cannot interact with the mouse.
-        // However, a dragged component cannot be interacted with anyway
-        // (anything with `Order::Tooltip` always gets an empty [`Response`])
-        // So this is fine!
-
         if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
             let delta = pointer_pos - response.rect.left_center();
             ui.ctx()
@@ -332,47 +330,37 @@ where
         }
 
         InnerResponse::new(inner, response)
-    } else if can_accept_what_is_being_dragged {
-        let frame = Frame::default();
-        let mut frame = frame.begin(ui);
-        let inner = add_contents(&mut frame.content_ui);
-        let response = frame.allocate_space(ui);
-
-        // NOTE: we use `response.contains_pointer` here instead of `hovered`, because
-        // `hovered` is always false when another widget is being dragged.
-        let style = if is_anything_else_being_dragged
-            && can_accept_what_is_being_dragged
-            && response.contains_pointer()
-        {
-            ui.visuals().widgets.active
-        } else {
-            ui.visuals().widgets.inactive
-        };
-
-        let mut fill = style.bg_fill;
-        let mut stroke = style.bg_stroke;
-
-        if is_anything_else_being_dragged && !can_accept_what_is_being_dragged {
-            // When dragging something else, show that it can't be dropped here:
-            fill = ui.visuals().gray_out(fill);
-            stroke.color = ui.visuals().gray_out(stroke.color);
-        }
-
-        frame.frame.fill = fill;
-        frame.frame.stroke = stroke;
-
-        frame.paint(ui);
-
-        let payload = response.dnd_release_payload::<Payload>();
-
-        if let Some(payload) = payload {
-
-            //actions.push(GuiAction::MoveNode { node: dropped_id, new_parent: node_id, index_in_new_parent: index_in_parent as u64 });
-        }
-
-        (InnerResponse { inner, response })
     } else {
         let InnerResponse { inner, response } = ui.scope(add_contents);
+
+        if let (Some(pointer), Some(hovered_payload)) = (
+            ui.input(|i| i.pointer.interact_pos()),
+            response.dnd_hover_payload::<DragDropPayload>(),
+        ) {
+            let rect = response.rect;
+
+            // Preview insertion:
+            let stroke = egui::Stroke::new(1.0, Color32::WHITE);
+            let insert_idx = if pointer.y < rect.center().y {
+                // Above us
+                ui.painter().hline(rect.x_range(), rect.top(), stroke);
+                index_in_parent
+            } else {
+                // Below us
+                ui.painter().hline(rect.x_range(), rect.bottom(), stroke);
+                index_in_parent + 1
+            };
+
+            if let Some(dragged_payload) = response.dnd_release_payload::<DragDropPayload>() {
+                // The user dropped onto this item.
+                let d = dragged_payload.as_ref();
+                let action = match d {
+                    DragDropPayload::WithNode(node) => {
+                        on_action(GuiAction::MoveNode { node: *node, new_parent: node_id, index_in_new_parent: insert_idx as u64 });
+                    }
+                };
+            }
+        }
 
         // Check for drags:
         let mut small_rect = response.rect.clone();
@@ -406,12 +394,12 @@ fn get_label(node: &Node, index_in_parent: usize) -> String {
     format!("{}: ID{}", index_in_parent, node.id.index())
 }
 
-fn create_node_tree_children(app: &Application, node_id: NodeId, actions: &mut Vec<GuiAction>, ui: &mut Ui) {
+fn create_node_tree_children(app: &Application, node_id: NodeId, on_action: &mut impl FnMut(GuiAction), ui: &mut Ui) {
     let mut index: usize = 0;
     let children =  &app.document.nodes.get(node_id).expect("").children;
     
     for child_id in children {
-        create_node_tree(ui, *child_id, app, actions, index);
+        create_node_tree(ui, *child_id, app, on_action, index);
         index += 1;
     }
     let frame = Frame::default().inner_margin(2.0);
@@ -419,11 +407,11 @@ fn create_node_tree_children(app: &Application, node_id: NodeId, actions: &mut V
     let (_, dropped_payload) = ui.dnd_drop_zone::<NodeId, ()>(frame, |ui| {
         let add_button = ui.label("⊞").on_hover_text("Add child node");
         if add_button.clicked() {
-            actions.push(GuiAction::AddNode { parent: node_id, index: children.len() as u64 });
+            on_action(GuiAction::AddNode { parent: node_id, index: children.len() as u64 });
         }
     });
 
     if let Some(dropped_id) = dropped_payload {
-        actions.push(GuiAction::MoveNode { node: *dropped_id, new_parent: node_id, index_in_new_parent: children.len() as u64 });
+        on_action(GuiAction::MoveNode { node: *dropped_id, new_parent: node_id, index_in_new_parent: children.len() as u64 });
     }
 }
