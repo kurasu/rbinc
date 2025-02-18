@@ -1,6 +1,6 @@
 [workspace]
 members = [
     "binc",
-    "server",
+    "cli",
     "explorer"
 ]

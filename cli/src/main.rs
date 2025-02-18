@@ -1,8 +1,9 @@
-mod server;
+mod cli;
 
 use std::io;
 use clap::{Parser, Subcommand};
-use binc::document::{AttributeValue, Document};
+use binc::attributes::AttributeValue;
+use binc::document::Document;
 use binc::node_id::NodeId;
 use binc::repository::Repository;
 
@@ -65,7 +66,7 @@ fn main() -> io::Result<()> {
         }
         Commands::Serve { store, port } => {
             println!("Serving store {} on port {}", store, port);
-            server::server();
+            cli::server();
             Ok(())
         }
     }
