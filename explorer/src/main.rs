@@ -5,6 +5,7 @@ use std::any::Any;
 use eframe::{egui, emath};
 use eframe::egui::{Color32, Context, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Sense, Ui, UiBuilder};
 use eframe::egui::StrokeKind::Inside;
+use binc::attributes::AttributeValue;
 use binc::change::Change;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
@@ -266,9 +267,9 @@ fn expandable_node_header(
                 on_action(GuiAction::SetNodeExpanded { node: node_id, expanded: !is_expanded });
             }
 
-            let mut checked = false; // Replace with actual logic to get the checked state
+            let mut checked = node.get_bool_attribute("completed").unwrap_or_default();
             if ui.checkbox(&mut checked, "").clicked() {
-                on_action(GuiAction::WrappedChange { change: Change::SetBool { node: node_id, attribute: "completed".to_string(), value: checked } });
+                on_action(GuiAction::WrappedChange { change: Change::SetAttribute { node: node_id, attribute: "completed".to_string(), value: AttributeValue::Bool(checked) } });
             }
 
             if selected {

@@ -1,5 +1,5 @@
 use std::ops::Deref;
-use crate::document::{AttributeValue};
+use crate::attributes::{AttributeStore, AttributeValue};
 use crate::node_id::NodeId;
 use crate::comments::Comments;
 
@@ -91,46 +91,6 @@ pub struct Node {
     pub comments: Comments,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct AttributeStore {
-    attributes: Vec<AttributeEntry>
-}
-
-#[derive(Debug, Clone)]
-pub struct AttributeEntry {
-    pub key: String,
-    pub value: AttributeValue
-}
-
-impl AttributeStore {
-    pub fn set(&mut self, key: &str, value: AttributeValue) {
-        for a in &mut self.attributes {
-            if a.key == key {
-                a.value = value;
-                return;
-            }
-        }
-
-        self.attributes.push(AttributeEntry { key: key.to_string(), value });
-    }
-
-    pub fn get(&self, key: &str) -> Option<&AttributeValue> {
-        self.attributes.iter().find(|x| x.key == key).map(|x| &x.value)
-    }
-
-    pub fn get_mut(&mut self, key: &str) -> Option<&mut AttributeValue> {
-        self.attributes.iter_mut().find(|x| x.key == key).map(|x| &mut x.value)
-    }
-
-    pub fn iter(&self) -> std::slice::Iter<AttributeEntry> {
-        self.attributes.iter()
-    }
-
-    pub fn len(&self) -> usize {
-        self.attributes.len()
-    }
-}
-
 impl Default for Node {
     fn default() -> Self {
         Node {
@@ -155,6 +115,7 @@ impl Node {
             type_name: None,
             children: vec![],
             attributes: AttributeStore::default(),
+            comments: Comments::default(),
         }
     }
 

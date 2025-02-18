@@ -6,5 +6,6 @@ pub mod change;
 pub mod node_id;
 pub mod node_store;
 pub mod changes;
-mod util;
-mod comments;
+pub mod util;
+pub mod comments;
+pub mod attributes;

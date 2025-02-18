@@ -1,3 +1,4 @@
+use crate::attributes::AttributeValue;
 use crate::change::Change;
 use crate::node_id::NodeId;
 
@@ -45,12 +46,12 @@ impl Changes {
     }
 
     pub fn set_string(&mut self, node: NodeId, attribute: &str, value: &str) -> &mut Self {
-        self.changes.push(Change::SetString { node, attribute: attribute.to_string(), value: value.to_string() });
+        self.changes.push(Change::SetAttribute { node, attribute: attribute.to_string(), value: AttributeValue::String(value.to_string()) });
         self
     }
 
     pub fn set_bool(&mut self, node: NodeId, attribute: &str, value: bool) -> &mut Self {
-        self.changes.push(Change::SetBool { node, attribute: attribute.to_string(), value });
+        self.changes.push(Change::SetAttribute { node, attribute: attribute.to_string(), value: AttributeValue::Bool(value) });
         self
     }
 }

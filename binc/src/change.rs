@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 use std::io;
 use std::io::{Read, Write};
+use crate::attributes::{attribute_type, AttributeValue};
 use crate::node_id::NodeId;
 use crate::readwrite::{ReadExt, WriteExt};
 use crate::node_store::{Node, NodeStore};
@@ -67,8 +68,7 @@ pub enum Change {
     DeleteNode {id: NodeId },
     SetType {node: NodeId, type_name: String},
     SetName {node: NodeId, name: String},
-    SetString {node: NodeId, attribute: String, value: String},
-    SetBool {node: NodeId, attribute: String, value: bool},
+    SetAttribute {node: NodeId, attribute: String, value: AttributeValue},
     AddComment {node: NodeId, comment: String, author: String, response_to: u64},
     UnknownChange {change_type: u64, data: Vec<u8>},
 }
@@ -94,13 +94,9 @@ impl Change {
                 let x = nodes.get_mut(*node).expect("Node not found");
                 x.set_name(name);
             }
-            Change::SetString {node, attribute, value} => {
+            Change::SetAttribute {node, attribute, value} => {
                 let x = nodes.get_mut(*node).expect("Node not found");
-                x.set_string_attribute(attribute, value);
-            }
-            Change::SetBool {node, attribute, value} => {
-                let x = nodes.get_mut(*node).expect("Node not found");
-                x.set_bool_attribute(attribute, *value);
+                x.set_attribute(attribute, value.clone());
             }
             Change::AddComment {node, comment, author, response_to} => {
                 let x = nodes.get_mut(*node).expect("Node not found");
@@ -136,13 +132,13 @@ impl Change {
                 let node = r.read_id()?;
                 let attribute = r.read_string()?;
                 let value = r.read_string()?;
-                Ok(Change::SetString {node, attribute, value})
+                Ok(Change::SetAttribute {node, attribute, value: AttributeValue::String(value)})
             }
             ChangeType::SET_BOOL => {
                 let node = r.read_id()?;
                 let attribute = r.read_string()?;
                 let value = r.read_u8()? != 0;
-                Ok(Change::SetBool {node, attribute, value})
+                Ok(Change::SetAttribute {node, attribute, value: AttributeValue::Bool(value)})
             }
             ChangeType::SET_NAME => {
                 let node = r.read_id()?;
@@ -192,15 +188,13 @@ impl Change {
                 w.write_id(node)?;
                 w.write_string(type_name)
             }
-            Change::SetString {node, attribute, value} => {
+            Change::SetAttribute {node, attribute, value} => {
                 w.write_id(node)?;
                 w.write_string(attribute)?;
-                w.write_string(value)
-            }
-            Change::SetBool {node, attribute, value} => {
-                w.write_id(node)?;
-                w.write_string(attribute)?;
-                w.write_u8(*value as u8)
+                match value {
+                    AttributeValue::String(s) => w.write_string(s),
+                    AttributeValue::Bool(b) => w.write_u8(*b as u8),
+                }
             }
             Change::AddComment {node, comment, author, response_to} => {
                 w.write_id(node)?;
@@ -221,26 +215,20 @@ impl Change {
             Change::DeleteNode {id: _} => ChangeType::REMOVE_NODE,
             Change::SetName {node: _, name: _} => ChangeType::SET_NAME,
             Change::SetType {node: _, type_name: _} => ChangeType::SET_TYPE,
-            Change::SetString {node: _, attribute: _, value: _} => ChangeType::SET_STRING,
-            Change::SetBool {node: _, attribute: _, value: _} => ChangeType::SET_BOOL,
+            Change::SetAttribute {node: _, attribute: _, value} => match value {
+                AttributeValue::String(_) => ChangeType::SET_STRING,
+                AttributeValue::Bool(_) => ChangeType::SET_BOOL,
+            }
             Change::AddComment {node: _, comment: _, author: _, response_to: _} => ChangeType::ADD_COMMENT,
             Change::UnknownChange {change_type, data: _} => *change_type,
         }
     }
 
     pub fn combine_change(&self, last_change: &Change) -> Option<Change> {
-        if let Change::SetString {node, attribute, value} = self {
-            if let Change::SetString {node: node2, attribute: attribute2, value: _value2} = last_change {
+        if let Change::SetAttribute {node, attribute, value} = self {
+            if let Change::SetAttribute {node: node2, attribute: attribute2, value: _value2} = last_change {
                 if node == node2 && attribute == attribute2 {
-                    return Some(Change::SetString {node: node.clone(), attribute: attribute.clone(), value: value.clone()});
-                }
-            }
-        }
-
-        if let Change::SetBool {node, attribute, value} = self {
-            if let Change::SetBool {node: node2, attribute: attribute2, value: _value2} = last_change {
-                if node == node2 && attribute == attribute2 {
-                    return Some(Change::SetBool {node: node.clone(), attribute: attribute.clone(), value: *value});
+                    return Some(Change::SetAttribute {node: node.clone(), attribute: attribute.clone(), value: value.clone()});
                 }
             }
         }
@@ -273,9 +261,9 @@ impl Display for Change {
             Change::DeleteNode {id} => write!(f, "RemoveNode({})", id),
             Change::SetType {node, type_name} => write!(f, "SetType({}, {})", node, type_name),
             Change::SetName {node, name: label } => write!(f, "SetLabel({}, {})", node, label),
-            Change::SetString {node, attribute, value} => write!(f, "SetString({}, {} = {})", node, attribute, value),
-            Change::SetBool {node, attribute, value} => write!(f, "SetBool({}, {} = {})", node, attribute, value),
+            Change::SetAttribute {node, attribute, value} => write!(f, "Set{}({}, {} = {})", attribute_type(value), node, attribute, value),
             Change::UnknownChange {change_type, data} => write!(f, "UnknownChange({}, {} bytes)", change_type, data.len()),
+            Change::AddComment {node, comment, author, response_to} => write!(f, "AddComment({}, {} by {} in response to {})", node, comment, author, response_to),
         }
     }
 }

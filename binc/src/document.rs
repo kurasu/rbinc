@@ -7,21 +7,6 @@ use crate::revision::Revision;
 use std::io;
 use std::io::{Read, Write};
 
-#[derive(Debug, Clone)]
-pub enum AttributeValue {
-    String(String),
-    Bool(bool),
-}
-
-impl std::fmt::Display for AttributeValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AttributeValue::String(s) => write!(f, "{}", s),
-            AttributeValue::Bool(b) => write!(f, "{}", b),
-        }
-    }
-}
-
 pub struct Document {
     /// Repository containing all revisions
     pub repository: Repository,
