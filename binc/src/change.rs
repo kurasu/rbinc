@@ -7,18 +7,6 @@ use crate::node_store::{Node, NodeStore};
 
 pub(crate) struct ChangeType;
 
-pub trait OptionExt {
-    fn expect_none(&self, msg: &str);
-}
-
-impl<T> OptionExt for Option<T> {
-    fn expect_none(&self, msg: &str) {
-        if self.is_some() {
-            panic!("{}", msg);
-        }
-    }
-}
-
 impl ChangeType {
     pub const ADD_NODE: u64 = 0x01;
     pub const ADD_NODE_FROM_SOURCE: u64 = 0x02;
@@ -81,6 +69,7 @@ pub enum Change {
     SetName {node: NodeId, name: String},
     SetString {node: NodeId, attribute: String, value: String},
     SetBool {node: NodeId, attribute: String, value: bool},
+    AddComment {node: NodeId, comment: String, author: String, response_to: u64},
     UnknownChange {change_type: u64, data: Vec<u8>},
 }
 
@@ -112,6 +101,10 @@ impl Change {
             Change::SetBool {node, attribute, value} => {
                 let x = nodes.get_mut(*node).expect("Node not found");
                 x.set_bool_attribute(attribute, *value);
+            }
+            Change::AddComment {node, comment, author, response_to} => {
+                let x = nodes.get_mut(*node).expect("Node not found");
+                x.add_comment(comment, author, *response_to);
             }
             Change::UnknownChange {change_type: _, data: _} => {
                 // Do nothing
@@ -150,6 +143,23 @@ impl Change {
                 let attribute = r.read_string()?;
                 let value = r.read_u8()? != 0;
                 Ok(Change::SetBool {node, attribute, value})
+            }
+            ChangeType::SET_NAME => {
+                let node = r.read_id()?;
+                let name = r.read_string()?;
+                Ok(Change::SetName {node, name})
+            }
+            ChangeType::SET_TYPE => {
+                let node = r.read_id()?;
+                let type_name = r.read_string()?;
+                Ok(Change::SetType {node, type_name})
+            }
+            ChangeType::ADD_COMMENT => {
+                let node = r.read_id()?;
+                let comment = r.read_string()?;
+                let author = r.read_string()?;
+                let response_to = r.read_length()?;
+                Ok(Change::AddComment {node, comment, author, response_to})
             }
             _ => {
                 let mut data = vec![0; change_size as usize];
@@ -192,6 +202,12 @@ impl Change {
                 w.write_string(attribute)?;
                 w.write_u8(*value as u8)
             }
+            Change::AddComment {node, comment, author, response_to} => {
+                w.write_id(node)?;
+                w.write_string(comment)?;
+                w.write_string(author)?;
+                w.write_length(*response_to)
+            }
             Change::UnknownChange {change_type: _, data} => {
                 w.write_all(data)
             }
@@ -207,6 +223,7 @@ impl Change {
             Change::SetType {node: _, type_name: _} => ChangeType::SET_TYPE,
             Change::SetString {node: _, attribute: _, value: _} => ChangeType::SET_STRING,
             Change::SetBool {node: _, attribute: _, value: _} => ChangeType::SET_BOOL,
+            Change::AddComment {node: _, comment: _, author: _, response_to: _} => ChangeType::ADD_COMMENT,
             Change::UnknownChange {change_type, data: _} => *change_type,
         }
     }

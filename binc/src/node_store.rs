@@ -1,6 +1,7 @@
 use std::ops::Deref;
 use crate::document::{AttributeValue};
 use crate::node_id::NodeId;
+use crate::comments::Comments;
 
 pub type NodeStore = FlatNodeStore;
 
@@ -86,7 +87,8 @@ pub struct Node {
     pub type_name: Option<String>,
     pub parent: NodeId,
     pub children: Vec<NodeId>,
-    pub attributes: AttributeStore
+    pub attributes: AttributeStore,
+    pub comments: Comments,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -138,6 +140,7 @@ impl Default for Node {
             type_name: None,
             children: vec![],
             attributes: AttributeStore::default(),
+            comments: Comments::default(),
         }
     }
 }
@@ -207,6 +210,10 @@ impl Node {
 
     pub (crate) fn get_child_index(&self, id: NodeId) -> Option<usize> {
         self.children.iter().position(|x| *x == id)
+    }
+
+    pub(crate) fn add_comment(&mut self, comment: &str, author: &str, response_to: u64) {
+        self.comments.add_comment(comment, author, response_to);
     }
 }
 
