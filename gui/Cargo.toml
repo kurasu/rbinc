@@ -9,3 +9,7 @@ eframe = "0.31.0"
 env_logger = "0.11.6"
 rfd = "0.15.2"
 xml = "0.8.20"
+
+[[bin]]
+name = "binc-explorer"
+path = "src/explorer.rs"

@@ -2,6 +2,6 @@
 members = [
     "binc",
     "cli",
-    "explorer"
+    "gui"
 ]
 resolver = "2"

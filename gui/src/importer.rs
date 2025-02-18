@@ -55,7 +55,7 @@ fn import_xml<R: Read>(reader: &mut R) -> io::Result<Repository> {
 
     for e in parser {
         match e {
-            Ok(XmlEvent::StartElement { name, attributes, namespace }) => {
+            Ok(XmlEvent::StartElement { name, attributes, namespace: _ }) => {
                 //println!("{:spaces$}+{name}", "", spaces = depth * 2);
                 current_id = id_provider.next_id();
                 let parent_id = parent_id_stack.last().expect("StartElement/EndElement mismatch");
@@ -80,7 +80,7 @@ fn import_xml<R: Read>(reader: &mut R) -> io::Result<Repository> {
 
                 changes.set_string(*parent_id, "text", text.as_str());
             }
-            Ok(XmlEvent::EndElement { name }) => {
+            Ok(XmlEvent::EndElement { name: _ }) => {
                 depth -= 1;
                 //println!("{:spaces$}-{name}", "", spaces = depth * 2);
                 parent_id_stack.pop();

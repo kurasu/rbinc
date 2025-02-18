@@ -3,7 +3,7 @@
 
 use std::any::Any;
 use eframe::{egui, emath};
-use eframe::egui::{Color32, Context, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Sense, Ui, UiBuilder};
+use eframe::egui::{Context, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Sense, Ui, UiBuilder};
 use eframe::egui::StrokeKind::Inside;
 use binc::attributes::AttributeValue;
 use binc::change::Change;
@@ -213,7 +213,6 @@ fn create_history(ui: &mut Ui, app: &Application, on_action: &mut impl FnMut(Gui
 }
 
 fn create_tree(ui: &mut Ui, app: &mut Application, on_action: &mut impl FnMut(GuiAction)) {
-    //create_node_tree(ui, app.ui.root, app, actions, 0);
     create_node_tree_children(app, app.ui.root, on_action, ui);
 }
 
@@ -378,7 +377,7 @@ pub fn dnd_area<R>(
                 if let Some(dragged_payload) = response.dnd_release_payload::<DragDropPayload>() {
                     // The user dropped onto this item.
                     let d = dragged_payload.as_ref();
-                    let action = match d {
+                    match d {
                         DragDropPayload::WithNode(node) => {
                             on_action(GuiAction::MoveNode { node: *node, new_parent: target, index_in_new_parent: insert_idx as u64 });
                         }
