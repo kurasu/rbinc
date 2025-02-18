@@ -227,7 +227,7 @@ fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &Application, on_action: 
         let is_expanded = app.is_node_expanded(node_id);
 
         ui.vertical(|ui| {
-            expandable_node_header(ui, node, is_expanded, selected, index_in_parent, on_action);
+            expandable_node_header(ui, app, node, is_expanded, selected, index_in_parent, on_action);
 
             if is_expanded {
                 ui.indent(node_id, |ui| {
@@ -240,6 +240,7 @@ fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &Application, on_action: 
 
 fn expandable_node_header(
     ui: &mut Ui,
+    app: &Application,
     node: &Node,
     is_expanded: bool,
     selected: bool,
@@ -250,7 +251,7 @@ fn expandable_node_header(
     let node_id = node.id;
     let mut gui_action : Option<GuiAction> = None;
 
-    dnd_area(ui, node, index_in_parent, DragDropPayload::WithNode(node_id),
+    dnd_area(ui, app, node, index_in_parent, DragDropPayload::WithNode(node_id),
              |action| gui_action = Some(action),
              |ui| {
         ui.horizontal(|ui| {
@@ -306,6 +307,7 @@ fn is_hovering(ui: &Ui, node_id: NodeId) -> bool {
 
 pub fn dnd_area<R>(
     ui: &mut Ui,
+    app: &Application,
     node: &Node,
     index_in_parent: usize,
     payload: DragDropPayload,
@@ -345,8 +347,18 @@ pub fn dnd_area<R>(
             let y1 = rect.top() + edge_margin;
             let y2 = rect.bottom() - edge_margin;
 
+            let allowed = match hovered_payload.as_ref() {
+                DragDropPayload::WithNode(hovered_node_id) => {
+                    // Don't allow dropping onto self or children of self:
+                    *hovered_node_id != node_id
+                        && !is_ancestor(app, node_id, *hovered_node_id)
+                }
+            };
+
             // Preview insertion:
-            let stroke = egui::Stroke::new(1.0, ui.ctx().style().visuals.text_color());
+            let visuals = &ui.ctx().style().visuals;
+            let color = if allowed { visuals.text_color() } else { visuals.error_fg_color };
+            let stroke = egui::Stroke::new(1.0, color);
             let (target, insert_idx) = if pointer.y < y1 {
                 // Above us
                 ui.painter().hline(rect.x_range(), rect.top(), stroke);
@@ -361,14 +373,16 @@ pub fn dnd_area<R>(
                 (parent_id, index_in_parent + 1)
             };
 
-            if let Some(dragged_payload) = response.dnd_release_payload::<DragDropPayload>() {
-                // The user dropped onto this item.
-                let d = dragged_payload.as_ref();
-                let action = match d {
-                    DragDropPayload::WithNode(node) => {
-                        on_action(GuiAction::MoveNode { node: *node, new_parent: target, index_in_new_parent: insert_idx as u64 });
-                    }
-                };
+            if allowed {
+                if let Some(dragged_payload) = response.dnd_release_payload::<DragDropPayload>() {
+                    // The user dropped onto this item.
+                    let d = dragged_payload.as_ref();
+                    let action = match d {
+                        DragDropPayload::WithNode(node) => {
+                            on_action(GuiAction::MoveNode { node: *node, new_parent: target, index_in_new_parent: insert_idx as u64 });
+                        }
+                    };
+                }
             }
         }
 
@@ -381,6 +395,19 @@ pub fn dnd_area<R>(
 
         InnerResponse::new(inner, dnd_response | response)
     }
+}
+
+fn is_ancestor(app: &Application, node_id: NodeId, assumed_ancestor: NodeId) -> bool {
+    let node = app.document.nodes.get(node_id).expect("");
+
+    if node.parent == assumed_ancestor {
+        return true;
+    }
+    if node.parent == NodeId::NO_NODE {
+        return false;
+    }
+
+    is_ancestor(app, node.parent, assumed_ancestor)
 }
 
 fn get_label(node: &Node, index_in_parent: usize) -> String {
