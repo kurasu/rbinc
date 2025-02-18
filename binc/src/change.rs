@@ -15,6 +15,8 @@ impl ChangeType {
     pub const REMOVE_NODE: u64 = 0x04;
     pub const SET_TYPE: u64 = 0x05;
     pub const SET_NAME: u64 = 0x06;
+    pub const SET_TAG: u64 = 0x07;
+    pub const CLEAR_TAG: u64 = 0x08;
 
     pub const ADD_CHILD: u64 = 0x11;
     pub const REMOVE_CHILD: u64 = 0x12;
@@ -68,6 +70,8 @@ pub enum Change {
     DeleteNode {id: NodeId },
     SetType {node: NodeId, type_name: String},
     SetName {node: NodeId, name: String},
+    SetTag {node: NodeId, tag: String},
+    ClearTag {node: NodeId, tag: String},
     SetAttribute {node: NodeId, attribute: String, value: AttributeValue},
     AddComment {node: NodeId, comment: String, author: String, response_to: u64},
     UnknownChange {change_type: u64, data: Vec<u8>},
@@ -93,6 +97,14 @@ impl Change {
             Change::SetName {node, name } => {
                 let x = nodes.get_mut(*node).expect("Node not found");
                 x.set_name(name);
+            }
+            Change::SetTag {node, tag} => {
+                let x = nodes.get_mut(*node).expect("Node not found");
+                x.set_tag(tag);
+            }
+            Change::ClearTag {node, tag} => {
+                let x = nodes.get_mut(*node).expect("Node not found");
+                x.clear_tag(tag);
             }
             Change::SetAttribute {node, attribute, value} => {
                 let x = nodes.get_mut(*node).expect("Node not found");
@@ -254,6 +266,14 @@ impl Change {
                 w.write_id(node)?;
                 w.write_string(type_name)
             }
+            Change::SetTag { node, tag } => {
+                w.write_id(node)?;
+                w.write_string(tag)
+            }
+            Change::ClearTag { node, tag } => {
+                w.write_id(node)?;
+                w.write_string(tag)
+            }
             Change::SetAttribute {node, attribute, value} => {
                 w.write_id(node)?;
                 w.write_string(attribute)?;
@@ -292,6 +312,8 @@ impl Change {
             Change::DeleteNode {id: _} => ChangeType::REMOVE_NODE,
             Change::SetName {node: _, name: _} => ChangeType::SET_NAME,
             Change::SetType {node: _, type_name: _} => ChangeType::SET_TYPE,
+            Change::SetTag {node: _, tag: _} => ChangeType::SET_TAG,
+            Change::ClearTag {node: _, tag: _} => ChangeType::CLEAR_TAG,
             Change::SetAttribute {node: _, attribute: _, value} => match value {
                 AttributeValue::String(_) => ChangeType::SET_STRING,
                 AttributeValue::Bool(_) => ChangeType::SET_BOOL,
@@ -349,6 +371,8 @@ impl Display for Change {
             Change::DeleteNode {id} => write!(f, "RemoveNode({})", id),
             Change::SetType {node, type_name} => write!(f, "SetType({}, {})", node, type_name),
             Change::SetName {node, name: label } => write!(f, "SetLabel({}, {})", node, label),
+            Change::SetTag {node, tag} => write!(f, "SetTag({}, {})", node, tag),
+            Change::ClearTag {node, tag} => write!(f, "ClearTag({}, {})", node, tag),
             Change::SetAttribute {node, attribute, value} => write!(f, "Set{}({}, {} = {})", attribute_type(value), node, attribute, value),
             Change::UnknownChange {change_type, data} => write!(f, "UnknownChange({}, {} bytes)", change_type, data.len()),
             Change::AddComment {node, comment, author, response_to} => write!(f, "AddComment({}, {} by {} in response to {})", node, comment, author, response_to),

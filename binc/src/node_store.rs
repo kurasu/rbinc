@@ -89,6 +89,7 @@ pub struct Node {
     pub children: Vec<NodeId>,
     pub attributes: AttributeStore,
     pub comments: Comments,
+    pub tags: Vec<String>,
 }
 
 impl Default for Node {
@@ -101,6 +102,7 @@ impl Default for Node {
             children: vec![],
             attributes: AttributeStore::default(),
             comments: Comments::default(),
+            tags: vec![],
         }
     }
 }
@@ -116,6 +118,7 @@ impl Node {
             children: vec![],
             attributes: AttributeStore::default(),
             comments: Comments::default(),
+            tags: vec![],
         }
     }
 
@@ -123,12 +126,20 @@ impl Node {
         self.attributes.insert(key, Box::new(value));
     }*/
 
-    pub fn set_type(&mut self, type_name: &String) {
-        self.type_name = if type_name.is_empty() { None } else { Some(type_name.clone()) };
+    pub fn set_type(&mut self, type_name: &str) {
+        self.type_name = if type_name.is_empty() { None } else { Some(type_name.to_string()) };
     }
 
-    pub fn set_name(&mut self, label: &String) {
-        self.name = if label.is_empty() { None } else { Some(label.clone()) };
+    pub fn set_name(&mut self, label: &str) {
+        self.name = if label.is_empty() { None } else { Some(label.to_string()) };
+    }
+
+    pub fn set_tag(&mut self, tag: &str) {
+        self.tags.push(tag.to_string());
+    }
+
+    pub fn clear_tag(&mut self, tag: &str) {
+        self.tags.retain(|x| x != tag);
     }
 
     pub fn get_name(&self) -> Option<&String> {
