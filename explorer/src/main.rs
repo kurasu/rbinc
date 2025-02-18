@@ -2,6 +2,7 @@
 #![allow(rustdoc::missing_crate_level_docs)]
 
 use std::any::Any;
+use std::sync::Arc;
 use eframe::{egui, emath};
 use eframe::egui::{Context, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Sense, Ui, UiBuilder};
 use binc::change::Change;
@@ -32,7 +33,7 @@ enum GuiAction {
 }
 
 enum DragDropPayload {
-    NodeId(NodeId),
+    WithNode(NodeId),
 }
 
 fn main() -> eframe::Result {
@@ -244,7 +245,7 @@ fn expandable_node_header(
     let node_name = get_label(node, index_in_parent);
     let node_id = node.id;
 
-    dnd_drag_source2(ui, Id::new(node_id), node_id, |ui| {
+    dnd_area(ui, node_id, index_in_parent, DragDropPayload::WithNode(node_id), |ui| {
         ui.horizontal(|ui| {
             ui.label("☰").on_hover_text("Drag to move");
 
@@ -280,18 +281,24 @@ fn expandable_node_header(
     });
 }
 
-pub fn dnd_drag_source2<Payload, R>(
+pub fn dnd_area<Payload, R>(
     ui: &mut Ui,
-    id: Id,
+    node_id: NodeId,
+    index_in_parent: usize,
     payload: Payload,
     add_contents: impl FnOnce(&mut Ui) -> R,
 ) -> InnerResponse<R>
 where
     Payload: Any + Send + Sync,
 {
-    let is_being_dragged = ui.ctx().is_being_dragged(id);
+    let id= Id::new(node_id);
+    let is_self_being_dragged = ui.ctx().is_being_dragged(id);
 
-    if is_being_dragged {
+    let is_anything_else_being_dragged = DragAndDrop::has_any_payload(ui.ctx());
+    let can_accept_what_is_being_dragged =
+        DragAndDrop::has_payload_of_type::<Payload>(ui.ctx());
+
+    if is_self_being_dragged {
         DragAndDrop::set_payload(ui.ctx(), payload);
 
         // Paint the body to a new layer:
@@ -313,6 +320,45 @@ where
         }
 
         InnerResponse::new(inner, response)
+    } else if can_accept_what_is_being_dragged {
+        let frame = Frame::default();
+        let mut frame = frame.begin(ui);
+        let inner = add_contents(&mut frame.content_ui);
+        let response = frame.allocate_space(ui);
+
+        // NOTE: we use `response.contains_pointer` here instead of `hovered`, because
+        // `hovered` is always false when another widget is being dragged.
+        let style = if is_anything_else_being_dragged
+            && can_accept_what_is_being_dragged
+            && response.contains_pointer()
+        {
+            ui.visuals().widgets.active
+        } else {
+            ui.visuals().widgets.inactive
+        };
+
+        let mut fill = style.bg_fill;
+        let mut stroke = style.bg_stroke;
+
+        if is_anything_else_being_dragged && !can_accept_what_is_being_dragged {
+            // When dragging something else, show that it can't be dropped here:
+            fill = ui.visuals().gray_out(fill);
+            stroke.color = ui.visuals().gray_out(stroke.color);
+        }
+
+        frame.frame.fill = fill;
+        frame.frame.stroke = stroke;
+
+        frame.paint(ui);
+
+        let payload = response.dnd_release_payload::<Payload>();
+
+        if let Some(payload) = payload {
+
+            //actions.push(GuiAction::MoveNode { node: dropped_id, new_parent: node_id, index_in_new_parent: index_in_parent as u64 });
+        }
+
+        (InnerResponse { inner, response })
     } else {
         let InnerResponse { inner, response } = ui.scope(add_contents);
 
