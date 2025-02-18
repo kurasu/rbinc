@@ -18,9 +18,6 @@ impl ChangeType {
     pub const SET_TAG: u64 = 0x07;
     pub const CLEAR_TAG: u64 = 0x08;
 
-    pub const ADD_CHILD: u64 = 0x11;
-    pub const REMOVE_CHILD: u64 = 0x12;
-
     pub const ADD_SOURCE: u64 = 0x21;
     pub const UPDATE_SOURCE: u64 = 0x22;
     pub const REMOVE_SOURCE: u64 = 0x23;
