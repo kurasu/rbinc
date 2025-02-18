@@ -246,10 +246,14 @@ fn expandable_node_header(
 
     dnd_area(ui, node_id, index_in_parent, DragDropPayload::WithNode(node_id), |ui| {
         ui.horizontal(|ui| {
-            ui.label("☰").on_hover_text("Drag to move");
+            let mut label_color = ui.visuals().text_color();
+            if !is_hovering(ui, node_id) {   
+                label_color = label_color.linear_multiply(0.04)
+            };
+            ui.colored_label(label_color, "☰").on_hover_text("Drag to move");
 
             let expand_icon = if is_expanded { "⏷" } else { "⏵" };
-            if ui.label(expand_icon).on_hover_text("Expand/collapse node").clicked() {
+            if ui.label(expand_icon).on_hover_cursor(CursorIcon::Default).on_hover_text("Expand/collapse node").clicked() {
                 actions.push(GuiAction::SetNodeExpanded { node: node_id, expanded: !is_expanded });
             }
 
@@ -278,6 +282,15 @@ fn expandable_node_header(
             }
         });
     });
+}
+
+fn is_hovering(ui: &Ui, node_id: NodeId) -> bool {
+    if let Some(r) = ui.ctx().read_response(Id::new(node_id))
+    {
+        r.hovered()
+    } else {
+        false
+    }
 }
 
 pub fn dnd_area<Payload, R>(

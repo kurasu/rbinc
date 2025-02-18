@@ -365,8 +365,11 @@ pub fn new_document() -> Document {
     let mut document = Document::new(Repository::new());
     let id = document.next_id();
     let mut changes = Changes::new();
-    changes.add_node(id, NodeId::ROOT_NODE, 0)
-        .set_string(id, "name", "First");
+    changes.add_node(id, NodeId::ROOT_NODE, 0).set_name(id, "First");
+    let id = document.next_id();
+    changes.add_node(id, NodeId::ROOT_NODE, 1).set_name(id, "Second");
+    let id = document.next_id();
+    changes.add_node(id, NodeId::ROOT_NODE, 2).set_name(id, "Third");
     document.apply_changes(&changes);
     document
 }
