@@ -31,12 +31,12 @@ impl Default for UiState {
     }
 }
 
-pub struct SimpleApplication {
+pub struct Application {
     pub document: Box<Document>,
     pub ui: UiState,
 }
 
-impl SimpleApplication {
+impl Application {
     pub fn get_selected_node(&self) -> Option<&Node> {
         if self.ui.selected_node.exists() {
             return self.document.nodes.get(self.ui.selected_node);
@@ -45,9 +45,9 @@ impl SimpleApplication {
     }
 }
 
-impl SimpleApplication {
-    pub fn new() -> SimpleApplication {
-        SimpleApplication {
+impl Application {
+    pub fn new() -> Application {
+        Application {
             document: Box::from(new_document()),
             ui: UiState::default()
         }
@@ -262,7 +262,7 @@ impl SimpleApplication {
     }
 }
 
-pub fn create_toolbar(app: &mut SimpleApplication, ui: &mut Ui) {
+pub fn create_toolbar(app: &mut Application, ui: &mut Ui) {
     ui.horizontal(|ui| {
 
         ui.menu_button("File", |ui| {
@@ -376,8 +376,8 @@ mod tests {
     use super::*;
     use binc::node_id::NodeId;
 
-    fn setup_app() -> SimpleApplication {
-        let mut app = SimpleApplication::new();
+    fn setup_app() -> Application {
+        let mut app = Application::new();
         let mut changes = Changes::new();
         changes.add_node(NodeId::new(1), NodeId::ROOT_NODE, 0)
             .add_node(NodeId::new(2), NodeId::ROOT_NODE, 1)

@@ -2,13 +2,12 @@
 #![allow(rustdoc::missing_crate_level_docs)]
 
 use std::any::Any;
-use std::sync::Arc;
 use eframe::{egui, emath};
 use eframe::egui::{Context, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Sense, Ui, UiBuilder};
 use binc::change::Change;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
-use crate::app::{create_toolbar, SimpleApplication};
+use crate::app::{create_toolbar, Application};
 
 pub mod app;
 mod importer;
@@ -37,7 +36,7 @@ enum DragDropPayload {
 }
 
 fn main() -> eframe::Result {
-    let mut app = SimpleApplication::new();
+    let mut app = Application::new();
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     let options = eframe::NativeOptions {
@@ -75,7 +74,7 @@ fn main() -> eframe::Result {
     })
 }
 
-fn check_keyboard(ctx: &Context, app: &SimpleApplication, actions: &mut Vec<GuiAction>) {
+fn check_keyboard(ctx: &Context, app: &Application, actions: &mut Vec<GuiAction>) {
     if ctx.input(|i| i.key_pressed(egui::Key::Z) && i.modifiers.command) {
         actions.push(GuiAction::Undo);
     }
@@ -116,7 +115,7 @@ fn check_keyboard(ctx: &Context, app: &SimpleApplication, actions: &mut Vec<GuiA
     }
 }
 
-fn process_action(action: Option<GuiAction>, app: &mut SimpleApplication) {
+fn process_action(action: Option<GuiAction>, app: &mut Application) {
     match action
     {
         Some(action) => {
@@ -184,7 +183,7 @@ fn create_inspector(ui: &mut Ui, node: Option<&Node>, actions: &mut Vec<GuiActio
     });
 }
 
-fn create_history(ui: &mut Ui, app: &SimpleApplication, actions: &mut Vec<GuiAction>) {
+fn create_history(ui: &mut Ui, app: &Application, actions: &mut Vec<GuiAction>) {
     for revision in &app.document.repository.revisions {
         let label = format!("{} by {} on {}", revision.message, revision.user_name, revision.date);
         if ui.collapsing(label, |ui| {
@@ -207,12 +206,12 @@ fn create_history(ui: &mut Ui, app: &SimpleApplication, actions: &mut Vec<GuiAct
     ui.allocate_space(ui.available_size());
 }
 
-fn create_tree(ui: &mut Ui, app: &mut SimpleApplication, actions: &mut Vec<GuiAction>) {
+fn create_tree(ui: &mut Ui, app: &mut Application, actions: &mut Vec<GuiAction>) {
     //create_node_tree(ui, app.ui.root, app, actions, 0);
     create_node_tree_children(app, app.ui.root, actions, ui);
 }
 
-fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &SimpleApplication, actions: &mut Vec<GuiAction>, index_in_parent: usize) {
+fn create_node_tree(ui: &mut Ui, node_id: NodeId, app: &Application, actions: &mut Vec<GuiAction>, index_in_parent: usize) {
     if let Some(node) = app.document.nodes.get(node_id) {
         let label = get_label(node, index_in_parent);
         let selected = app.ui.selected_node == node_id;
@@ -394,7 +393,7 @@ fn get_label(node: &Node, index_in_parent: usize) -> String {
     format!("{}: ID{}", index_in_parent, node.id.index())
 }
 
-fn create_node_tree_children(app: &SimpleApplication, node_id: NodeId, actions: &mut Vec<GuiAction>, ui: &mut Ui) {
+fn create_node_tree_children(app: &Application, node_id: NodeId, actions: &mut Vec<GuiAction>, ui: &mut Ui) {
     let mut index: usize = 0;
     let children =  &app.document.nodes.get(node_id).expect("").children;
     
