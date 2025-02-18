@@ -256,7 +256,7 @@ fn expandable_node_header(
         ui.horizontal(|ui| {
             let mut label_color = ui.visuals().text_color();
             if !is_hovering(ui, node_id) {   
-                label_color = label_color.linear_multiply(0.04)
+                label_color = ui.visuals().weak_text_color();
             };
             ui.colored_label(label_color, "☰").on_hover_text("Drag to move");
 
@@ -346,7 +346,7 @@ pub fn dnd_area<R>(
             let y2 = rect.bottom() - edge_margin;
 
             // Preview insertion:
-            let stroke = egui::Stroke::new(1.0, Color32::WHITE);
+            let stroke = egui::Stroke::new(1.0, ui.ctx().style().visuals.text_color());
             let (target, insert_idx) = if pointer.y < y1 {
                 // Above us
                 ui.painter().hline(rect.x_range(), rect.top(), stroke);
