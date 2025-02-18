@@ -291,6 +291,20 @@ fn expandable_node_header(
             }
         });
     });
+
+    ui.response().context_menu(|ui|  {
+        if ui.button("Add child node").clicked() {
+            on_action(GuiAction::AddNode { parent: node_id, index: node.children.len() as u64 });
+            ui.close_menu()
+        }
+        if ui.button("Delete").clicked() {
+            on_action(GuiAction::RemoveNode { node: node_id });
+            ui.close_menu()
+        }
+        for tag in node.tags.iter() {
+            ui.label(tag);
+        }
+    });
     
     if let Some(action) = gui_action {
         on_action(action);
