@@ -140,6 +140,72 @@ impl Change {
                 let value = r.read_u8()? != 0;
                 Ok(Change::SetAttribute {node, attribute, value: AttributeValue::Bool(value)})
             }
+            ChangeType::SET_UUID => {
+                let node = r.read_id()?;
+                let attribute = r.read_string()?;
+                let value = r.read_uuid()?;
+                Ok(Change::SetAttribute {node, attribute, value: AttributeValue::Uuid(value)})
+            }
+            ChangeType::SET_UINT8 => {
+                let node = r.read_id()?;
+                let attribute = r.read_string()?;
+                let value = r.read_u8()?;
+                Ok(Change::SetAttribute {node, attribute, value: AttributeValue::U8(value)})
+            }
+            ChangeType::SET_UINT16 => {
+                let node = r.read_id()?;
+                let attribute = r.read_string()?;
+                let value = r.read_u16()?;
+                Ok(Change::SetAttribute {node, attribute, value: AttributeValue::U16(value)})
+            }
+            ChangeType::SET_UINT32 => {
+                let node = r.read_id()?;
+                let attribute = r.read_string()?;
+                let value = r.read_u32()?;
+                Ok(Change::SetAttribute {node, attribute, value: AttributeValue::U32(value)})
+            }
+            ChangeType::SET_UINT64 => {
+                let node = r.read_id()?;
+                let attribute = r.read_string()?;
+                let value = r.read_u64()?;
+                Ok(Change::SetAttribute {node, attribute, value: AttributeValue::U64(value)})
+            }
+            ChangeType::SET_INT8 => {
+                let node = r.read_id()?;
+                let attribute = r.read_string()?;
+                let value = r.read_i8()?;
+                Ok(Change::SetAttribute {node, attribute, value: AttributeValue::I8(value)})
+            }
+            ChangeType::SET_INT16 => {
+                let node = r.read_id()?;
+                let attribute = r.read_string()?;
+                let value = r.read_i16()?;
+                Ok(Change::SetAttribute {node, attribute, value: AttributeValue::I16(value)})
+            }
+            ChangeType::SET_INT32 => {
+                let node = r.read_id()?;
+                let attribute = r.read_string()?;
+                let value = r.read_i32()?;
+                Ok(Change::SetAttribute {node, attribute, value: AttributeValue::I32(value)})
+            }
+            ChangeType::SET_INT64 => {
+                let node = r.read_id()?;
+                let attribute = r.read_string()?;
+                let value = r.read_i64()?;
+                Ok(Change::SetAttribute {node, attribute, value: AttributeValue::I64(value)})
+            }
+            ChangeType::SET_FLOAT32 => {
+                let node = r.read_id()?;
+                let attribute = r.read_string()?;
+                let value = r.read_f32()?;
+                Ok(Change::SetAttribute {node, attribute, value: AttributeValue::F32(value)})
+            }
+            ChangeType::SET_FLOAT64 => {
+                let node = r.read_id()?;
+                let attribute = r.read_string()?;
+                let value = r.read_f64()?;
+                Ok(Change::SetAttribute {node, attribute, value: AttributeValue::F64(value)})
+            }
             ChangeType::SET_NAME => {
                 let node = r.read_id()?;
                 let name = r.read_string()?;
@@ -194,6 +260,17 @@ impl Change {
                 match value {
                     AttributeValue::String(s) => w.write_string(s),
                     AttributeValue::Bool(b) => w.write_u8(*b as u8),
+                    AttributeValue::Uuid(u) => w.write_uuid(u),
+                    AttributeValue::U8(u) => w.write_u8(*u),
+                    AttributeValue::U16(u) => w.write_u16(*u),
+                    AttributeValue::U32(u) => w.write_u32(*u),
+                    AttributeValue::U64(u) => w.write_u64(*u),
+                    AttributeValue::I8(u) => w.write_i8(*u),
+                    AttributeValue::I16(u) => w.write_i16(*u),
+                    AttributeValue::I32(u) => w.write_i32(*u),
+                    AttributeValue::I64(u) => w.write_i64(*u),
+                    AttributeValue::F32(u) => w.write_f32(*u),
+                    AttributeValue::F64(u) => w.write_f64(*u),
                 }
             }
             Change::AddComment {node, comment, author, response_to} => {
@@ -218,6 +295,17 @@ impl Change {
             Change::SetAttribute {node: _, attribute: _, value} => match value {
                 AttributeValue::String(_) => ChangeType::SET_STRING,
                 AttributeValue::Bool(_) => ChangeType::SET_BOOL,
+                AttributeValue::Uuid(_) => ChangeType::SET_UUID,
+                AttributeValue::U8(_) => ChangeType::SET_UINT8,
+                AttributeValue::U16(_) => ChangeType::SET_UINT16,
+                AttributeValue::U32(_) => ChangeType::SET_UINT32,
+                AttributeValue::U64(_) => ChangeType::SET_UINT64,
+                AttributeValue::I8(_) => ChangeType::SET_INT8,
+                AttributeValue::I16(_) => ChangeType::SET_INT16,
+                AttributeValue::I32(_) => ChangeType::SET_INT32,
+                AttributeValue::I64(_) => ChangeType::SET_INT64,
+                AttributeValue::F32(_) => ChangeType::SET_FLOAT32,
+                AttributeValue::F64(_) => ChangeType::SET_FLOAT64,
             }
             Change::AddComment {node: _, comment: _, author: _, response_to: _} => ChangeType::ADD_COMMENT,
             Change::UnknownChange {change_type, data: _} => *change_type,

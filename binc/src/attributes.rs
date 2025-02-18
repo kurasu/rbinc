@@ -4,6 +4,17 @@
 pub enum AttributeValue {
     String(String),
     Bool(bool),
+    Uuid(uuid::Uuid),
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    I64(i64),
+    F32(f32),
+    F64(f64),
 }
 
 impl std::fmt::Display for AttributeValue {
@@ -11,6 +22,17 @@ impl std::fmt::Display for AttributeValue {
         match self {
             AttributeValue::String(s) => write!(f, "{}", s),
             AttributeValue::Bool(b) => write!(f, "{}", b),
+            AttributeValue::Uuid(u) => write!(f, "{}", u),
+            AttributeValue::U8(u) => write!(f, "{}", u),
+            AttributeValue::U16(u) => write!(f, "{}", u),
+            AttributeValue::U32(u) => write!(f, "{}", u),
+            AttributeValue::U64(u) => write!(f, "{}", u),
+            AttributeValue::I8(u) => write!(f, "{}", u),
+            AttributeValue::I16(u) => write!(f, "{}", u),
+            AttributeValue::I32(u) => write!(f, "{}", u),
+            AttributeValue::I64(u) => write!(f, "{}", u),
+            AttributeValue::F32(u) => write!(f, "{}", u),
+            AttributeValue::F64(u) => write!(f, "{}", u),
         }
     }
 }
@@ -19,6 +41,17 @@ pub fn attribute_type(value: &AttributeValue) -> &str {
     match value {
         AttributeValue::String(_) => "String",
         AttributeValue::Bool(_) => "Bool",
+        AttributeValue::Uuid(_) => "Uuid",
+        AttributeValue::U8(_) => "U8",
+        AttributeValue::U16(_) => "U16",
+        AttributeValue::U32(_) => "U32",
+        AttributeValue::U64(_) => "U64",
+        AttributeValue::I8(_) => "I8",
+        AttributeValue::I16(_) => "I16",
+        AttributeValue::I32(_) => "I32",
+        AttributeValue::I64(_) => "I64",
+        AttributeValue::F32(_) => "F32",
+        AttributeValue::F64(_) => "F64",
     }
 }
 
