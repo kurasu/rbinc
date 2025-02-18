@@ -4,6 +4,7 @@
 use std::any::Any;
 use eframe::{egui, emath};
 use eframe::egui::{Color32, Context, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Sense, Ui, UiBuilder};
+use eframe::egui::StrokeKind::Inside;
 use binc::change::Change;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
@@ -249,7 +250,7 @@ fn expandable_node_header(
     let node_id = node.id;
     let mut gui_action : Option<GuiAction> = None;
 
-    dnd_area(ui, node_id, index_in_parent, DragDropPayload::WithNode(node_id),
+    dnd_area(ui, node, index_in_parent, DragDropPayload::WithNode(node_id),
              |action| gui_action = Some(action),
              |ui| {
         ui.horizontal(|ui| {
@@ -305,13 +306,15 @@ fn is_hovering(ui: &Ui, node_id: NodeId) -> bool {
 
 pub fn dnd_area<R>(
     ui: &mut Ui,
-    node_id: NodeId,
+    node: &Node,
     index_in_parent: usize,
     payload: DragDropPayload,
     on_action: impl FnOnce(GuiAction) -> (),
     add_contents: impl FnOnce(&mut Ui) -> R,
 ) -> InnerResponse<R>
 {
+    let node_id = node.id;
+    let parent_id = node.parent;
     let id= Id::new(node_id);
     let is_self_being_dragged = ui.ctx().is_being_dragged(id);
 
@@ -338,17 +341,24 @@ pub fn dnd_area<R>(
             response.dnd_hover_payload::<DragDropPayload>(),
         ) {
             let rect = response.rect;
+            let edge_margin = 4f32;
+            let y1 = rect.top() + edge_margin;
+            let y2 = rect.bottom() - edge_margin;
 
             // Preview insertion:
             let stroke = egui::Stroke::new(1.0, Color32::WHITE);
-            let insert_idx = if pointer.y < rect.center().y {
+            let (target, insert_idx) = if pointer.y < y1 {
                 // Above us
                 ui.painter().hline(rect.x_range(), rect.top(), stroke);
-                index_in_parent
+                (parent_id, index_in_parent)
+            } else if pointer.y < y2 {
+                // On us
+                ui.painter().rect_stroke(rect, 2, stroke, Inside);
+                (node_id, node.children.len())
             } else {
                 // Below us
                 ui.painter().hline(rect.x_range(), rect.bottom(), stroke);
-                index_in_parent + 1
+                (parent_id, index_in_parent + 1)
             };
 
             if let Some(dragged_payload) = response.dnd_release_payload::<DragDropPayload>() {
@@ -356,7 +366,7 @@ pub fn dnd_area<R>(
                 let d = dragged_payload.as_ref();
                 let action = match d {
                     DragDropPayload::WithNode(node) => {
-                        on_action(GuiAction::MoveNode { node: *node, new_parent: node_id, index_in_new_parent: insert_idx as u64 });
+                        on_action(GuiAction::MoveNode { node: *node, new_parent: target, index_in_new_parent: insert_idx as u64 });
                     }
                 };
             }
