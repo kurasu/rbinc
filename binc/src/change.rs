@@ -4,7 +4,7 @@ use std::io::{Read, Write};
 use crate::attributes::{attribute_type, AttributeValue};
 use crate::node_id::NodeId;
 use crate::readwrite::{ReadExt, WriteExt};
-use crate::node_store::{Node, NodeStore};
+use crate::node_store::NodeStore;
 
 pub(crate) struct ChangeType;
 

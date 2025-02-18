@@ -370,7 +370,7 @@ pub fn new_document() -> Document {
     changes.add_node(id, NodeId::ROOT_NODE, 1).set_name(id, "Second");
     let id = document.next_id();
     changes.add_node(id, NodeId::ROOT_NODE, 2).set_name(id, "Third");
-    document.apply_changes(&changes);
+    document.add_and_apply_changes(changes);
     document
 }
 
@@ -386,7 +386,7 @@ mod tests {
             .add_node(NodeId::new(2), NodeId::ROOT_NODE, 1)
             .add_node(NodeId::new(3), NodeId::new(1), 0);
 
-        app.document.apply_changes(&changes);
+        app.document.add_and_apply_changes(changes);
         app
     }
 

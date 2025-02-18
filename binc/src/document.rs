@@ -84,10 +84,10 @@ impl Document {
         self.nodes.find_roots()
     }
 
-    pub fn apply_changes(&mut self, changes: &Changes) -> &mut Self
+    pub fn add_and_apply_changes(&mut self, changes: Changes) -> &mut Self
     {
-        for change in &changes.changes {
-            change.apply(&mut self.nodes);
+        for change in changes.changes {
+            self.add_and_apply_change(change);
         }
         self
     }

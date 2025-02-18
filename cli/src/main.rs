@@ -46,6 +46,11 @@ fn main() -> io::Result<()> {
             let mut index = 1;
             for rev in &repo.revisions {
                 println!("{}: {} {} {} {}", index, rev.user_name, rev.date, rev.id, rev.message);
+
+                for c in &rev.changes {
+                    println!("  {}", c);
+                }
+                
                 index += 1;
             }
 
