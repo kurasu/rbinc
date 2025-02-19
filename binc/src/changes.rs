@@ -8,9 +8,6 @@ pub struct Changes {
 }
 
 impl Changes {
-    pub fn add_change(&self, p0: Change) {
-        todo!()
-    }
 }
 
 impl Changes {

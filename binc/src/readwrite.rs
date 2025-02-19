@@ -107,6 +107,11 @@ pub trait WriteExt: Write {
         self.write_all(value.as_bytes())?;
         Ok(())
     }
+
+    fn write_bytes(&mut self, value: &[u8]) -> io::Result<()> {
+        self.write_length(value.len() as u64)?;
+        self.write_all(value)
+    }
 }
 
 /// Implement `WriteExt` for all types that implement `Write`.
@@ -244,6 +249,13 @@ pub trait ReadExt: Read {
         let mut buf = [0; 32];
         self.read_exact(&mut buf)?;
         Ok(Hash::from(buf))
+    }
+
+    fn read_bytes(&mut self) -> io::Result<Vec<u8>> {
+        let length = self.read_length()? as usize;
+        let mut buf = vec![0; length];
+        self.read_exact(&mut buf)?;
+        Ok(buf)
     }
 }
 

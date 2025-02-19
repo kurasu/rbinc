@@ -1,4 +1,4 @@
-mod cli;
+mod server;
 
 use std::io;
 use clap::{Parser, Subcommand};
@@ -71,7 +71,7 @@ fn main() -> io::Result<()> {
         }
         Commands::Serve { store, port } => {
             println!("Serving store {} on port {}", store, port);
-            cli::server();
+            server::server();
             Ok(())
         }
     }
