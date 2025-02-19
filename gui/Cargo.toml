@@ -1,5 +1,5 @@
 [package]
-name = "explorer"
+name = "gui"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,10 +10,13 @@ env_logger = "0.11.6"
 rfd = "0.15.2"
 xml = "0.8.20"
 
+[lib]
+name = "bincgui"
+
 [[bin]]
 name = "binc-explorer"
-path = "src/explorer.rs"
+path = "src/bin/explorer.rs"
 
 [[bin]]
 name = "binc-notes"
-path = "src/notes.rs"
+path = "src/bin/notes.rs"

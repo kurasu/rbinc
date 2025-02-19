@@ -2,7 +2,7 @@
 #![allow(rustdoc::missing_crate_level_docs)]
 
 use eframe::{egui, Storage};
-use crate::app::Application;
+use bincgui::app::Application;
 
 struct NotesApp {
     application: Application
@@ -29,7 +29,7 @@ impl eframe::App for NotesApp {
     }
 }
 
-pub fn main() -> eframe::Result {
+fn main() -> eframe::Result {
     env_logger::init();
 
     let options = eframe::NativeOptions {

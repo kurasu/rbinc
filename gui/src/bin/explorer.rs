@@ -9,10 +9,8 @@ use binc::attributes::AttributeValue;
 use binc::change::Change;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
-use crate::app::{create_toolbar, Application};
+use bincgui::app::{create_toolbar, Application};
 
-pub mod app;
-mod importer;
 mod notes;
 
 enum GuiAction {

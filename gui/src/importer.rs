@@ -1,10 +1,9 @@
-use crate::NodeId;
 use std::io;
 use std::io::{BufReader, Read};
 use xml::EventReader;
 use xml::reader::XmlEvent;
 use binc::changes::Changes;
-use binc::node_id::NodeIdGenerator;
+use binc::node_id::{NodeId, NodeIdGenerator};
 use binc::repository::Repository;
 
 pub const IMPORTERS: [Importer; 1] = [Importer::XML];
