@@ -13,3 +13,7 @@ xml = "0.8.20"
 [[bin]]
 name = "binc-explorer"
 path = "src/explorer.rs"
+
+[[bin]]
+name = "binc-notes"
+path = "src/notes.rs"

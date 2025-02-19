@@ -13,6 +13,7 @@ use crate::app::{create_toolbar, Application};
 
 pub mod app;
 mod importer;
+mod notes;
 
 enum GuiAction {
     Undo,
