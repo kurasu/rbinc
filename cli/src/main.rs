@@ -1,5 +1,6 @@
 mod server;
 mod client;
+mod store;
 
 use std::io;
 use clap::{Parser, Subcommand};
@@ -9,6 +10,7 @@ use binc::network_protocol::{NetworkRequest, NetworkResponse};
 use binc::node_id::NodeId;
 use binc::repository::Repository;
 use crate::client::Client;
+use crate::store::Store;
 
 /// A simple command line tool for creating, manipulating, viewing and serving BINC documents
 #[derive(Parser, Debug)]
@@ -24,14 +26,14 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Create a new store
-    CreateStore { filename: String },
+    /// List the contents of the path
+    List { path: String },
+
+    /// Create a new file
+    CreateFile { path: String },
 
     /// Print the history of the document
     History { store: String },
-
-    /// List the contents of the path
-    List { path: String },
 
     /// Print the document tree
     Print { path: String },
@@ -55,6 +57,37 @@ fn main() -> io::Result<()> {
                     list_files(files);
                 }
             },
+            Commands::CreateFile { path } => {
+                if let NetworkResponse::CreateFile{result} = client.request(NetworkRequest::CreateFile { path })? {
+                    match result {
+                        Ok(()) => println!("File created"),
+                        Err(e) => println!("Error: {}", e)
+                    }
+                }
+            },
+            Commands::Print { path } => {
+                println!("Printing document tree for {}", path);
+                if let NetworkResponse::GetFileData{from_revision, to_revision, data} = client.request(NetworkRequest::GetFileData { from_revision: 0, path })? {
+                    let repo = Repository::read(&mut &data[..])?;
+                    let document = Document::new(repo);
+
+                    let roots = document.find_roots();
+                    for root in roots {
+                        print_tree(&document, *root, 0);
+                    }
+                }
+            },
+            Commands::History { store } => {
+                println!("Listing revisions for path {}", store);
+                if let NetworkResponse::ListFiles{files} = client.request(NetworkRequest::ListFiles { path: store })? {
+
+                    let mut index = 1;
+                    for file in files {
+                        println!("{}: {}", index, file);
+                        index += 1;
+                    }
+                }
+            },
             _ => {
                 println!("Command not supported for remote server");
             }
@@ -62,10 +95,12 @@ fn main() -> io::Result<()> {
         return Ok(());
     }
 
+    let store = Store::new(".");
+
     match matches.command {
-        Commands::CreateStore { filename } => {
-            println!("Creating store {}", filename);
-            Repository::new().write(&mut std::fs::File::create(filename)?)
+        Commands::CreateFile { path: filename } => {
+            println!("Creating file {}", filename);
+            store.create_file(filename)
         }
         Commands::History { store } => {
             println!("Listing revisions for store {}", store);
