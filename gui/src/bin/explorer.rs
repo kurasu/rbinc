@@ -6,28 +6,38 @@ use binc::node_store::Node;
 use bincgui::app::{create_toolbar, Application, GuiAction};
 use bincgui::history::create_history;
 use eframe::egui::{Context, Ui};
-use eframe::egui;
+use eframe::{egui, Frame};
 use std::any::Any;
+use binc::node_id::NodeId;
 use bincgui::tree::create_tree;
 
 mod notes;
 
+struct ExplorerApp {
+    application: Application,
+}
 
-fn main() -> eframe::Result {
-    let mut app = Application::new();
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+impl ExplorerApp {
+    fn new() -> Self {
+        Self {
+            application: Application::new(),
+        }
+    }
 
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([900.0, 600.0]),
-        ..Default::default()
-    };
+    fn get_node(&self, id: NodeId) -> &Node {
+        self.application.get(id).expect("Node not found")
+    }
+}
 
-    eframe::run_simple_native("BINC Explorer", options, move |ctx, _frame| {
+impl eframe::App for ExplorerApp {
+    fn update(&mut self, ctx: &Context, frame: &mut Frame) {
         let mut actions: Vec<GuiAction> = vec![];
 
         let mut on_action = |a| {
             actions.push(a);
         };
+
+        let mut app = &mut self.application;
 
         check_keyboard(ctx, &app, &mut on_action);
 
@@ -53,7 +63,22 @@ fn main() -> eframe::Result {
         for action in actions {
             app.process_action(action);
         }
-    })
+    }
+}
+
+fn main() -> eframe::Result {
+    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size([900.0, 600.0]),
+        ..Default::default()
+    };
+
+    eframe::run_native(
+        "BINC Explorer",
+        options,
+        Box::new(|_cc| Ok(Box::new(ExplorerApp::new()))),
+    )
 }
 
 fn check_keyboard(ctx: &Context, app: &Application, on_action: &mut impl FnMut(GuiAction)) {
