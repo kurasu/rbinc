@@ -56,6 +56,29 @@ pub struct Application {
 }
 
 impl Application {
+    pub fn process_action(&mut self, action: GuiAction) {
+        match action
+        {
+            GuiAction::SelectNode { node } => self.select_node(node),
+            GuiAction::AddNode { parent, index } => self.add_child(&parent, index),
+            GuiAction::MoveNode { node, new_parent, index_in_new_parent } => self.move_node(&node, &new_parent, index_in_new_parent),
+            GuiAction::RemoveNode { node } => self.remove_node(&node),
+            GuiAction::Commit => self.commit(),
+            GuiAction::WrappedChange { change } => self.document.add_and_apply_change(change),
+            GuiAction::Undo => self.document.undo(),
+            GuiAction::Redo => self.document.redo(),
+            GuiAction::SelectPrevious => self.select_previous(),
+            GuiAction::SelectNext => self.select_next(),
+            GuiAction::SelectParent => self.select_parent(),
+            GuiAction::SelectFirstChild => self.select_first_child(),
+            GuiAction::SetNodeExpanded { node, expanded } => self.set_node_expanded(node, expanded),
+            GuiAction::ToggleSelectedNodeExpanded => self.toggle_selected_node_expanded(),
+            GuiAction::ToggleEditing => self.toggle_editing(),
+        }
+    }
+}
+
+impl Application {
     pub fn get_selected_node(&self) -> Option<&Node> {
         if self.ui.selected_node.exists() {
             return self.document.nodes.get(self.ui.selected_node);

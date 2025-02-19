@@ -51,7 +51,7 @@ fn main() -> eframe::Result {
         });
 
         for action in actions {
-            process_action(Some(action), &mut app);
+            app.process_action(action);
         }
     })
 }
@@ -94,32 +94,6 @@ fn check_keyboard(ctx: &Context, app: &Application, on_action: &mut impl FnMut(G
 
     if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
         on_action(GuiAction::ToggleEditing);
-    }
-}
-
-fn process_action(action: Option<GuiAction>, app: &mut Application) {
-    match action
-    {
-        Some(action) => {
-            match action {
-                GuiAction::SelectNode { node } => app.select_node(node),
-                GuiAction::AddNode { parent, index } => app.add_child(&parent, index),
-                GuiAction::MoveNode { node, new_parent, index_in_new_parent } => app.move_node(&node, &new_parent, index_in_new_parent),
-                GuiAction::RemoveNode { node } => app.remove_node(&node),
-                GuiAction::Commit => app.commit(),
-                GuiAction::WrappedChange { change } => app.document.add_and_apply_change(change),
-                GuiAction::Undo => app.document.undo(),
-                GuiAction::Redo => app.document.redo(),
-                GuiAction::SelectPrevious => app.select_previous(),
-                GuiAction::SelectNext => app.select_next(),
-                GuiAction::SelectParent => app.select_parent(),
-                GuiAction::SelectFirstChild => app.select_first_child(),
-                GuiAction::SetNodeExpanded { node, expanded } => app.set_node_expanded(node, expanded),
-                GuiAction::ToggleSelectedNodeExpanded => app.toggle_selected_node_expanded(),
-                GuiAction::ToggleEditing => app.toggle_editing(),
-            }
-        }
-        None => {}
     }
 }
 
