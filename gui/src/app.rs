@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::fs::File;
 use std::io;
+use eframe::egui;
 use eframe::egui::{Button, Sense, Ui, Widget};
 use binc::document::Document;
 use binc::repository::Repository;
@@ -53,6 +54,12 @@ impl Default for UiState {
 pub struct Application {
     pub document: Box<Document>,
     pub ui: UiState,
+}
+
+impl Application {
+    pub fn root(&self) -> &Node {
+        self.document.nodes.get(self.ui.root).expect("Root node should exist")
+    }
 }
 
 impl Application {
@@ -354,6 +361,16 @@ pub fn create_toolbar(app: &mut Application, ui: &mut Ui) {
 
         if ui.button("Commit").clicked() {
             app.commit();
+        }
+
+        ui.spacing();
+
+        if ui.button("🔅").clicked() {
+            if ui.visuals().dark_mode {
+                ui.ctx().set_visuals(egui::Visuals::light());
+            } else {
+                ui.ctx().set_visuals(egui::Visuals::dark());
+            }
         }
     });
 }
