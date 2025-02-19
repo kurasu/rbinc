@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter, Write};
 use std::io;
 use crate::readwrite::{ReadExt, WriteExt};
+use crate::repository::Repository;
 
 const DISCONNECT: u8 = 0;
 const LIST_FILES: u8 = 1;
@@ -159,6 +160,19 @@ impl Display for NetworkResponse {
                     Err(e) => write!(f, "CreateFile: {}", e),
                 }
             },
+        }
+    }
+}
+
+impl NetworkResponse {
+    pub fn into_repository(&self) -> io::Result<Repository> {
+        match self {
+            NetworkResponse::GetFileData { data, .. } => {
+                let mut repo = Repository::new();
+                repo.append(&mut data.as_slice())?;
+                Ok(repo)
+            },
+            _ => Err(io::Error::new(io::ErrorKind::InvalidData, "Not a repository response"))
         }
     }
 }

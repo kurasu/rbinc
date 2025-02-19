@@ -18,8 +18,8 @@ impl From<Changes> for Repository {
 }
 
 impl Repository {
-    pub const CONTAINER_ID: u32 =  0x42494E43;
-    pub const CONTAINER_VERSION: u32 =  1;
+    pub const CONTAINER_ID: u32 = 0x42494E43;
+    pub const CONTAINER_VERSION: u32 = 1;
 
     pub fn new() -> Repository {
         Repository { revisions: Vec::new() }
@@ -46,8 +46,7 @@ impl Repository {
 
         if container_id != Repository::CONTAINER_ID {
             return Err(io::Error::from(io::ErrorKind::InvalidData));
-        }
-        else if container_version != Repository::CONTAINER_VERSION {
+        } else if container_version != Repository::CONTAINER_VERSION {
             return Err(io::Error::from(io::ErrorKind::InvalidData));
         }
 
@@ -56,5 +55,12 @@ impl Repository {
         }
 
         Ok(doc)
+    }
+
+    pub fn append<T: Read>(&mut self, mut r: &mut T) -> io::Result<()> {
+        while let Ok(revision) = Revision::read(&mut r) {
+            self.add_revision(revision);
+        }
+        Ok(())
     }
 }

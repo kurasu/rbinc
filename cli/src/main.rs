@@ -7,6 +7,7 @@ use binc::client::Client;
 use binc::document::Document;
 use binc::network_protocol::{NetworkRequest, NetworkResponse};
 use binc::node_id::NodeId;
+use binc::node_store::Node;
 use binc::repository::Repository;
 use clap::{Parser, Subcommand};
 use std::io;
@@ -35,7 +36,7 @@ enum Commands {
     History { store: String },
 
     /// Print the document tree
-    Print { path: String },
+    Tree { path: String },
 
     /// Serve the contents of the directory over HTTP
     Serve { path: String, port: u16 },
@@ -67,35 +68,22 @@ fn main() -> io::Result<()> {
                     }
                 }
             }
-            Commands::Print { path } => {
+            Commands::Tree { path } => {
                 println!("Printing document tree for {}", path);
-                if let NetworkResponse::GetFileData {
-                    from_revision,
-                    to_revision,
-                    data,
-                } = client.request(NetworkRequest::GetFileData {
-                    from_revision: 0,
-                    path,
-                })? {
-                    let repo = Repository::read(&mut &data[..])?;
+                if let Ok(repo) = client.request(NetworkRequest::GetFileData { from_revision: 0, path })?.into_repository() {
                     let document = Document::new(repo);
-
-                    let roots = document.find_roots();
-                    for root in roots {
-                        print_tree(&document, *root, 0);
-                    }
+                    print_tree(&document, NodeId::ROOT_NODE, 0, 0);
                 }
-            }
-            Commands::History { store } => {
-                println!("Listing revisions for path {}", store);
-                if let NetworkResponse::ListFiles { files } =
-                    client.request(NetworkRequest::ListFiles { path: store })?
-                {
-                    let mut index = 1;
-                    for file in files {
-                        println!("{}: {}", index, file);
-                        index += 1;
-                    }
+            },
+            Commands::History { store: path } => {
+                println!("Listing revisions for {}", path);
+                if let Ok(repo) = client.request(NetworkRequest::GetFileData { from_revision: 0, path })?.into_repository() {
+                    repo.revisions.iter().for_each(|rev| {
+                        println!("{} {} {} {}", rev.user_name, rev.date, rev.id, rev.message);
+                        rev.changes.iter().for_each(|c| {
+                            println!("  {}", c);
+                        });
+                    });
                 }
             }
             _ => {
@@ -146,16 +134,13 @@ fn main() -> io::Result<()> {
 
             Ok(())
         }
-        Commands::Print { path: store } => {
+        Commands::Tree { path: store } => {
             println!("Printing store {}", store);
 
             let repo = Repository::read(&mut std::fs::File::open(store)?)?;
             let document = Document::new(repo);
 
-            let roots = document.find_roots();
-            for root in roots {
-                print_tree(&document, *root, 0);
-            }
+            print_tree(&document, NodeId::ROOT_NODE, 0, 0);
 
             Ok(())
         }
@@ -173,21 +158,31 @@ fn list_files(files: Vec<String>) {
     }
 }
 
-fn get_label(id_string: String, name: Option<&AttributeValue>) -> String {
+fn get_label(node: &Node, index_in_parent: usize) -> String {
+    let name = node.get_name();
+    let type_name = node.get_type();
+
     if let Some(name) = name {
-        let name = name;
-        format!("{}", name)
-    } else {
-        id_string
+        if let Some(t) = type_name {
+            return format!("{}: [{}] {}", index_in_parent, t, name);
+        }
+        else
+        {
+            return format!("{}: {}", index_in_parent, name);
+        }
     }
+
+    if let Some(t) = type_name {
+        return format!("{}: [{}]", index_in_parent, t);
+    }
+
+    format!("{}: ID{}", index_in_parent, node.id.index())
 }
 
-fn print_tree(document: &Document, id: NodeId, depth: i32) {
+fn print_tree(document: &Document, id: NodeId, depth: i32, index_in_parent: usize) {
     if let Some(node) = document.nodes.get(id) {
         let children = &node.children;
-        let id_string = format!("ID{}", id);
-        let name = node.attributes.get("name");
-        let label = get_label(id_string, name);
+        let label = get_label(node, index_in_parent);
 
         for _ in 0..depth {
             print!("  ");
@@ -208,8 +203,10 @@ fn print_tree(document: &Document, id: NodeId, depth: i32) {
         }
         println!();
 
+        let mut index = 0;
         for child_id in children {
-            print_tree(document, child_id.clone(), depth + 1);
+            print_tree(document, child_id.clone(), depth + 1, index);
+            index += 1;
         }
     }
 }
