@@ -1,18 +1,25 @@
 mod server;
+mod client;
 
 use std::io;
 use clap::{Parser, Subcommand};
 use binc::attributes::AttributeValue;
 use binc::document::Document;
+use binc::network_protocol::{NetworkRequest, NetworkResponse};
 use binc::node_id::NodeId;
 use binc::repository::Repository;
+use crate::client::Client;
 
 /// A simple command line tool for creating, manipulating, viewing and serving BINC documents
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands
+    command: Commands,
+
+    /// Remote server to connect to
+    #[arg(short, long)]
+    remote: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -23,16 +30,37 @@ enum Commands {
     /// Print the history of the document
     History { store: String },
 
-    /// Print the document tree
-    Print { store: String },
+    /// List the contents of the path
+    List { path: String },
 
-    /// Serve the document over HTTP
-    Serve { store: String, port: u16 },
+    /// Print the document tree
+    Print { path: String },
+
+    /// Serve the contents of the directory over HTTP
+    Serve { path: String, port: u16 },
 }
 
 fn main() -> io::Result<()> {
 
     let matches = Cli::parse();
+
+    if let Some(remote) = matches.remote {
+        println!("Connecting to remote server {}", remote);
+
+        let mut client = Client::new(remote)?;
+
+        match matches.command {
+            Commands::List { path } => {
+                if let NetworkResponse::ListFiles{files} = client.request(NetworkRequest::ListFiles { path })? {
+                    list_files(files);
+                }
+            },
+            _ => {
+                println!("Command not supported for remote server");
+            }
+        }
+        return Ok(());
+    }
 
     match matches.command {
         Commands::CreateStore { filename } => {
@@ -56,7 +84,21 @@ fn main() -> io::Result<()> {
 
             Ok(())
         }
-        Commands::Print { store } => {
+        Commands::List { path } => {
+            println!("Listing directory {}", path);
+            let mut files = vec![];
+            let entries = std::fs::read_dir(path)?;
+            for entry in entries {
+                let entry = entry?;
+                let path = entry.path();
+                files.push(path.to_string_lossy().to_string());
+            }
+
+            list_files(files);
+
+            Ok(())
+        }
+        Commands::Print { path: store } => {
             println!("Printing store {}", store);
 
             let repo = Repository::read(&mut std::fs::File::open(store)?)?;
@@ -69,11 +111,17 @@ fn main() -> io::Result<()> {
 
             Ok(())
         }
-        Commands::Serve { store, port } => {
+        Commands::Serve { path: store, port } => {
             println!("Serving store {} on port {}", store, port);
-            server::server();
+            server::server(store, port);
             Ok(())
         }
+    }
+}
+
+fn list_files(files: Vec<String>) {
+    for file in files {
+        println!("{}", file);
     }
 }
 

@@ -7,26 +7,31 @@ use binc::readwrite::*;
 
 struct Connection {
     stream: TcpStream,
+    store: String,
 }
 
-pub(crate) fn server() {
-    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+pub(crate) fn server(store: String, port: u16) {
+    let addr = format!("localhost:{}", port);
+    let listener = TcpListener::bind(addr).unwrap();
 
     for stream in listener.incoming() {
         let s = stream.unwrap();
 
-        println!("Connection established from {}", s.peer_addr().unwrap());
+        let peer = s.peer_addr().unwrap();
+        println!("Connection established from {}", peer);
 
-        let mut connection = Connection::new(s);
+        let mut connection = Connection::new(s, store.clone());
         let r = connection.handle_connection();
-        if r.is_err() { println!("Error: {}", r.unwrap_err().to_string()) }
+        if let Err(r) = r { println!("Error: {}", r) }
+
+        println!("Connection sed from {}", peer);
     }
 }
 
 impl Connection {
 
-    fn new(stream: TcpStream) -> Connection {
-        Connection { stream }
+    fn new(stream: TcpStream, store: String) -> Connection {
+        Connection { stream, store }
     }
 
     pub fn handle_connection(&mut self) -> io::Result<()>{
@@ -54,11 +59,15 @@ impl Connection {
 
                 }
             }
+            else if let Err(request) = request {
+                return Err(request);
+            }
         }
     }
 
     fn list_files(&self, path: String) -> io::Result<Vec<String>>{
-        let entries = fs::read_dir(path).unwrap();
+        let dir = self.store.clone() + "/" + &path;
+        let entries = fs::read_dir(dir)?;
 
         let filenames: Vec<String> = entries
             .filter_map(|entry| {
