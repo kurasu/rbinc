@@ -18,13 +18,11 @@ pub(crate) fn server(store: String, port: u16) {
         let s = stream.unwrap();
 
         let peer = s.peer_addr().unwrap();
-        println!("Connection established from {}", peer);
+        println!("{} connected", peer);
 
         let mut connection = Connection::new(s, store.clone());
         let r = connection.handle_connection();
         if let Err(r) = r { println!("Error: {}", r) }
-
-        println!("Connection sed from {}", peer);
     }
 }
 
@@ -37,15 +35,15 @@ impl Connection {
     pub fn handle_connection(&mut self) -> io::Result<()>{
         loop {
             let mut stream = &self.stream;
+            let peer = stream.peer_addr()?;
             let request = NetworkRequest::read(&mut stream);
 
             if let Ok(request) = request
             {
-                println!("Request: {}", request);
+                println!("{peer} request: {}", request);
 
                 match request {
                     NetworkRequest::Disconnect => {
-                        println!("Closing connection");
                         return Ok(());
                     },
                     NetworkRequest::ListFiles{ path } => {
