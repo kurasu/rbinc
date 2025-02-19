@@ -10,6 +10,25 @@ use binc::node_id::NodeId;
 use binc::node_store::Node;
 use crate::importer::{Import, Importer, IMPORTERS};
 
+pub enum GuiAction {
+    Undo,
+    Redo,
+    SelectNode { node: NodeId },
+    AddNode { parent: NodeId, index: u64 },
+    MoveNode { node: NodeId, new_parent: NodeId, index_in_new_parent: u64 },
+    RemoveNode { node: NodeId },
+    WrappedChange { change: Change },
+    SetNodeExpanded { node: NodeId, expanded: bool },
+    ToggleSelectedNodeExpanded,
+    /// Commit pending changes
+    Commit,
+    SelectPrevious,
+    SelectNext,
+    SelectParent,
+    SelectFirstChild,
+    ToggleEditing,
+}
+
 #[derive(Debug)]
 pub struct UiState {
     pub root: NodeId,

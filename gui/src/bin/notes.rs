@@ -6,6 +6,7 @@ use bincgui::app::Application;
 
 struct NotesApp {
     application: Application
+    
 }
 
 impl NotesApp {
