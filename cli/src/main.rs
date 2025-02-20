@@ -1,16 +1,15 @@
 mod server;
-mod client;
 mod store;
 
-use std::io;
-use clap::{Parser, Subcommand};
+use crate::store::Store;
 use binc::attributes::AttributeValue;
+use binc::client::Client;
 use binc::document::Document;
 use binc::network_protocol::{NetworkRequest, NetworkResponse};
 use binc::node_id::NodeId;
 use binc::repository::Repository;
-use crate::client::Client;
-use crate::store::Store;
+use clap::{Parser, Subcommand};
+use std::io;
 
 /// A simple command line tool for creating, manipulating, viewing and serving BINC documents
 #[derive(Parser, Debug)]
@@ -43,31 +42,41 @@ enum Commands {
 }
 
 fn main() -> io::Result<()> {
-
     let matches = Cli::parse();
 
     if let Some(remote) = matches.remote {
         println!("Connecting to remote server {}", remote);
 
-        let mut client = Client::new(remote)?;
+        let mut client = Client::new(&remote)?;
 
         match matches.command {
             Commands::List { path } => {
-                if let NetworkResponse::ListFiles{files} = client.request(NetworkRequest::ListFiles { path })? {
+                if let NetworkResponse::ListFiles { files } =
+                    client.request(NetworkRequest::ListFiles { path })?
+                {
                     list_files(files);
                 }
-            },
+            }
             Commands::CreateFile { path } => {
-                if let NetworkResponse::CreateFile{result} = client.request(NetworkRequest::CreateFile { path })? {
+                if let NetworkResponse::CreateFile { result } =
+                    client.request(NetworkRequest::CreateFile { path })?
+                {
                     match result {
                         Ok(()) => println!("File created"),
-                        Err(e) => println!("Error: {}", e)
+                        Err(e) => println!("Error: {}", e),
                     }
                 }
-            },
+            }
             Commands::Print { path } => {
                 println!("Printing document tree for {}", path);
-                if let NetworkResponse::GetFileData{from_revision, to_revision, data} = client.request(NetworkRequest::GetFileData { from_revision: 0, path })? {
+                if let NetworkResponse::GetFileData {
+                    from_revision,
+                    to_revision,
+                    data,
+                } = client.request(NetworkRequest::GetFileData {
+                    from_revision: 0,
+                    path,
+                })? {
                     let repo = Repository::read(&mut &data[..])?;
                     let document = Document::new(repo);
 
@@ -76,18 +85,19 @@ fn main() -> io::Result<()> {
                         print_tree(&document, *root, 0);
                     }
                 }
-            },
+            }
             Commands::History { store } => {
                 println!("Listing revisions for path {}", store);
-                if let NetworkResponse::ListFiles{files} = client.request(NetworkRequest::ListFiles { path: store })? {
-
+                if let NetworkResponse::ListFiles { files } =
+                    client.request(NetworkRequest::ListFiles { path: store })?
+                {
                     let mut index = 1;
                     for file in files {
                         println!("{}: {}", index, file);
                         index += 1;
                     }
                 }
-            },
+            }
             _ => {
                 println!("Command not supported for remote server");
             }
@@ -108,12 +118,15 @@ fn main() -> io::Result<()> {
             let repo = Repository::read(&mut std::fs::File::open(store)?)?;
             let mut index = 1;
             for rev in &repo.revisions {
-                println!("{}: {} {} {} {}", index, rev.user_name, rev.date, rev.id, rev.message);
+                println!(
+                    "{}: {} {} {} {}",
+                    index, rev.user_name, rev.date, rev.id, rev.message
+                );
 
                 for c in &rev.changes {
                     println!("  {}", c);
                 }
-                
+
                 index += 1;
             }
 
@@ -164,7 +177,9 @@ fn get_label(id_string: String, name: Option<&AttributeValue>) -> String {
     if let Some(name) = name {
         let name = name;
         format!("{}", name)
-    } else { id_string }
+    } else {
+        id_string
+    }
 }
 
 fn print_tree(document: &Document, id: NodeId, depth: i32) {
@@ -198,5 +213,3 @@ fn print_tree(document: &Document, id: NodeId, depth: i32) {
         }
     }
 }
-
-

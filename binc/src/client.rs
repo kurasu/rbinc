@@ -1,13 +1,13 @@
+use crate::network_protocol::{NetworkRequest, NetworkResponse};
 use std::io;
 use std::net::TcpStream;
-use binc::network_protocol::{NetworkRequest, NetworkResponse};
 
 pub struct Client {
     stream: TcpStream,
 }
 
 impl Client {
-    pub fn new(url: String) -> io::Result<Client> {
+    pub fn new(url: &str) -> io::Result<Client> {
         let stream = TcpStream::connect(url)?;
         Ok(Client { stream })
     }

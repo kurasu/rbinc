@@ -1,12 +1,14 @@
 use crate::importer::{Import, Importer, IMPORTERS};
 use binc::change::Change;
 use binc::changes::Changes;
+use binc::client::Client;
 use binc::document::Document;
+use binc::network_protocol::{NetworkRequest, NetworkResponse};
 use binc::node_id::NodeId;
 use binc::node_store::Node;
 use binc::repository::Repository;
 use eframe::egui;
-use eframe::egui::{Button, Sense, Ui, Widget};
+use eframe::egui::{Button, Id, Modal, Sense, Ui, Widget};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io;
@@ -58,6 +60,8 @@ pub struct UiState {
     pub selected_node_name: String,
     expanded_nodes: HashSet<NodeId>,
     pub is_editing: bool,
+    host_address: String,
+    show_connect_dialog: bool,
 }
 
 impl Default for UiState {
@@ -68,6 +72,8 @@ impl Default for UiState {
             selected_node_name: String::new(),
             expanded_nodes: HashSet::new(),
             is_editing: false,
+            host_address: "localhost:2525/test-file.binc".to_string(),
+            show_connect_dialog: false,
         }
     }
 }
@@ -76,6 +82,7 @@ pub struct Application {
     pub document: Box<Document>,
     pub ui: UiState,
     document_path: Option<PathBuf>,
+    client: Option<Client>,
 }
 
 impl Application {
@@ -84,6 +91,54 @@ impl Application {
             .nodes
             .get(self.ui.root)
             .expect("Root node should exist")
+    }
+
+    pub(crate) fn connect_to_url(&mut self, url: &str) {
+        let (host, path) = url.split_once('/').unwrap();
+        let result = Self::connect_to_document(url);
+        if let Ok((client, document)) = result {
+            self.client = Some(client);
+            self.document = Box::from(document);
+        } else if let Err(error) = result {
+            let text = format!("Failed to connect to host\n\n{}", error.to_string());
+            rfd::MessageDialog::new()
+                .set_level(rfd::MessageLevel::Error)
+                .set_title("Error")
+                .set_description(text)
+                .show();
+        }
+    }
+
+    fn connect_to_document(url: &str) -> io::Result<(Client, Document)> {
+        if let Some((host, path)) = url.split_once('/') {
+            if let Ok(mut client) = Client::new(host) {
+                if let NetworkResponse::GetFileData {
+                    from_revision,
+                    to_revision,
+                    data,
+                } = client.request(NetworkRequest::GetFileData {
+                    from_revision: 0,
+                    path: path.to_string(),
+                })? {
+                    let repo = Repository::read(&mut &data[..])?;
+                    let document = Document::new(repo);
+
+                    Ok((client, document))
+                } else {
+                    Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        "Failed to get file data",
+                    ))
+                }
+            } else {
+                Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "Failed to connect to host",
+                ))
+            }
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, "Invalid URL"))
+        }
     }
 }
 
@@ -130,6 +185,7 @@ impl Application {
             document: Box::from(new_document()),
             ui: UiState::default(),
             document_path: None,
+            client: None,
         }
     }
 
@@ -408,6 +464,10 @@ pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mu
                     show_error(result, "Failed to open document");
                 }
             }
+            if ui.button("Connect…").clicked() {
+                app.ui.show_connect_dialog = true;
+            }
+
             if ui.button("Save").clicked() {
                 save_document(&mut app.document, app.document_path.clone());
             }
@@ -464,6 +524,22 @@ pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mu
 
         extra(ui);
     });
+
+    if app.ui.show_connect_dialog {
+        Modal::new(Id::new("Connect")).show(ui.ctx(), |ui| {
+            ui.set_width(200.0);
+            ui.heading("Connect to host");
+
+            ui.text_edit_singleline(&mut app.ui.host_address)
+                .on_hover_text("Host address");
+            ui.add_space(8.0);
+            if ui.button("Connect").clicked() {
+                let url = app.ui.host_address.clone();
+                app.connect_to_url(&url);
+                app.ui.show_connect_dialog = false;
+            }
+        });
+    }
 }
 
 pub fn show_error<T>(result: io::Result<T>, description: &str) {
