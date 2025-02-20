@@ -3,7 +3,7 @@ use binc::change::Change;
 use binc::changes::Changes;
 use binc::client::Client;
 use binc::document::Document;
-use binc::network_protocol::{NetworkRequest, NetworkResponse};
+use binc::network_protocol::NetworkRequest;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
 use binc::repository::Repository;
@@ -112,17 +112,14 @@ impl Application {
     fn connect_to_document(url: &str) -> io::Result<(Client, Document)> {
         if let Some((host, path)) = url.split_once('/') {
             if let Ok(mut client) = Client::new(host) {
-                if let NetworkResponse::GetFileData {
-                    from_revision,
-                    to_revision,
-                    data,
-                } = client.request(NetworkRequest::GetFileData {
-                    from_revision: 0,
-                    path: path.to_string(),
-                })? {
-                    let repo = Repository::read(&mut &data[..])?;
+                if let Ok(repo) = client
+                    .request(NetworkRequest::GetFileData {
+                        from_revision: 0,
+                        path: path.to_string(),
+                    })?
+                    .into_repository()
+                {
                     let document = Document::new(repo);
-
                     Ok((client, document))
                 } else {
                     Err(io::Error::new(
