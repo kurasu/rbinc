@@ -1,29 +1,47 @@
+use crate::importer::{Import, Importer, IMPORTERS};
+use binc::change::Change;
+use binc::changes::Changes;
+use binc::document::Document;
+use binc::node_id::NodeId;
+use binc::node_store::Node;
+use binc::repository::Repository;
+use eframe::egui;
+use eframe::egui::{Button, Sense, Ui, Widget};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
-use eframe::egui;
-use eframe::egui::{Button, Sense, Ui, Widget};
-use binc::document::Document;
-use binc::repository::Repository;
-use binc::change::Change;
-use binc::changes::Changes;
-use binc::node_id::NodeId;
-use binc::node_store::Node;
-use crate::importer::{Import, Importer, IMPORTERS};
 
 pub enum GuiAction {
     Undo,
     Redo,
-    SelectNode { node: NodeId },
-    AddNode { parent: NodeId, index: u64 },
-    MoveNode { node: NodeId, new_parent: NodeId, index_in_new_parent: u64 },
-    RemoveNode { node: NodeId },
-    WrappedChange { change: Change },
-    SetNodeExpanded { node: NodeId, expanded: bool },
+    SelectNode {
+        node: NodeId,
+    },
+    AddNode {
+        parent: NodeId,
+        index: u64,
+    },
+    MoveNode {
+        node: NodeId,
+        new_parent: NodeId,
+        index_in_new_parent: u64,
+    },
+    RemoveNode {
+        node: NodeId,
+    },
+    WrappedChange {
+        change: Change,
+    },
+    SetNodeExpanded {
+        node: NodeId,
+        expanded: bool,
+    },
     ToggleSelectedNodeExpanded,
     /// Commit pending changes
-    Commit,
+    Commit {
+        message: String,
+    },
     SelectPrevious,
     SelectNext,
     SelectParent,
@@ -37,7 +55,7 @@ pub struct UiState {
     pub selected_node: NodeId,
     pub selected_node_name: String,
     expanded_nodes: HashSet<NodeId>,
-    pub is_editing: bool
+    pub is_editing: bool,
 }
 
 impl Default for UiState {
@@ -47,7 +65,7 @@ impl Default for UiState {
             selected_node: NodeId::NO_NODE,
             selected_node_name: String::new(),
             expanded_nodes: HashSet::new(),
-            is_editing: false
+            is_editing: false,
         }
     }
 }
@@ -55,24 +73,30 @@ impl Default for UiState {
 pub struct Application {
     pub document: Box<Document>,
     pub ui: UiState,
-    document_path: Option<PathBuf>
+    document_path: Option<PathBuf>,
 }
 
 impl Application {
     pub fn root(&self) -> &Node {
-        self.document.nodes.get(self.ui.root).expect("Root node should exist")
+        self.document
+            .nodes
+            .get(self.ui.root)
+            .expect("Root node should exist")
     }
 }
 
 impl Application {
     pub fn process_action(&mut self, action: GuiAction) {
-        match action
-        {
+        match action {
             GuiAction::SelectNode { node } => self.select_node(node),
             GuiAction::AddNode { parent, index } => self.add_child(&parent, index),
-            GuiAction::MoveNode { node, new_parent, index_in_new_parent } => self.move_node(&node, &new_parent, index_in_new_parent),
+            GuiAction::MoveNode {
+                node,
+                new_parent,
+                index_in_new_parent,
+            } => self.move_node(&node, &new_parent, index_in_new_parent),
             GuiAction::RemoveNode { node } => self.remove_node(&node),
-            GuiAction::Commit => self.commit(),
+            GuiAction::Commit { message } => self.commit(&message),
             GuiAction::WrappedChange { change } => self.document.add_and_apply_change(change),
             GuiAction::Undo => self.document.undo(),
             GuiAction::Redo => self.document.redo(),
@@ -114,10 +138,15 @@ impl Application {
     pub fn select_node(&mut self, node_id: NodeId) {
         self.ui.selected_node = node_id;
         if node_id.exists() {
-            let name = self.document.nodes.get(node_id).as_ref().expect("Should exist").get_string_attribute("name");
+            let name = self
+                .document
+                .nodes
+                .get(node_id)
+                .as_ref()
+                .expect("Should exist")
+                .get_string_attribute("name");
             self.ui.selected_node_name = name.unwrap_or(String::new());
-        }
-        else {
+        } else {
             self.ui.selected_node_name = String::new();
         }
     }
@@ -125,17 +154,27 @@ impl Application {
     pub fn add_child(&mut self, parent_id: &NodeId, insertion_index: u64) {
         let child_id = self.document.next_id();
 
-        let c1 = Change::AddNode { id: child_id, parent: parent_id.clone(), index_in_parent: insertion_index };
+        let c1 = Change::AddNode {
+            id: child_id,
+            parent: parent_id.clone(),
+            index_in_parent: insertion_index,
+        };
         self.document.add_and_apply_change(c1);
     }
 
     pub fn move_node(&mut self, node_id: &NodeId, new_parent_id: &NodeId, insertion_index: u64) {
-        let c = Change::MoveNode { id: node_id.clone(), new_parent: new_parent_id.clone(), index_in_new_parent: insertion_index };
+        let c = Change::MoveNode {
+            id: node_id.clone(),
+            new_parent: new_parent_id.clone(),
+            index_in_new_parent: insertion_index,
+        };
         self.document.add_and_apply_change(c);
     }
 
     pub fn remove_node(&mut self, node_id: &NodeId) {
-        let c = Change::DeleteNode { id: node_id.clone() };
+        let c = Change::DeleteNode {
+            id: node_id.clone(),
+        };
         self.document.add_and_apply_change(c);
         self.select_node(NodeId::NO_NODE);
         if !self.node_exists(self.ui.root) {
@@ -147,7 +186,8 @@ impl Application {
         self.document.nodes.exists(id)
     }
 
-    pub fn commit(&mut self) {
+    pub fn commit(&mut self, message: &str) {
+        self.document.pending_changes.message = message.to_string();
         self.document.commit_changes();
     }
 
@@ -155,8 +195,18 @@ impl Application {
         if let Some(node) = self.document.nodes.get(node_id) {
             let parent = node.parent;
             if parent.exists() {
-                let children = self.document.nodes.get(parent).as_ref().expect("Should exist").children.clone();
-                let index = children.iter().position(|x| *x == node_id).expect("Should exist");
+                let children = self
+                    .document
+                    .nodes
+                    .get(parent)
+                    .as_ref()
+                    .expect("Should exist")
+                    .children
+                    .clone();
+                let index = children
+                    .iter()
+                    .position(|x| *x == node_id)
+                    .expect("Should exist");
                 if index > 0 {
                     return Some(children[index - 1]);
                 }
@@ -169,8 +219,18 @@ impl Application {
         if let Some(node) = self.document.nodes.get(node_id) {
             let parent = node.parent;
             if parent.exists() {
-                let children = self.document.nodes.get(parent).as_ref().expect("Should exist").children.clone();
-                let index = children.iter().position(|x| *x == node_id).expect("Should exist");
+                let children = self
+                    .document
+                    .nodes
+                    .get(parent)
+                    .as_ref()
+                    .expect("Should exist")
+                    .children
+                    .clone();
+                let index = children
+                    .iter()
+                    .position(|x| *x == node_id)
+                    .expect("Should exist");
                 if index < children.len() - 1 {
                     return Some(children[index + 1]);
                 }
@@ -224,9 +284,10 @@ impl Application {
     }
 
     pub fn get_previous(&self, node_id: NodeId) -> Option<NodeId> {
-         if node_id.exists() {
+        if node_id.exists() {
             if let Some(sibling) = self.get_previous_sibling(node_id) {
-                if self.is_node_expanded(sibling) && !self.get(sibling).unwrap().children.is_empty() {
+                if self.is_node_expanded(sibling) && !self.get(sibling).unwrap().children.is_empty()
+                {
                     return self.get_last_child(sibling);
                 } else {
                     return Some(sibling);
@@ -316,7 +377,6 @@ impl Application {
 
 pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mut Ui)) {
     ui.horizontal(|ui| {
-
         ui.menu_button("File", |ui| {
             if ui.button("New").clicked() {
                 app.set_document(new_document());
@@ -326,7 +386,9 @@ pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mu
                 if let Ok(Some((result, path))) = result {
                     app.set_document(result);
                     app.document_path = Some(path);
-                } else { show_error(result, "Failed to open document"); }
+                } else {
+                    show_error(result, "Failed to open document");
+                }
             }
             if ui.button("Save").clicked() {
                 save_document(&mut app.document, app.document_path.clone());
@@ -343,7 +405,9 @@ pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mu
                         let result = import_document_from_file(&importer);
                         if let Ok(Some(result)) = result {
                             app.set_document(result);
-                        } else { show_error(result, "Failed to import document"); }
+                        } else {
+                            show_error(result, "Failed to import document");
+                        }
                     }
                 }
             });
@@ -367,7 +431,7 @@ pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mu
         ui.separator();
 
         if ui.button("Commit").clicked() {
-            app.commit();
+            app.commit("");
         }
 
         ui.spacing();
@@ -387,12 +451,18 @@ pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mu
 pub fn show_error<T>(result: io::Result<T>, description: &str) {
     if let Err(error) = result {
         let text = format!("{}\n\n{}", description.to_string(), error.to_string());
-        rfd::MessageDialog::new().set_level(rfd::MessageLevel::Error).set_title("Error").set_description(text).show();
+        rfd::MessageDialog::new()
+            .set_level(rfd::MessageLevel::Error)
+            .set_title("Error")
+            .set_description(text)
+            .show();
     }
 }
 
 pub fn open_document() -> io::Result<Option<(Document, PathBuf)>> {
-    let path = rfd::FileDialog::new().add_filter("BINC files", &["binc"]).pick_file();
+    let path = rfd::FileDialog::new()
+        .add_filter("BINC files", &["binc"])
+        .pick_file();
 
     if let Some(path) = path {
         let mut file = File::open(path.clone())?;
@@ -405,7 +475,9 @@ pub fn open_document() -> io::Result<Option<(Document, PathBuf)>> {
 
 pub fn import_document_from_file(importer: &Importer) -> io::Result<Option<Document>> {
     let extensions = importer.file_extensions();
-    let path = rfd::FileDialog::new().add_filter(importer.get_name(), &extensions).pick_file();
+    let path = rfd::FileDialog::new()
+        .add_filter(importer.get_name(), &extensions)
+        .pick_file();
 
     if let Some(path) = path {
         let mut file = File::open(path)?;
@@ -417,14 +489,19 @@ pub fn import_document_from_file(importer: &Importer) -> io::Result<Option<Docum
     Ok(None)
 }
 
-pub fn save_document(document: &mut Document, known_path: Option<PathBuf>) -> io::Result<Option<PathBuf>> {
+pub fn save_document(
+    document: &mut Document,
+    known_path: Option<PathBuf>,
+) -> io::Result<Option<PathBuf>> {
     if let Some(path) = known_path {
         let mut file = File::create(path.clone())?;
         document.write(&mut file)?;
         return Ok(Some(path));
     }
 
-    let path = rfd::FileDialog::new().add_filter("BINC files", &["binc"]).save_file();
+    let path = rfd::FileDialog::new()
+        .add_filter("BINC files", &["binc"])
+        .save_file();
 
     if let Some(path) = path {
         document.commit_changes();
@@ -439,11 +516,17 @@ pub fn new_document() -> Document {
     let mut document = Document::new(Repository::new());
     let id = document.next_id();
     let mut changes = Changes::new();
-    changes.add_node(id, NodeId::ROOT_NODE, 0).set_name(id, "First");
+    changes
+        .add_node(id, NodeId::ROOT_NODE, 0)
+        .set_name(id, "First");
     let id = document.next_id();
-    changes.add_node(id, NodeId::ROOT_NODE, 1).set_name(id, "Second");
+    changes
+        .add_node(id, NodeId::ROOT_NODE, 1)
+        .set_name(id, "Second");
     let id = document.next_id();
-    changes.add_node(id, NodeId::ROOT_NODE, 2).set_name(id, "Third");
+    changes
+        .add_node(id, NodeId::ROOT_NODE, 2)
+        .set_name(id, "Third");
     document.add_and_apply_changes(changes);
     document
 }
@@ -456,7 +539,8 @@ mod tests {
     fn setup_app() -> Application {
         let mut app = Application::new();
         let mut changes = Changes::new();
-        changes.add_node(NodeId::new(1), NodeId::ROOT_NODE, 0)
+        changes
+            .add_node(NodeId::new(1), NodeId::ROOT_NODE, 0)
             .add_node(NodeId::new(2), NodeId::ROOT_NODE, 1)
             .add_node(NodeId::new(3), NodeId::new(1), 0);
 
@@ -502,7 +586,13 @@ mod tests {
     #[test]
     fn test_select_impossible() {
         let mut app = setup_app();
-        let ids = vec![NodeId::NO_NODE, NodeId::ROOT_NODE, NodeId::new(1), NodeId::new(2), NodeId::new(3)];
+        let ids = vec![
+            NodeId::NO_NODE,
+            NodeId::ROOT_NODE,
+            NodeId::new(1),
+            NodeId::new(2),
+            NodeId::new(3),
+        ];
 
         for id in ids {
             app.select_node(id);

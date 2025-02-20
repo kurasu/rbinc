@@ -2,19 +2,19 @@
 #![allow(rustdoc::missing_crate_level_docs)]
 
 use binc::change::Change;
+use binc::node_id::NodeId;
 use binc::node_store::Node;
 use bincgui::app::{create_toolbar, Application, GuiAction};
-use bincgui::history::create_history;
+use bincgui::history::History;
+use bincgui::tree::NodeTree;
 use eframe::egui::{Context, Ui};
 use eframe::{egui, Frame};
-use binc::node_id::NodeId;
-use bincgui::tree::NodeTree;
 
 mod notes;
 
 struct ExplorerApp {
     application: Application,
-    show_history: bool,
+    history: History,
     tree: NodeTree,
 }
 
@@ -22,7 +22,7 @@ impl ExplorerApp {
     fn new() -> Self {
         Self {
             application: Application::new(),
-            show_history: false,
+            history: History::new(),
             tree: NodeTree::new(),
         }
     }
@@ -44,27 +44,40 @@ impl eframe::App for ExplorerApp {
 
         check_keyboard(ctx, &app, &mut on_action);
 
-        let frame = egui::Frame::default().inner_margin(8.0).fill(ctx.style().visuals.panel_fill);
-        egui::TopBottomPanel::top("toolbar").frame(frame).show(ctx, |ui| {
-            create_toolbar(&mut app, ui,|ui| {
-                ui.checkbox(&mut self.show_history, "Show History");
-            });
-        });
-        egui::SidePanel::right("inspector_panel").default_width(200f32).show(ctx, |ui| {
-            create_inspector(ui, app.get_selected_node(), &mut on_action);
-        });
-        if self.show_history {
-            egui::TopBottomPanel::bottom("history_panel").default_height(160f32).resizable(true).show(ctx, |ui| {
-                egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
-                    create_history(ui, &app, &mut on_action);
+        let frame = egui::Frame::default()
+            .inner_margin(8.0)
+            .fill(ctx.style().visuals.panel_fill);
+        egui::TopBottomPanel::top("toolbar")
+            .frame(frame)
+            .show(ctx, |ui| {
+                create_toolbar(&mut app, ui, |ui| {
+                    ui.checkbox(&mut self.history.show_history, "Show History");
                 });
             });
+        egui::SidePanel::right("inspector_panel")
+            .default_width(200f32)
+            .show(ctx, |ui| {
+                create_inspector(ui, app.get_selected_node(), &mut on_action);
+            });
+        if self.history.show_history {
+            egui::TopBottomPanel::bottom("history_panel")
+                .default_height(160f32)
+                .resizable(true)
+                .show(ctx, |ui| {
+                    egui::ScrollArea::vertical()
+                        .auto_shrink(false)
+                        .show(ui, |ui| {
+                            self.history.create_history(ui, app, &mut on_action);
+                        });
+                });
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
-                self.tree.create_tree(ui, &mut app, &mut on_action);
-            });
+            egui::ScrollArea::vertical()
+                .auto_shrink(false)
+                .show(ui, |ui| {
+                    self.tree.create_tree(ui, &mut app, &mut on_action);
+                });
         });
 
         for action in actions {
@@ -107,18 +120,26 @@ fn check_keyboard(ctx: &Context, app: &Application, on_action: &mut impl FnMut(G
             let node = app.ui.selected_node;
             if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
                 if app.is_node_expanded(node) {
-                    on_action(GuiAction::SetNodeExpanded { node, expanded: false });
+                    on_action(GuiAction::SetNodeExpanded {
+                        node,
+                        expanded: false,
+                    });
                 } else {
                     on_action(GuiAction::SelectParent);
                 }
-                on_action(GuiAction::SetNodeExpanded { node, expanded: false });
+                on_action(GuiAction::SetNodeExpanded {
+                    node,
+                    expanded: false,
+                });
             }
             if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
-                on_action(GuiAction::SetNodeExpanded { node, expanded: true });
+                on_action(GuiAction::SetNodeExpanded {
+                    node,
+                    expanded: true,
+                });
             }
         }
-    }
-    else {
+    } else {
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             on_action(GuiAction::ToggleEditing);
         }
@@ -132,37 +153,49 @@ fn check_keyboard(ctx: &Context, app: &Application, on_action: &mut impl FnMut(G
 fn create_inspector(ui: &mut Ui, node: Option<&Node>, on_action: &mut impl FnMut(GuiAction)) {
     ui.vertical(|ui| {
         if let Some(node) = node {
-            egui::Grid::new("inspector_grid").num_columns(2).show(ui, |ui| {
-                ui.label("Inspector");
-                if ui.button("Delete Node").clicked() {
-                    on_action(GuiAction::RemoveNode { node: node.id });
-                }
-                ui.end_row();
-
-                let mut name = node.name.clone().unwrap_or_default();
-                ui.label("name");
-                if ui.text_edit_singleline(&mut name).changed() {
-                    on_action(GuiAction::WrappedChange { change: Change::SetName { node: node.id, name: name.clone() } });
-                }
-                ui.end_row();
-
-                let mut type_name = node.type_name.clone().unwrap_or_default();
-                ui.label("type");
-                if ui.text_edit_singleline(& mut type_name).changed() {
-                    on_action(GuiAction::WrappedChange { change: Change::SetType { node: node.id, type_name: type_name.clone() }});
-                }
-                ui.end_row();
-
-                ui.label("ID");
-                ui.label(node.id.to_string());
-                ui.end_row();
-
-                for at in node.attributes.iter() {
-                    ui.label(&at.key);
-                    ui.label(format!("{}", at.value));
+            egui::Grid::new("inspector_grid")
+                .num_columns(2)
+                .show(ui, |ui| {
+                    ui.label("Inspector");
+                    if ui.button("Delete Node").clicked() {
+                        on_action(GuiAction::RemoveNode { node: node.id });
+                    }
                     ui.end_row();
-                }
-            });
+
+                    let mut name = node.name.clone().unwrap_or_default();
+                    ui.label("name");
+                    if ui.text_edit_singleline(&mut name).changed() {
+                        on_action(GuiAction::WrappedChange {
+                            change: Change::SetName {
+                                node: node.id,
+                                name: name.clone(),
+                            },
+                        });
+                    }
+                    ui.end_row();
+
+                    let mut type_name = node.type_name.clone().unwrap_or_default();
+                    ui.label("type");
+                    if ui.text_edit_singleline(&mut type_name).changed() {
+                        on_action(GuiAction::WrappedChange {
+                            change: Change::SetType {
+                                node: node.id,
+                                type_name: type_name.clone(),
+                            },
+                        });
+                    }
+                    ui.end_row();
+
+                    ui.label("ID");
+                    ui.label(node.id.to_string());
+                    ui.end_row();
+
+                    for at in node.attributes.iter() {
+                        ui.label(&at.key);
+                        ui.label(format!("{}", at.value));
+                        ui.end_row();
+                    }
+                });
         } else {
             ui.vertical_centered(|ui| {
                 ui.label("No node selected");
