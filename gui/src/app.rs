@@ -11,6 +11,7 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
+use std::time::SystemTime;
 use crate::persistent_client::PersistentClient;
 
 pub enum GuiAction {
@@ -82,6 +83,7 @@ pub struct Application {
     pub ui: UiState,
     document_path: Option<PathBuf>,
     client: Option<PersistentClient>,
+    last_update: SystemTime,
 }
 
 impl Application {
@@ -105,6 +107,26 @@ impl Application {
                 .set_description(text)
                 .show();
         }
+    }
+
+    pub(crate) fn check_for_updates(&mut self) {
+        let now = SystemTime::now();
+        let elapsed = now.duration_since(self.last_update).unwrap();
+
+        if elapsed.as_secs() < 5 {
+            return;
+        }
+
+        if let Some(client) = &mut self.client {
+            let result = client.check_for_updates(self.document.as_mut());
+
+            if result.is_err() {
+                let text = format!("Failed to check for updates\n\n{}", result.unwrap_err().to_string());
+                log::error!("{}", text);
+            }
+        }
+
+        self.last_update = now;
     }
 }
 
@@ -152,6 +174,7 @@ impl Application {
             ui: UiState::default(),
             document_path: None,
             client: None,
+            last_update: SystemTime::now(),
         }
     }
 
@@ -416,6 +439,10 @@ impl Application {
 }
 
 pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mut Ui)) {
+
+    // HACK
+    app.check_for_updates();
+
     ui.horizontal(|ui| {
         ui.menu_button("File", |ui| {
             if ui.button("New").clicked() {

@@ -10,7 +10,7 @@ pub struct PersistentClient {
 }
 
 impl PersistentClient {
-    pub(crate) fn connect_to_document(url: &str) -> io::Result<(PersistentClient, Document)> {
+    pub fn connect_to_document(url: &str) -> io::Result<(PersistentClient, Document)> {
         if let Some((host, path)) = url.split_once('/') {
             if let Ok(mut client) = Client::new(host) {
                 if let Ok(repo) = client
@@ -39,7 +39,7 @@ impl PersistentClient {
         }
     }
 
-    fn check_for_updates(&mut self, document: &mut Document) -> io::Result<()> {
+    pub fn check_for_updates(&mut self, document: &mut Document) -> io::Result<()> {
         if let Ok(response) = self.client.request(NetworkRequest::GetFileData {
             path: self.path.clone(),
             from_revision: self.current_revision
