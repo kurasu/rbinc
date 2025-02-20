@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::fs::File;
 use std::io;
+use std::path::PathBuf;
 use eframe::egui;
 use eframe::egui::{Button, Sense, Ui, Widget};
 use binc::document::Document;
@@ -54,6 +55,7 @@ impl Default for UiState {
 pub struct Application {
     pub document: Box<Document>,
     pub ui: UiState,
+    document_path: Option<PathBuf>
 }
 
 impl Application {
@@ -98,7 +100,8 @@ impl Application {
     pub fn new() -> Application {
         Application {
             document: Box::from(new_document()),
-            ui: UiState::default()
+            ui: UiState::default(),
+            document_path: None,
         }
     }
 
@@ -318,19 +321,23 @@ pub fn create_toolbar(app: &mut Application, ui: &mut Ui) {
             if ui.button("New").clicked() {
                 app.set_document(new_document());
             }
-            if ui.button("Open").clicked() {
+            if ui.button("Open…").clicked() {
                 let result = open_document();
-                if let Ok(Some(result)) = result {
+                if let Ok(Some((result, path))) = result {
                     app.set_document(result);
+                    app.document_path = Some(path);
                 } else { show_error(result, "Failed to open document"); }
             }
             if ui.button("Save").clicked() {
-                save_document(&mut app.document);
+                save_document(&mut app.document, app.document_path.clone());
+            }
+            if ui.button("Save as…").clicked() {
+                save_document(&mut app.document, None);
             }
 
             ui.separator();
 
-            ui.menu_button("Import", |ui| {
+            ui.menu_button("Import…", |ui| {
                 for importer in IMPORTERS {
                     if ui.button(importer.get_name()).clicked() {
                         let result = import_document_from_file(&importer);
@@ -382,13 +389,13 @@ pub fn show_error<T>(result: io::Result<T>, description: &str) {
     }
 }
 
-pub fn open_document() -> io::Result<Option<Document>> {
+pub fn open_document() -> io::Result<Option<(Document, PathBuf)>> {
     let path = rfd::FileDialog::new().add_filter("BINC files", &["binc"]).pick_file();
 
     if let Some(path) = path {
-        let mut file = File::open(path)?;
+        let mut file = File::open(path.clone())?;
         let document = Document::read(&mut file)?;
-        return Ok(Some(document));
+        return Ok(Some((document, path)));
     }
 
     Ok(None)
@@ -408,16 +415,22 @@ pub fn import_document_from_file(importer: &Importer) -> io::Result<Option<Docum
     Ok(None)
 }
 
-pub fn save_document(document: &mut Document) -> io::Result<bool> {
+pub fn save_document(document: &mut Document, known_path: Option<PathBuf>) -> io::Result<Option<PathBuf>> {
+    if let Some(path) = known_path {
+        let mut file = File::create(path.clone())?;
+        document.write(&mut file)?;
+        return Ok(Some(path));
+    }
+    
     let path = rfd::FileDialog::new().add_filter("BINC files", &["binc"]).save_file();
 
     if let Some(path) = path {
         document.commit_changes();
-        let mut file = File::create(path)?;
+        let mut file = File::create(path.clone())?;
         document.write(&mut file)?;
-        return Ok(true);
+        return Ok(Some(path));
     }
-    Ok(false)
+    Ok(None)
 }
 
 pub fn new_document() -> Document {
