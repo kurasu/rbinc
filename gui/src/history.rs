@@ -1,15 +1,21 @@
-use eframe::egui::Ui;
 use crate::app::{Application, GuiAction};
-
+use eframe::egui::Ui;
 
 pub fn create_history(ui: &mut Ui, app: &Application, on_action: &mut impl FnMut(GuiAction)) {
     for revision in &app.document.repository.revisions {
-        let label = format!("{} by {} on {}", revision.message, revision.user_name, revision.date);
-        if ui.collapsing(label, |ui| {
-            for change in &revision.changes {
-                ui.label(change.to_string());
-            }
-        }).header_response.clicked() {
+        let label = format!(
+            "{} by {} on {}",
+            revision.message, revision.user_name, revision.date
+        );
+        if ui
+            .collapsing(label, |ui| {
+                for change in &revision.changes {
+                    ui.label(change.to_string());
+                }
+            })
+            .header_response
+            .clicked()
+        {
             // Handle revision selection if needed
         }
     }
@@ -21,6 +27,9 @@ pub fn create_history(ui: &mut Ui, app: &Application, on_action: &mut impl FnMut
         for change in &pending.changes {
             ui.label(change.to_string());
         }
+        app.document.undo_changes.iter().rev().for_each(|change| {
+            ui.colored_label(ui.visuals().weak_text_color(), change.to_string());
+        });
     });
     ui.allocate_space(ui.available_size());
 }
