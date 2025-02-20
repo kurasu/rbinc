@@ -9,20 +9,22 @@ use eframe::egui::{Context, Ui};
 use eframe::{egui, Frame};
 use std::any::Any;
 use binc::node_id::NodeId;
-use bincgui::tree::create_tree;
+use bincgui::tree::NodeTree;
 
 mod notes;
 
 struct ExplorerApp {
     application: Application,
     show_history: bool,
+    tree: NodeTree,
 }
 
 impl ExplorerApp {
     fn new() -> Self {
         Self {
             application: Application::new(),
-            show_history: false
+            show_history: false,
+            tree: NodeTree::new(),
         }
     }
 
@@ -32,7 +34,7 @@ impl ExplorerApp {
 }
 
 impl eframe::App for ExplorerApp {
-    fn update(&mut self, ctx: &Context, frame: &mut Frame) {
+    fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
         let mut actions: Vec<GuiAction> = vec![];
 
         let mut on_action = |a| {
@@ -62,7 +64,7 @@ impl eframe::App for ExplorerApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
-                create_tree(ui, &mut app, &mut on_action);
+                self.tree.create_tree(ui, &mut app, &mut on_action);
             });
         });
 

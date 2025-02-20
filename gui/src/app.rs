@@ -379,7 +379,7 @@ pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mu
                 ui.ctx().set_visuals(egui::Visuals::dark());
             }
         }
-        
+
         extra(ui);
     });
 }
