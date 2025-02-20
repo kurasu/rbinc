@@ -18,6 +18,7 @@ struct ExplorerApp {
     history: History,
     tree: NodeTree,
     columns: Columns,
+    use_tree: bool,
 }
 
 impl ExplorerApp {
@@ -27,11 +28,83 @@ impl ExplorerApp {
             history: History::new(),
             tree: NodeTree::new(),
             columns: Columns::new(),
+            use_tree: true,
         }
     }
 
     fn get_node(&self, id: NodeId) -> &Node {
         self.application.get(id).expect("Node not found")
+    }
+
+    fn check_keyboard(
+        ctx: &Context,
+        app: &Application,
+        use_tree: bool,
+        on_action: &mut impl FnMut(GuiAction),
+    ) {
+        if ctx.input(|i| i.key_pressed(egui::Key::Z) && i.modifiers.command) {
+            on_action(GuiAction::Undo);
+        }
+        if ctx.input(|i| i.key_pressed(egui::Key::Y) && i.modifiers.command) {
+            on_action(GuiAction::Redo);
+        }
+        if use_tree {
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
+                on_action(GuiAction::SelectPreviousInTree);
+            }
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
+                on_action(GuiAction::SelectNextInTree);
+            }
+
+            if !app.ui.is_editing {
+                if app.ui.selected_node.exists() {
+                    let node = app.ui.selected_node;
+                    if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
+                        if app.is_node_expanded(node) {
+                            on_action(GuiAction::SetNodeExpanded {
+                                node,
+                                expanded: false,
+                            });
+                        } else {
+                            on_action(GuiAction::SelectParent);
+                        }
+                        on_action(GuiAction::SetNodeExpanded {
+                            node,
+                            expanded: false,
+                        });
+                    }
+                    if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
+                        on_action(GuiAction::SetNodeExpanded {
+                            node,
+                            expanded: true,
+                        });
+                    }
+                }
+            }
+        } else {
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
+                on_action(GuiAction::SelectPreviousSibling);
+            }
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
+                on_action(GuiAction::SelectNextSibling);
+            }
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
+                on_action(GuiAction::SelectParent);
+            }
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
+                on_action(GuiAction::SelectFirstChild);
+            }
+        }
+
+        if app.ui.is_editing {
+            if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+                on_action(GuiAction::ToggleEditing);
+            }
+        }
+
+        if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+            on_action(GuiAction::ToggleEditing);
+        }
     }
 }
 
@@ -45,7 +118,7 @@ impl eframe::App for ExplorerApp {
 
         let mut app = &mut self.application;
 
-        check_keyboard(ctx, &app, &mut on_action);
+        Self::check_keyboard(ctx, &app, self.use_tree, &mut on_action);
 
         let frame = egui::Frame::default()
             .inner_margin(8.0)
@@ -76,9 +149,7 @@ impl eframe::App for ExplorerApp {
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            let use_tree = false;
-
-            if use_tree {
+            if self.use_tree {
                 egui::ScrollArea::vertical()
                     .auto_shrink(false)
                     .show(ui, |ui| {
@@ -110,55 +181,6 @@ fn main() -> eframe::Result {
         options,
         Box::new(|_cc| Ok(Box::new(ExplorerApp::new()))),
     )
-}
-
-fn check_keyboard(ctx: &Context, app: &Application, on_action: &mut impl FnMut(GuiAction)) {
-    if ctx.input(|i| i.key_pressed(egui::Key::Z) && i.modifiers.command) {
-        on_action(GuiAction::Undo);
-    }
-    if ctx.input(|i| i.key_pressed(egui::Key::Y) && i.modifiers.command) {
-        on_action(GuiAction::Redo);
-    }
-    if ctx.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
-        on_action(GuiAction::SelectPrevious);
-    }
-    if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
-        on_action(GuiAction::SelectNext);
-    }
-
-    if !app.ui.is_editing {
-        if app.ui.selected_node.exists() {
-            let node = app.ui.selected_node;
-            if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
-                if app.is_node_expanded(node) {
-                    on_action(GuiAction::SetNodeExpanded {
-                        node,
-                        expanded: false,
-                    });
-                } else {
-                    on_action(GuiAction::SelectParent);
-                }
-                on_action(GuiAction::SetNodeExpanded {
-                    node,
-                    expanded: false,
-                });
-            }
-            if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
-                on_action(GuiAction::SetNodeExpanded {
-                    node,
-                    expanded: true,
-                });
-            }
-        }
-    } else {
-        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-            on_action(GuiAction::ToggleEditing);
-        }
-    }
-
-    if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
-        on_action(GuiAction::ToggleEditing);
-    }
 }
 
 fn create_inspector(ui: &mut Ui, node: Option<&Node>, on_action: &mut impl FnMut(GuiAction)) {

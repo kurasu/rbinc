@@ -42,8 +42,10 @@ pub enum GuiAction {
     Commit {
         message: String,
     },
-    SelectPrevious,
-    SelectNext,
+    SelectPreviousInTree,
+    SelectNextInTree,
+    SelectPreviousSibling,
+    SelectNextSibling,
     SelectParent,
     SelectFirstChild,
     ToggleEditing,
@@ -100,8 +102,10 @@ impl Application {
             GuiAction::WrappedChange { change } => self.document.add_and_apply_change(change),
             GuiAction::Undo => self.document.undo(),
             GuiAction::Redo => self.document.redo(),
-            GuiAction::SelectPrevious => self.select_previous(),
-            GuiAction::SelectNext => self.select_next(),
+            GuiAction::SelectPreviousInTree => self.select_previous_in_tree(),
+            GuiAction::SelectNextInTree => self.select_next_in_tree(),
+            GuiAction::SelectPreviousSibling => self.select_previous_sibling(),
+            GuiAction::SelectNextSibling => self.select_next_sibling(),
             GuiAction::SelectParent => self.select_parent(),
             GuiAction::SelectFirstChild => self.select_first_child(),
             GuiAction::SetNodeExpanded { node, expanded } => self.set_node_expanded(node, expanded),
@@ -239,14 +243,21 @@ impl Application {
         None
     }
 
-    pub fn select_next(&mut self) {
-        let next = self.get_next(self.ui.selected_node);
+    pub fn select_next_in_tree(&mut self) {
+        let next = self.get_next_in_tree(self.ui.selected_node);
         if let Some(next) = next {
             self.select_node(next);
         }
     }
 
-    fn get_next(&self, node_id: NodeId) -> Option<NodeId> {
+    pub fn select_next_sibling(&mut self) {
+        let next = self.get_next_sibling(self.ui.selected_node);
+        if let Some(next) = next {
+            self.select_node(next);
+        }
+    }
+
+    fn get_next_in_tree(&self, node_id: NodeId) -> Option<NodeId> {
         if node_id.exists() {
             if let Some(node) = self.get(node_id) {
                 if self.is_node_expanded(node_id) && !node.children.is_empty() {
@@ -276,14 +287,21 @@ impl Application {
         node.is_root() || self.ui.expanded_nodes.contains(&node)
     }
 
-    pub fn select_previous(&mut self) {
-        let previous = self.get_previous(self.ui.selected_node);
+    pub fn select_previous_sibling(&mut self) {
+        let previous = self.get_previous_sibling(self.ui.selected_node);
         if let Some(previous) = previous {
             self.select_node(previous);
         }
     }
 
-    pub fn get_previous(&self, node_id: NodeId) -> Option<NodeId> {
+    pub fn select_previous_in_tree(&mut self) {
+        let previous = self.get_previous_in_tree(self.ui.selected_node);
+        if let Some(previous) = previous {
+            self.select_node(previous);
+        }
+    }
+
+    pub fn get_previous_in_tree(&self, node_id: NodeId) -> Option<NodeId> {
         if node_id.exists() {
             if let Some(sibling) = self.get_previous_sibling(node_id) {
                 if self.is_node_expanded(sibling) && !self.get(sibling).unwrap().children.is_empty()
@@ -552,7 +570,7 @@ mod tests {
     fn test_select_next() {
         let mut app = setup_app();
         app.select_node(NodeId::ROOT_NODE);
-        app.select_next();
+        app.select_next_in_tree();
         assert_eq!(app.ui.selected_node, NodeId::new(1));
     }
 
@@ -560,7 +578,7 @@ mod tests {
     fn test_select_previous() {
         let mut app = setup_app();
         app.select_node(NodeId::new(2));
-        app.select_previous();
+        app.select_previous_in_tree();
         assert_eq!(app.ui.selected_node, NodeId::new(1));
     }
 
@@ -596,9 +614,9 @@ mod tests {
 
         for id in ids {
             app.select_node(id);
-            app.select_previous();
+            app.select_previous_in_tree();
             app.select_node(id);
-            app.select_next();
+            app.select_next_in_tree();
             app.select_node(id);
             app.select_parent();
             app.select_node(id);

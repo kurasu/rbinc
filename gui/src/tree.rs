@@ -43,12 +43,7 @@ impl NodeTree {
         index_in_parent: usize,
     ) {
         if let Some(node) = app.document.nodes.get(node_id) {
-            let label = self.get_label(node, index_in_parent);
             let selected = app.ui.selected_node == node_id;
-            let mut text = RichText::new(label);
-            if selected {
-                text = text.color(ui.visuals().strong_text_color());
-            }
             let is_expanded = app.is_node_expanded(node_id);
 
             ui.vertical(|ui| {
@@ -68,6 +63,17 @@ impl NodeTree {
                     });
                 }
             });
+        }
+    }
+
+    fn node_frame(ui: &Ui, selected: bool) -> Frame {
+        if selected {
+            Frame::default()
+                .fill(Color32::from_rgb(60, 66, 107))
+                .corner_radius(4.0)
+                .inner_margin(4.0)
+        } else {
+            Frame::new().inner_margin(4.0)
         }
     }
 
@@ -93,73 +99,78 @@ impl NodeTree {
             DragDropPayload::WithNode(node_id),
             |action| gui_action = Some(action),
             |ui| {
-                ui.horizontal(|ui| {
-                    let hovering = self.is_hovering(ui, node_id);
-                    if hovering {
-                        ui.label("☰").on_hover_text("Drag to move");
-                    } else {
-                        ui.colored_label(Color32::TRANSPARENT, "☰");
-                    }
-
-                    let has_children = !node.children.is_empty();
-
-                    if has_children {
-                        let expand_icon = if is_expanded { "⏷" } else { "⏵" };
-                        if ui
-                            .label(expand_icon)
-                            .on_hover_cursor(CursorIcon::Default)
-                            .on_hover_text("Expand/collapse node")
-                            .clicked()
-                        {
-                            on_action(GuiAction::SetNodeExpanded {
-                                node: node_id,
-                                expanded: !is_expanded,
-                            });
+                Self::node_frame(ui, selected).show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        let hovering = self.is_hovering(ui, node_id);
+                        if hovering {
+                            ui.label("☰").on_hover_text("Drag to move");
+                        } else {
+                            ui.colored_label(Color32::TRANSPARENT, "☰");
                         }
-                    } else {
-                        ui.colored_label(Color32::TRANSPARENT, "⏵");
-                    }
 
-                    let mut checked = node.get_bool_attribute("completed").unwrap_or_default();
-                    if ui.checkbox(&mut checked, "").clicked() {
-                        on_action(GuiAction::WrappedChange {
-                            change: Change::SetAttribute {
-                                node: node_id,
-                                attribute: "completed".to_string(),
-                                value: AttributeValue::Bool(checked),
-                            },
-                        });
-                    }
+                        let has_children = !node.children.is_empty();
 
-                    if selected && app.ui.is_editing {
-                        let mut node_name = node_name.to_string();
-                        let text_edit = ui.text_edit_singleline(&mut node_name);
-                        text_edit.request_focus();
-                        if text_edit.changed() {
-                            on_action(GuiAction::WrappedChange {
-                                change: Change::SetName {
+                        if has_children {
+                            let expand_icon = if is_expanded { "⏷" } else { "⏵" };
+                            if ui
+                                .label(expand_icon)
+                                .on_hover_cursor(CursorIcon::Default)
+                                .on_hover_text("Expand/collapse node")
+                                .clicked()
+                            {
+                                on_action(GuiAction::SetNodeExpanded {
                                     node: node_id,
-                                    name: node_name.clone(),
+                                    expanded: !is_expanded,
+                                });
+                            }
+                        } else {
+                            ui.colored_label(Color32::TRANSPARENT, "⏵");
+                        }
+
+                        let mut checked = node.get_bool_attribute("completed").unwrap_or_default();
+                        if ui.checkbox(&mut checked, "").clicked() {
+                            on_action(GuiAction::WrappedChange {
+                                change: Change::SetAttribute {
+                                    node: node_id,
+                                    attribute: "completed".to_string(),
+                                    value: AttributeValue::Bool(checked),
                                 },
                             });
                         }
-                    } else {
-                        let label = ui.label(node_name);
-                        if label.clicked() {
-                            on_action(GuiAction::SelectNode { node: node_id });
-                        }
-                        if label.double_clicked() {
-                            on_action(GuiAction::ToggleEditing);
-                        }
-                    }
 
-                    ui.spacing();
+                        if selected && app.ui.is_editing {
+                            let mut node_name = node.name.clone().unwrap_or_default();
+                            let text_edit = ui.text_edit_singleline(&mut node_name);
+                            text_edit.request_focus();
+                            if text_edit.changed() {
+                                on_action(GuiAction::WrappedChange {
+                                    change: Change::SetName {
+                                        node: node_id,
+                                        name: node_name.clone(),
+                                    },
+                                });
+                            }
+                        } else {
+                            let mut text = RichText::new(node_name);
+                            if selected {
+                                text = text.color(ui.visuals().strong_text_color());
+                            }
 
-                    if selected {
-                        if ui.label("✖").clicked() {
-                            on_action(GuiAction::RemoveNode { node: node_id });
+                            let label = ui.label(text);
+                            if label.clicked() {
+                                on_action(GuiAction::SelectNode { node: node_id });
+                            }
+                            if label.double_clicked() {
+                                on_action(GuiAction::ToggleEditing);
+                            }
                         }
-                    }
+
+                        if selected && !app.ui.is_editing {
+                            if ui.label("✖").clicked() {
+                                on_action(GuiAction::RemoveNode { node: node_id });
+                            }
+                        }
+                    });
                 });
             },
         );
@@ -340,25 +351,6 @@ impl NodeTree {
         for child_id in children {
             self.create_node_tree(ui, *child_id, app, on_action, index);
             index += 1;
-        }
-        let frame = Frame::default().inner_margin(2.0);
-
-        let (_, dropped_payload) = ui.dnd_drop_zone::<NodeId, ()>(frame, |ui| {
-            let add_button = ui.label("⊞").on_hover_text("Add child node");
-            if add_button.clicked() {
-                on_action(GuiAction::AddNode {
-                    parent: node_id,
-                    index: children.len() as u64,
-                });
-            }
-        });
-
-        if let Some(dropped_id) = dropped_payload {
-            on_action(GuiAction::MoveNode {
-                node: *dropped_id,
-                new_parent: node_id,
-                index_in_new_parent: children.len() as u64,
-            });
         }
     }
 }

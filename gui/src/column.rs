@@ -5,8 +5,7 @@ use binc::node_id::NodeId;
 use binc::node_store::Node;
 use eframe::egui::StrokeKind::Inside;
 use eframe::egui::{
-    Color32, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, Sense, Ui,
-    UiBuilder,
+    CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, Sense, Ui, UiBuilder,
 };
 use eframe::{egui, emath};
 use egui_extras::{Column, TableBuilder};
@@ -29,20 +28,37 @@ impl Columns {
     }
 
     pub fn create_columns(
-        &self,
+        &mut self,
         ui: &mut Ui,
         app: &mut Application,
         on_action: &mut impl FnMut(GuiAction),
     ) {
-        let columns = &self.expanded_columns;
+        self.expanded_columns = Self::get_columns_to_show(app);
 
         ui.horizontal(|ui| {
-            self.create_column(app, self.root_node, on_action, ui);
-
-            for node in columns {
-                self.create_column(app, *node, on_action, ui);
+            for node in &self.expanded_columns {
+                self.create_column(app, node.clone(), on_action, ui);
             }
         });
+    }
+
+    fn get_columns_to_show(app: &Application) -> Vec<NodeId> {
+        let mut node_id = app.ui.selected_node;
+
+        if node_id == NodeId::NO_NODE {
+            return vec![NodeId::ROOT_NODE];
+        }
+
+        let mut columns = vec![];
+        while node_id != NodeId::NO_NODE {
+            let node = app.get(node_id).expect("Node must exists");
+            if !node.children.is_empty() || !columns.is_empty() {
+                columns.push(node_id);
+            }
+            node_id = node.parent;
+        }
+        columns.reverse();
+        columns
     }
 
     fn create_column(
@@ -55,55 +71,54 @@ impl Columns {
         let frame = Frame::default().inner_margin(2.0);
         let node = app.document.nodes.get(node_id).expect("");
 
-        ui.vertical(|ui| {
-            //let (_, dropped_payload) = ui.dnd_drop_zone::<NodeId, ()>(frame, |ui| {
-            let available_height = ui.available_height();
-            let mut table = TableBuilder::new(ui)
-                .striped(true)
-                .resizable(false)
-                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                .column(Column::auto_with_initial_suggestion(200.0))
-                .min_scrolled_height(400.0)
-                .max_scroll_height(available_height);
+        ui.push_id(node_id, |ui| {
+            ui.vertical(|ui| {
+                //let (_, dropped_payload) = ui.dnd_drop_zone::<NodeId, ()>(frame, |ui| {
+                let available_height = ui.available_height();
+                let mut table = TableBuilder::new(ui)
+                    .striped(true)
+                    .resizable(false)
+                    .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                    .column(Column::exact(150.0))
+                    .min_scrolled_height(available_height)
+                    .max_scroll_height(available_height);
 
-            table = table.sense(Sense::click());
+                table = table.sense(Sense::click());
 
-            let mut index: usize = 0;
-            let children = &app.document.nodes.get(node_id).expect("").children;
+                let mut index: usize = 0;
+                let children = &app.document.nodes.get(node_id).expect("").children;
 
-            table
-                /*.header(22.0, |mut header| {
-                    header.col(|ui| {
-                        ui.label("Name");
-                    });
-                })*/
-                .body(|mut body| {
-                    for child_id in children {
-                        body.row(22.0, |mut row| {
-                            row.set_selected(app.ui.selected_node == *child_id);
-                            row.col(|ui| {
-                                //self.create_node_header(ui, app, *child_id, index, on_action);
-                                ui.label(self.get_label(
-                                    &app.document.nodes.get(*child_id).expect(""),
-                                    index,
-                                ));
-                            });
-
-                            if row.response().clicked() {
-                                on_action(GuiAction::SelectNode { node: *child_id });
-                            }
+                table
+                    /*.header(22.0, |mut header| {
+                        header.col(|ui| {
+                            ui.label("Name");
                         });
-                        index += 1;
-                    }
-                });
+                    })*/
+                    .body(|mut body| {
+                        for child_id in children {
+                            body.row(22.0, |mut row| {
+                                row.set_selected(app.ui.selected_node == *child_id);
+                                row.col(|ui| {
+                                    ui.set_width(ui.available_width());
+                                    self.create_node_header(ui, app, *child_id, index, on_action);
+                                });
 
-            let add_button = ui.label("⊞").on_hover_text("Add child node");
-            if add_button.clicked() {
-                on_action(GuiAction::AddNode {
-                    parent: node_id,
-                    index: children.len() as u64,
-                });
-            }
+                                if row.response().clicked() {
+                                    on_action(GuiAction::SelectNode { node: *child_id });
+                                }
+                            });
+                            index += 1;
+                        }
+                    });
+
+                let add_button = ui.label("⊞").on_hover_text("Add child node");
+                if add_button.clicked() {
+                    on_action(GuiAction::AddNode {
+                        parent: node_id,
+                        index: children.len() as u64,
+                    });
+                }
+            });
         });
         //});
 
@@ -138,28 +153,22 @@ impl Columns {
             |action| gui_action = Some(action),
             |ui| {
                 ui.horizontal(|ui| {
-                    let hovering = self.is_hovering(ui, node_id);
-                    if hovering {
-                        ui.label("☰").on_hover_text("Drag to move");
-                    } else {
-                        ui.colored_label(Color32::TRANSPARENT, "☰");
-                    }
-
-                    let mut checked = node.get_bool_attribute("completed").unwrap_or_default();
-                    if ui.checkbox(&mut checked, "").clicked() {
-                        on_action(GuiAction::WrappedChange {
-                            change: Change::SetAttribute {
-                                node: node_id,
-                                attribute: "completed".to_string(),
-                                value: AttributeValue::Bool(checked),
-                            },
-                        });
+                    if let Some(mut checked) = node.get_bool_attribute("completed") {
+                        if ui.checkbox(&mut checked, "").clicked() {
+                            on_action(GuiAction::WrappedChange {
+                                change: Change::SetAttribute {
+                                    node: node_id,
+                                    attribute: "completed".to_string(),
+                                    value: AttributeValue::Bool(checked),
+                                },
+                            });
+                        }
                     }
 
                     let selected = app.ui.selected_node == node_id;
 
                     if selected && app.ui.is_editing {
-                        let mut node_name = node_name.to_string();
+                        let mut node_name = node.name.clone().unwrap_or_default();
                         let text_edit = ui.text_edit_singleline(&mut node_name);
                         text_edit.request_focus();
                         if text_edit.changed() {
@@ -180,12 +189,13 @@ impl Columns {
                         }
                     }
 
-                    ui.spacing();
+                    let space = ui.available_size() - emath::vec2(20.0, 0.0);
+                    if space.x > 0.0 {
+                        ui.allocate_space(space);
+                    }
 
-                    if selected {
-                        if ui.label("✖").clicked() {
-                            on_action(GuiAction::RemoveNode { node: node_id });
-                        }
+                    if !node.children.is_empty() {
+                        ui.label("▶");
                     }
                 });
             },
