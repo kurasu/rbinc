@@ -5,8 +5,8 @@ use binc::node_id::NodeId;
 use binc::node_store::Node;
 use eframe::egui::StrokeKind::Inside;
 use eframe::egui::{
-    CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Sense, Ui,
-    UiBuilder,
+    Color32, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Sense,
+    Ui, UiBuilder,
 };
 use eframe::{egui, emath};
 
@@ -94,24 +94,30 @@ impl NodeTree {
             |action| gui_action = Some(action),
             |ui| {
                 ui.horizontal(|ui| {
-                    let mut label_color = ui.visuals().text_color();
-                    if !self.is_hovering(ui, node_id) {
-                        label_color = ui.visuals().weak_text_color();
-                    };
-                    ui.colored_label(label_color, "☰")
-                        .on_hover_text("Drag to move");
+                    let hovering = self.is_hovering(ui, node_id);
+                    if hovering {
+                        ui.label("☰").on_hover_text("Drag to move");
+                    } else {
+                        ui.colored_label(Color32::TRANSPARENT, "☰");
+                    }
 
-                    let expand_icon = if is_expanded { "⏷" } else { "⏵" };
-                    if ui
-                        .label(expand_icon)
-                        .on_hover_cursor(CursorIcon::Default)
-                        .on_hover_text("Expand/collapse node")
-                        .clicked()
-                    {
-                        on_action(GuiAction::SetNodeExpanded {
-                            node: node_id,
-                            expanded: !is_expanded,
-                        });
+                    let has_children = !node.children.is_empty();
+
+                    if has_children {
+                        let expand_icon = if is_expanded { "⏷" } else { "⏵" };
+                        if ui
+                            .label(expand_icon)
+                            .on_hover_cursor(CursorIcon::Default)
+                            .on_hover_text("Expand/collapse node")
+                            .clicked()
+                        {
+                            on_action(GuiAction::SetNodeExpanded {
+                                node: node_id,
+                                expanded: !is_expanded,
+                            });
+                        }
+                    } else {
+                        ui.colored_label(Color32::TRANSPARENT, "⏵");
                     }
 
                     let mut checked = node.get_bool_attribute("completed").unwrap_or_default();
@@ -125,7 +131,7 @@ impl NodeTree {
                         });
                     }
 
-                    if selected {
+                    if selected && app.ui.is_editing {
                         let mut node_name = node_name.to_string();
                         let text_edit = ui.text_edit_singleline(&mut node_name);
                         text_edit.request_focus();
