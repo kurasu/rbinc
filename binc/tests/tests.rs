@@ -3,10 +3,10 @@ mod tests {
     use std::fs;
     use std::fs::File;
     use std::io::{Cursor, Read, Write};
-    use uuid::Uuid;
+    
     use binc::repository::*;
     use binc::revision::*;
-    use binc::change::*;
+    
     use binc::changes::Changes;
     use binc::document::*;
     use binc::node_id::{NodeId, NodeIdGenerator};

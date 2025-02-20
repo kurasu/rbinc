@@ -1,10 +1,10 @@
-use std::io;
-use std::io::{BufReader, Read};
-use xml::EventReader;
-use xml::reader::XmlEvent;
 use binc::changes::Changes;
 use binc::node_id::{NodeId, NodeIdGenerator};
 use binc::repository::Repository;
+use std::io;
+use std::io::Read;
+use xml::reader::XmlEvent;
+use xml::EventReader;
 
 pub const IMPORTERS: [Importer; 1] = [Importer::XML];
 
@@ -21,9 +21,7 @@ pub trait Import {
 impl Import for Importer {
     fn import<R: Read>(&self, reader: &mut R) -> io::Result<Repository> {
         match self {
-            Importer::XML => {
-                import_xml(reader)
-            }
+            Importer::XML => import_xml(reader),
         }
     }
 
@@ -54,24 +52,36 @@ fn import_xml<R: Read>(reader: &mut R) -> io::Result<Repository> {
 
     for e in parser {
         match e {
-            Ok(XmlEvent::StartElement { name, attributes, namespace: _ }) => {
+            Ok(XmlEvent::StartElement {
+                name,
+                attributes,
+                namespace: _,
+            }) => {
                 //println!("{:spaces$}+{name}", "", spaces = depth * 2);
                 current_id = id_provider.next_id();
-                let parent_id = parent_id_stack.last().expect("StartElement/EndElement mismatch");
+                let parent_id = parent_id_stack
+                    .last()
+                    .expect("StartElement/EndElement mismatch");
                 let index_in_parent = count_stack.pop().expect("Count stack is empty");
                 count_stack.push(index_in_parent + 1);
                 changes.add_node(current_id, *parent_id, index_in_parent);
                 changes.set_type(current_id, name.local_name.as_str());
 
                 for attr in attributes {
-                    changes.set_string(current_id, attr.name.local_name.as_str(), attr.value.as_str());
+                    changes.set_string(
+                        current_id,
+                        attr.name.local_name.as_str(),
+                        attr.value.as_str(),
+                    );
                 }
                 depth += 1;
                 parent_id_stack.push(current_id);
                 count_stack.push(0);
             }
             Ok(XmlEvent::Characters(text)) => {
-                let parent_id = parent_id_stack.last().expect("StartElement/EndElement mismatch");
+                let parent_id = parent_id_stack
+                    .last()
+                    .expect("StartElement/EndElement mismatch");
                 let index_in_parent = count_stack.pop().expect("Count stack is empty");
                 count_stack.push(index_in_parent + 1);
                 current_id = id_provider.next_id();
@@ -99,8 +109,8 @@ fn import_xml<R: Read>(reader: &mut R) -> io::Result<Repository> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Cursor;
     use binc::document::Document;
+    use std::io::{BufReader, Cursor};
 
     #[test]
     fn test_import_xml() {

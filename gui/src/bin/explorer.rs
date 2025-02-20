@@ -7,7 +7,6 @@ use bincgui::app::{create_toolbar, Application, GuiAction};
 use bincgui::history::create_history;
 use eframe::egui::{Context, Ui};
 use eframe::{egui, Frame};
-use std::any::Any;
 use binc::node_id::NodeId;
 use bincgui::tree::NodeTree;
 

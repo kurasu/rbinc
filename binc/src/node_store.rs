@@ -1,4 +1,3 @@
-use std::ops::Deref;
 use crate::attributes::{AttributeStore, AttributeValue};
 use crate::node_id::NodeId;
 use crate::comments::Comments;

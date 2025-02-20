@@ -31,7 +31,7 @@ impl NetworkRequest {
         }
     }
 
-    pub fn read<T: ReadExt>(mut r: &mut T) -> io::Result<NetworkRequest> {
+    pub fn read<T: ReadExt>(r: &mut T) -> io::Result<NetworkRequest> {
         let message_id = r.read_u8()?;
         match message_id {
             DISCONNECT => Ok(NetworkRequest::Disconnect),
@@ -52,7 +52,7 @@ impl NetworkRequest {
         }
     }
 
-    pub fn write<T: WriteExt>(&self, mut w: &mut T) -> io::Result<()> {
+    pub fn write<T: WriteExt>(&self, w: &mut T) -> io::Result<()> {
         w.write_u8(self.message_id())?;
         match self {
             NetworkRequest::Disconnect => {},
@@ -81,7 +81,7 @@ impl NetworkResponse {
         }
     }
 
-    pub fn read<T: ReadExt>(mut r: &mut T) -> io::Result<NetworkResponse> {
+    pub fn read<T: ReadExt>(r: &mut T) -> io::Result<NetworkResponse> {
         let message_id = r.read_u8()?;
         match message_id {
             LIST_FILES => {
@@ -102,7 +102,7 @@ impl NetworkResponse {
         }
     }
 
-    pub fn write<T: WriteExt>(&self, mut w: &mut T) -> io::Result<()> {
+    pub fn write<T: WriteExt>(&self, w: &mut T) -> io::Result<()> {
         w.write_u8(self.message_id())?;
         match self {
             NetworkResponse::ListFiles { files } => {
