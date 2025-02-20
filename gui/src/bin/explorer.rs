@@ -5,6 +5,7 @@ use binc::change::Change;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
 use bincgui::app::{create_toolbar, Application, GuiAction};
+use bincgui::column::Columns;
 use bincgui::history::History;
 use bincgui::tree::NodeTree;
 use eframe::egui::{Context, Ui};
@@ -16,6 +17,7 @@ struct ExplorerApp {
     application: Application,
     history: History,
     tree: NodeTree,
+    columns: Columns,
 }
 
 impl ExplorerApp {
@@ -24,6 +26,7 @@ impl ExplorerApp {
             application: Application::new(),
             history: History::new(),
             tree: NodeTree::new(),
+            columns: Columns::new(),
         }
     }
 
@@ -73,11 +76,19 @@ impl eframe::App for ExplorerApp {
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            egui::ScrollArea::vertical()
-                .auto_shrink(false)
-                .show(ui, |ui| {
-                    self.tree.create_tree(ui, &mut app, &mut on_action);
+            let use_tree = false;
+
+            if use_tree {
+                egui::ScrollArea::vertical()
+                    .auto_shrink(false)
+                    .show(ui, |ui| {
+                        self.tree.create_tree(ui, &mut app, &mut on_action);
+                    });
+            } else {
+                egui::ScrollArea::both().auto_shrink(false).show(ui, |ui| {
+                    self.columns.create_columns(ui, &mut app, &mut on_action);
                 });
+            }
         });
 
         for action in actions {
