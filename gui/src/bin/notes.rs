@@ -56,7 +56,7 @@ impl eframe::App for NotesApp {
         egui::TopBottomPanel::top("toolbar")
             .frame(frame)
             .show(ctx, |ui| {
-                create_toolbar(&mut self.application, ui);
+                create_toolbar(&mut self.application, ui, |ui|{});
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {

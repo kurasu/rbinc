@@ -314,7 +314,7 @@ impl Application {
     }
 }
 
-pub fn create_toolbar(app: &mut Application, ui: &mut Ui) {
+pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mut Ui)) {
     ui.horizontal(|ui| {
 
         ui.menu_button("File", |ui| {
@@ -379,6 +379,8 @@ pub fn create_toolbar(app: &mut Application, ui: &mut Ui) {
                 ui.ctx().set_visuals(egui::Visuals::dark());
             }
         }
+        
+        extra(ui);
     });
 }
 
@@ -421,7 +423,7 @@ pub fn save_document(document: &mut Document, known_path: Option<PathBuf>) -> io
         document.write(&mut file)?;
         return Ok(Some(path));
     }
-    
+
     let path = rfd::FileDialog::new().add_filter("BINC files", &["binc"]).save_file();
 
     if let Some(path) = path {

@@ -15,12 +15,14 @@ mod notes;
 
 struct ExplorerApp {
     application: Application,
+    show_history: bool,
 }
 
 impl ExplorerApp {
     fn new() -> Self {
         Self {
             application: Application::new(),
+            show_history: false
         }
     }
 
@@ -43,16 +45,20 @@ impl eframe::App for ExplorerApp {
 
         let frame = egui::Frame::default().inner_margin(8.0).fill(ctx.style().visuals.panel_fill);
         egui::TopBottomPanel::top("toolbar").frame(frame).show(ctx, |ui| {
-            create_toolbar(&mut app, ui);
+            create_toolbar(&mut app, ui,|ui| {
+                ui.checkbox(&mut self.show_history, "Show History");
+            });
         });
         egui::SidePanel::right("inspector_panel").default_width(200f32).show(ctx, |ui| {
             create_inspector(ui, app.get_selected_node(), &mut on_action);
         });
-        egui::TopBottomPanel::bottom("history_panel").default_height(160f32).resizable(true).show(ctx, |ui| {
-            egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
-                create_history(ui, &app, &mut on_action);
+        if self.show_history {
+            egui::TopBottomPanel::bottom("history_panel").default_height(160f32).resizable(true).show(ctx, |ui| {
+                egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
+                    create_history(ui, &app, &mut on_action);
+                });
             });
-        });
+        }
 
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
