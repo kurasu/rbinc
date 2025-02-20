@@ -7,18 +7,21 @@ const DISCONNECT: u8 = 0;
 const LIST_FILES: u8 = 1;
 const GET_FILE_DATA: u8 = 2;
 const CREATE_FILE: u8 = 3;
+const APPEND_FILE: u8 = 4;
 
 pub enum NetworkRequest {
     Disconnect,
     ListFiles{path: String},
     CreateFile{path: String},
     GetFileData{from_revision: u64, path: String},
+    AppendFile{from_revision: u64, to_revision: u64, path: String, data: Vec<u8>},
 }
 
 pub enum NetworkResponse {
     ListFiles{files: Vec<String>},
     CreateFile{result: Result<(), String>},
     GetFileData{from_revision: u64, to_revision: u64, data: Vec<u8>},
+    AppendFile{result: Result<(), String>},
 }
 
 impl NetworkRequest {
@@ -29,6 +32,7 @@ impl NetworkRequest {
             NetworkRequest::ListFiles{..} => LIST_FILES,
             NetworkRequest::GetFileData{..} => GET_FILE_DATA,
             NetworkRequest::CreateFile{..} => CREATE_FILE,
+            NetworkRequest::AppendFile{..} => APPEND_FILE,
         }
     }
 
@@ -49,6 +53,13 @@ impl NetworkRequest {
                 let path = r.read_string()?;
                 Ok(NetworkRequest::CreateFile{path})
             },
+            APPEND_FILE => {
+                let from_revision = r.read_length()?;
+                let to_revision = r.read_length()?;
+                let path = r.read_string()?;
+                let data = r.read_bytes()?;
+                Ok(NetworkRequest::AppendFile{from_revision, to_revision, path, data})
+            },
             _ => Err(io::Error::new(io::ErrorKind::InvalidData, format!("Unsupported message id {}", message_id))),
         }
     }
@@ -67,6 +78,12 @@ impl NetworkRequest {
             NetworkRequest::CreateFile{path} => {
                 w.write_string(path)?;
             },
+            NetworkRequest::AppendFile{from_revision, to_revision, path, data} => {
+                w.write_length(*from_revision)?;
+                w.write_length(*to_revision)?;
+                w.write_string(path)?;
+                w.write_bytes(data)?;
+            },
         }
         Ok(())
     }
@@ -79,6 +96,7 @@ impl NetworkResponse {
             NetworkResponse::ListFiles{..} => LIST_FILES,
             NetworkResponse::GetFileData{..} => GET_FILE_DATA,
             NetworkResponse::CreateFile{..} => CREATE_FILE,
+            NetworkResponse::AppendFile{..} => APPEND_FILE,
         }
     }
 
@@ -98,6 +116,10 @@ impl NetworkResponse {
             CREATE_FILE => {
                 let result = r.read_u8()?;
                 Ok(NetworkResponse::CreateFile{result: if result == 0 { Ok(()) } else { Err(r.read_string()?) }})
+            },
+            APPEND_FILE => {
+                let result = r.read_u8()?;
+                Ok(NetworkResponse::AppendFile{result: if result == 0 { Ok(()) } else { Err(r.read_string()?) }})
             },
             _ => Err(io::Error::new(io::ErrorKind::InvalidData, format!("Unsupported message id {}", message_id))),
         }
@@ -122,6 +144,14 @@ impl NetworkResponse {
                     w.write_u8(0)
                 }
             }
+            NetworkResponse::AppendFile { result } => {
+                if let Err(e) = result {
+                    w.write_u8(1)?;
+                    w.write_string(e)
+                } else {
+                    w.write_u8(0)
+                }
+            }
         }
     }
 }
@@ -136,10 +166,13 @@ impl Display for NetworkRequest {
                 write!(f, "ListFiles: {}", path)
             },
             NetworkRequest::GetFileData { from_revision, path } => {
-                write!(f, "GetFileData: {} {}..", path, from_revision)
+                write!(f, "GetFileData: {}, {}..", path, from_revision)
             },
             NetworkRequest::CreateFile { path } => {
                 write!(f, "CreateFile: {}", path)
+            },
+            NetworkRequest::AppendFile { from_revision, to_revision, path, data } => {
+                write!(f, "AppendFile: {}, {}..{}, {} bytes", path, from_revision, to_revision, data.len())
             },
         }
     }
@@ -158,6 +191,12 @@ impl Display for NetworkResponse {
                 match result {
                     Ok(()) => write!(f, "CreateFile: OK"),
                     Err(e) => write!(f, "CreateFile: {}", e),
+                }
+            },
+            NetworkResponse::AppendFile { result } => {
+                match result {
+                    Ok(()) => write!(f, "AppendFile: OK"),
+                    Err(e) => write!(f, "AppendFile: {}", e),
                 }
             },
         }

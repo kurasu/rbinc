@@ -42,7 +42,7 @@ impl PersistentClient {
     pub fn check_for_updates(&mut self, document: &mut Document) -> io::Result<()> {
         if let Ok(response) = self.client.request(NetworkRequest::GetFileData {
             path: self.path.clone(),
-            from_revision: self.current_revision
+            from_revision: self.current_revision as u64,
         }) {
             match response {
                 NetworkResponse::GetFileData { from_revision, to_revision, data } => {
@@ -61,5 +61,35 @@ impl PersistentClient {
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "Failed to get file data"))
         }
+    }
+
+    pub fn commit_changes(&mut self, document: &Document) -> io::Result<()> {
+        let from_revision = self.current_revision;
+        let to_revision = document.repository.revisions.len() as u64;
+
+        if to_revision > from_revision {
+            let mut data = vec![];
+            let mut index = 0;
+            for r in &document.repository.revisions {
+                if index >= from_revision as usize {
+                    r.write(&mut data)?;
+                }
+                index += 1;
+            }
+            let response = self.client.request(NetworkRequest::AppendFile { from_revision, to_revision, path: self.path.clone(), data })?;
+            match response {
+                NetworkResponse::AppendFile { result } => {
+                    match result {
+                        Ok(()) => {
+                            self.current_revision = to_revision;
+                        },
+                        Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e))
+                    }
+                },
+                _ => return Err(io::Error::new(io::ErrorKind::Other, "Invalid response"))
+            }
+        }
+
+        Ok(())
     }
 }

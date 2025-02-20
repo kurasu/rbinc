@@ -56,7 +56,9 @@ impl Connection {
                             NetworkResponse::GetFileData { from_revision, to_revision , data}.write(&mut stream)?;
                         }
                     },
-
+                    NetworkRequest::AppendFile { from_revision, to_revision, path, data} => {
+                        NetworkResponse::AppendFile { result: self.store.append_file(from_revision, to_revision, &path, data).map_err(|e| e.to_string()) }.write(&mut stream)?;
+                    }
                 }
             }
             else if let Err(request) = request {

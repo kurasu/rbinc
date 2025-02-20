@@ -238,6 +238,19 @@ impl Application {
     pub fn commit(&mut self, message: &str) {
         self.document.pending_changes.message = message.to_string();
         self.document.commit_changes();
+
+        if let Some(client) = &mut self.client {
+            let result = client.commit_changes(self.document.as_ref());
+
+            if let Err(error) = result {
+                let text = format!("Failed to commit changes\n\n{}", error.to_string());
+                rfd::MessageDialog::new()
+                    .set_level(rfd::MessageLevel::Error)
+                    .set_title("Error")
+                    .set_description(text)
+                    .show();
+            }
+        }
     }
 
     pub fn get_previous_sibling(&self, node_id: NodeId) -> Option<NodeId> {
