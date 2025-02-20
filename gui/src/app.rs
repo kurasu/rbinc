@@ -1,9 +1,7 @@
 use crate::importer::{Import, Importer, IMPORTERS};
 use binc::change::Change;
 use binc::changes::Changes;
-use binc::client::Client;
 use binc::document::Document;
-use binc::network_protocol::NetworkRequest;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
 use binc::repository::Repository;
@@ -13,6 +11,7 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
+use crate::persistent_client::PersistentClient;
 
 pub enum GuiAction {
     Undo,
@@ -82,7 +81,7 @@ pub struct Application {
     pub document: Box<Document>,
     pub ui: UiState,
     document_path: Option<PathBuf>,
-    client: Option<Client>,
+    client: Option<PersistentClient>,
 }
 
 impl Application {
@@ -94,8 +93,7 @@ impl Application {
     }
 
     pub(crate) fn connect_to_url(&mut self, url: &str) {
-        let (host, path) = url.split_once('/').unwrap();
-        let result = Self::connect_to_document(url);
+        let result = PersistentClient::connect_to_document(url);
         if let Ok((client, document)) = result {
             self.client = Some(client);
             self.document = Box::from(document);
@@ -106,35 +104,6 @@ impl Application {
                 .set_title("Error")
                 .set_description(text)
                 .show();
-        }
-    }
-
-    fn connect_to_document(url: &str) -> io::Result<(Client, Document)> {
-        if let Some((host, path)) = url.split_once('/') {
-            if let Ok(mut client) = Client::new(host) {
-                if let Ok(repo) = client
-                    .request(NetworkRequest::GetFileData {
-                        from_revision: 0,
-                        path: path.to_string(),
-                    })?
-                    .into_repository()
-                {
-                    let document = Document::new(repo);
-                    Ok((client, document))
-                } else {
-                    Err(io::Error::new(
-                        io::ErrorKind::Other,
-                        "Failed to get file data",
-                    ))
-                }
-            } else {
-                Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "Failed to connect to host",
-                ))
-            }
-        } else {
-            Err(io::Error::new(io::ErrorKind::Other, "Invalid URL"))
         }
     }
 }
