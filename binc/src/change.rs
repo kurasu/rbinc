@@ -304,7 +304,19 @@ impl Change {
         }
     }
 
-    pub(crate) fn write<T: Write>(&self, mut w: &mut T) -> io::Result<()> {
+    pub fn write<T: Write>(&self, mut w: &mut T) -> io::Result<()> {
+        let mut temp: Vec<u8> = vec![];
+        self.write_content(&mut temp)?;
+
+        // header (id+size)
+        w.write_length(self.change_type())?;
+        w.write_length(temp.len() as u64)?;
+
+        // content
+        w.write_all(&temp)
+    }
+
+    fn write_content<T: Write>(&self, mut w: &mut T) -> io::Result<()> {
         match self {
             Change::AddNode {id, parent, index_in_parent} => {
                 w.write_id(id)?;

@@ -68,23 +68,23 @@ impl Connection {
                         .write(&mut stream)?;
                     }
                     NetworkRequest::GetFileData {
-                        from_revision,
+                        from: from_revision,
                         path,
                     } => {
                         if let Ok((from_revision, to_revision, data)) =
                             self.store.get_file_data(from_revision, path)
                         {
                             NetworkResponse::GetFileData {
-                                from_revision,
-                                to_revision,
+                                from: from_revision,
+                                to: to_revision,
                                 data,
                             }
                             .write(&mut stream)?;
                         }
                     }
                     NetworkRequest::AppendFile {
-                        from_revision,
-                        to_revision,
+                        from: from_revision,
+                        to: to_revision,
                         path,
                         data,
                     } => {

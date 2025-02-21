@@ -13,14 +13,14 @@ pub enum NetworkRequest {
     Disconnect,
     ListFiles{path: String},
     CreateFile{path: String},
-    GetFileData{from_revision: u64, path: String},
-    AppendFile{from_revision: u64, to_revision: u64, path: String, data: Vec<u8>},
+    GetFileData{ from: u64, path: String},
+    AppendFile{ from: u64, to: u64, path: String, data: Vec<u8>},
 }
 
 pub enum NetworkResponse {
     ListFiles{files: Vec<String>},
     CreateFile{result: Result<(), String>},
-    GetFileData{from_revision: u64, to_revision: u64, data: Vec<u8>},
+    GetFileData{from: u64, to: u64, data: Vec<u8>},
     AppendFile{result: Result<(), String>},
 }
 
@@ -47,7 +47,7 @@ impl NetworkRequest {
             GET_FILE_DATA => {
                 let from_revision = r.read_length()?;
                 let path = r.read_string()?;
-                Ok(NetworkRequest::GetFileData{from_revision, path})
+                Ok(NetworkRequest::GetFileData{ from: from_revision, path})
             },
             CREATE_FILE => {
                 let path = r.read_string()?;
@@ -58,7 +58,7 @@ impl NetworkRequest {
                 let to_revision = r.read_length()?;
                 let path = r.read_string()?;
                 let data = r.read_bytes()?;
-                Ok(NetworkRequest::AppendFile{from_revision, to_revision, path, data})
+                Ok(NetworkRequest::AppendFile{ from: from_revision, to: to_revision, path, data})
             },
             _ => Err(io::Error::new(io::ErrorKind::InvalidData, format!("Unsupported message id {}", message_id))),
         }
@@ -71,14 +71,14 @@ impl NetworkRequest {
             NetworkRequest::ListFiles{path} => {
                 w.write_string(path)?;
             },
-            NetworkRequest::GetFileData{from_revision, path} => {
+            NetworkRequest::GetFileData{ from: from_revision, path} => {
                 w.write_length(*from_revision)?;
                 w.write_string(path)?;
             },
             NetworkRequest::CreateFile{path} => {
                 w.write_string(path)?;
             },
-            NetworkRequest::AppendFile{from_revision, to_revision, path, data} => {
+            NetworkRequest::AppendFile{ from: from_revision, to: to_revision, path, data} => {
                 w.write_length(*from_revision)?;
                 w.write_length(*to_revision)?;
                 w.write_string(path)?;
@@ -111,7 +111,7 @@ impl NetworkResponse {
                 let from_revision = r.read_length()?;
                 let to_revision = r.read_length()?;
                 let data = r.read_bytes()?;
-                Ok(NetworkResponse::GetFileData{from_revision, to_revision, data})
+                Ok(NetworkResponse::GetFileData{ from: from_revision, to: to_revision, data})
             },
             CREATE_FILE => {
                 let result = r.read_u8()?;
@@ -131,7 +131,7 @@ impl NetworkResponse {
             NetworkResponse::ListFiles { files } => {
                 w.write_string_array(files)
             },
-            NetworkResponse::GetFileData { from_revision, to_revision, data } => {
+            NetworkResponse::GetFileData { from: from_revision, to: to_revision, data } => {
                 w.write_length(*from_revision)?;
                 w.write_length(*to_revision)?;
                 w.write_bytes(data)
@@ -165,13 +165,13 @@ impl Display for NetworkRequest {
             NetworkRequest::ListFiles { path } => {
                 write!(f, "ListFiles: {}", path)
             },
-            NetworkRequest::GetFileData { from_revision, path } => {
+            NetworkRequest::GetFileData { from: from_revision, path } => {
                 write!(f, "GetFileData: {}, {}..", path, from_revision)
             },
             NetworkRequest::CreateFile { path } => {
                 write!(f, "CreateFile: {}", path)
             },
-            NetworkRequest::AppendFile { from_revision, to_revision, path, data } => {
+            NetworkRequest::AppendFile { from: from_revision, to: to_revision, path, data } => {
                 write!(f, "AppendFile: {}, {}..{}, {} bytes", path, from_revision, to_revision, data.len())
             },
         }
@@ -184,7 +184,7 @@ impl Display for NetworkResponse {
             NetworkResponse::ListFiles { files } => {
                 write!(f, "ListFiles: {} files", files.len())
             },
-            NetworkResponse::GetFileData { from_revision, to_revision, data } => {
+            NetworkResponse::GetFileData { from: from_revision, to: to_revision, data } => {
                 write!(f, "GetFileData: {}..{}, {} bytes", from_revision, to_revision, data.len())
             },
             NetworkResponse::CreateFile { result } => {

@@ -40,17 +40,9 @@ impl Repository {
         w.write_u32(Repository::CONTAINER_VERSION)?;
 
         for change in &self.changes {
-            self.write_change(w, change)?
+            change.write(w)?
         }
         Ok(())
-    }
-
-    fn write_change<T: Write>(&self, w: &mut T, change: &Change) -> io::Result<()> {
-        w.write_length(change.change_type())?;
-        let mut temp: Vec<u8> = vec![];
-        change.write(&mut temp)?;
-        w.write_length(temp.len() as u64)?;
-        w.write_all(&temp)
     }
 
     pub fn read<T: Read>(mut r: &mut T) -> io::Result<Repository> {

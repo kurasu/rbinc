@@ -5,7 +5,7 @@ use binc::network_protocol::{NetworkRequest, NetworkResponse};
 
 pub struct PersistentClient {
     pub client: Client,
-    current_revision: u64,
+    current_pos: u64,
     path: String,
 }
 
@@ -15,13 +15,13 @@ impl PersistentClient {
             if let Ok(mut client) = Client::new(host) {
                 if let Ok(repo) = client
                     .request(NetworkRequest::GetFileData {
-                        from_revision: 0,
+                        from: 0,
                         path: path.to_string(),
                     })?
                     .into_repository()
                 {
                     let document = Document::new(repo);
-                    Ok((PersistentClient { client, current_revision: document.num_change(), path: path.to_string() }, document))
+                    Ok((PersistentClient { client, current_pos: document.num_change(), path: path.to_string() }, document))
                 } else {
                     Err(io::Error::new(
                         io::ErrorKind::Other,
@@ -42,20 +42,20 @@ impl PersistentClient {
     pub fn check_for_updates(&mut self, document: &mut Document) -> io::Result<()> {
         if let Ok(response) = self.client.request(NetworkRequest::GetFileData {
             path: self.path.clone(),
-            from_revision: self.current_revision as u64,
+            from: self.current_pos as u64,
         }) {
             match response {
-                NetworkResponse::GetFileData { from_revision, to_revision, data } => {
-                    if from_revision != self.current_revision {
+                NetworkResponse::GetFileData { from, to, data } => {
+                    if from != self.current_pos {
                         return Err(io::Error::new(io::ErrorKind::Other, "Revision mismatch"));
                     }
-                    if to_revision > from_revision {
+                    if to > from {
                         document.append_and_apply(&mut data.as_slice())?;
-                        self.current_revision = to_revision;
+                        self.current_pos = to;
                     }
 
                     Ok(())
-                },
+                }
                 _ => Err(io::Error::new(io::ErrorKind::Other, "Invalid response"))
             }
         } else {
@@ -64,24 +64,24 @@ impl PersistentClient {
     }
 
     pub fn commit_changes(&mut self, document: &Document) -> io::Result<()> {
-        let from_revision = self.current_revision;
-        let to_revision = document.repository.revisions.len() as u64;
+        let from = self.current_pos;
+        let to = document.repository.changes.len() as u64;
 
-        if to_revision > from_revision {
+        if to > from {
             let mut data = vec![];
             let mut index = 0;
-            for r in &document.repository.revisions {
-                if index >= from_revision as usize {
-                    r.write(&mut data)?;
+            for change in &document.repository.changes {
+                if index >= from as usize {
+                    change.write(&mut data)?;
                 }
                 index += 1;
             }
-            let response = self.client.request(NetworkRequest::AppendFile { from_revision, to_revision, path: self.path.clone(), data })?;
+            let response = self.client.request(NetworkRequest::AppendFile { from, to, path: self.path.clone(), data })?;
             match response {
                 NetworkResponse::AppendFile { result } => {
                     match result {
                         Ok(()) => {
-                            self.current_revision = to_revision;
+                            self.current_pos = to;
                         },
                         Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e))
                     }

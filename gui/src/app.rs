@@ -236,7 +236,7 @@ impl Application {
     }
 
     pub fn commit(&mut self, message: &str) {
-        self.document.pending_changes.message = message.to_string();
+        /*self.document.pending_changes.message = message.to_string();
         self.document.commit_changes();
 
         if let Some(client) = &mut self.client {
@@ -250,7 +250,7 @@ impl Application {
                     .set_description(text)
                     .show();
             }
-        }
+        }*/
     }
 
     pub fn get_previous_sibling(&self, node_id: NodeId) -> Option<NodeId> {
