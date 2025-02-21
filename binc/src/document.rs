@@ -111,6 +111,12 @@ impl Document {
         }
     }
 
+    pub fn apply_revision(&mut self, revision: &Revision) {
+        for change in &revision.changes {
+            change.apply(&mut self.nodes);
+        }
+    }
+
     pub fn commit_changes(&mut self) {
         let src = Box::new(Revision::new(Some(&self.pending_changes)));
         let pending = std::mem::replace(&mut self.pending_changes, src);
