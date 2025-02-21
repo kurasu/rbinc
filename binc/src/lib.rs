@@ -9,5 +9,4 @@ pub mod node_id;
 pub mod node_store;
 pub mod readwrite;
 pub mod repository;
-pub mod revision;
 pub mod util;

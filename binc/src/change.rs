@@ -94,7 +94,7 @@ pub enum Change {
     /// Add a checksum to the document up until this point. This can be used to verify the document is not corrupted
     Checksum {data: Vec<u8>},
 
-    /// Rewind the document to a previous revision
+    /// Rewind the document to a previous revision, effectively undoing all changes since that revision
     Rewind {revision: u64},
 
     /// Set an attribute on a node
@@ -108,6 +108,11 @@ pub enum Change {
 }
 
 impl Change {
+
+    // This is an id used to locate checksums in the file. In case of corruption this can be used to
+    // locate which ranges of the file are corrupted and automatically repair them using other sources.
+    pub const HASH_ID: u32 = u32::from_le_bytes(*b"h@sH");
+
     pub(crate) fn apply(&self, nodes: &mut NodeStore)
     {
         match self {
@@ -159,7 +164,7 @@ impl Change {
         }
     }
 
-    pub(crate) fn read(mut r: &mut dyn Read) -> io::Result<Change> {
+    pub(crate) fn read<T: Read>(mut r: &mut T) -> io::Result<Change> {
         let change_type = r.read_length()?;
         let change_size = r.read_length()?;
         match change_type {
@@ -185,6 +190,10 @@ impl Change {
                 Ok(Change::Snapshot {author, message})
             }
             ChangeType::CHECKSUM => {
+                let hash = r.read_u32()?;
+                if hash != Change::HASH_ID {
+                    return Err(io::Error::new(io::ErrorKind::InvalidData, format!("Invalid hash id {}", hash)));
+                }
                 let data = r.read_bytes()?;
                 Ok(Change::Checksum {data})
             }
@@ -295,7 +304,7 @@ impl Change {
         }
     }
 
-    pub(crate) fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
+    pub(crate) fn write<T: Write>(&self, mut w: &mut T) -> io::Result<()> {
         match self {
             Change::AddNode {id, parent, index_in_parent} => {
                 w.write_id(id)?;
@@ -315,6 +324,7 @@ impl Change {
                 w.write_string(message)
             }
             Change::Checksum {data} => {
+                w.write_u32(Change::HASH_ID)?;
                 w.write_bytes(data)
             }
             Change::Rewind {revision} => {
