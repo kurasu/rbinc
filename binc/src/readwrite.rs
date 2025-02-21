@@ -197,7 +197,7 @@ pub trait ReadExt: Read {
     fn read_length(&mut self) -> io::Result<u64> {
         let mut value : u64 = 0;
         loop {
-            let x = self.read_u8().unwrap();
+            let x = self.read_u8()?;
             value = value | u64::from(x & 0x7f);
             if x & 0x80 == 0 {
                 return Ok(value)
