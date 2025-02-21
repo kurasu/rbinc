@@ -21,7 +21,7 @@ impl PersistentClient {
                     .into_repository()
                 {
                     let document = Document::new(repo);
-                    Ok((PersistentClient { client, current_revision: 0, path: path.to_string() }, document))
+                    Ok((PersistentClient { client, current_revision: document.num_revisions(), path: path.to_string() }, document))
                 } else {
                     Err(io::Error::new(
                         io::ErrorKind::Other,

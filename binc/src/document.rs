@@ -125,6 +125,10 @@ impl Document {
         }
     }
 
+    pub fn num_revisions(&self) -> u64 {
+        self.repository.revisions.len() as u64
+    }
+
     pub fn undo(&mut self) {
         if self.pending_changes.changes.is_empty() {
             self.uncommit_changes();
