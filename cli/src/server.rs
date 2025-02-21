@@ -14,15 +14,22 @@ pub(crate) fn server(store: String, port: u16) {
     let listener = TcpListener::bind(addr).unwrap();
 
     for stream in listener.incoming() {
-        let s = stream.unwrap();
+        match stream {
+            Ok(s) => {
+                let store = store.clone();
+                std::thread::spawn(move || {
+                    let peer = s.peer_addr().unwrap();
+                    println!("{} connected", peer);
 
-        let peer = s.peer_addr().unwrap();
-        println!("{} connected", peer);
-
-        let mut connection = Connection::new(s, store.clone());
-        let r = connection.handle_connection();
-        if let Err(r) = r {
-            println!("Error: {}", r)
+                    let mut connection = Connection::new(s, store);
+                    if let Err(e) = connection.handle_connection() {
+                        println!("Error: {}", e);
+                    }
+                });
+            }
+            Err(e) => {
+                println!("Error: {}", e);
+            }
         }
     }
 }
