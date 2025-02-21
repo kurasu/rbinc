@@ -13,10 +13,15 @@ impl ChangeType {
     pub const ADD_NODE_FROM_SOURCE: u64 = 0x02;
     pub const MOVE_NODE: u64 = 0x03;
     pub const REMOVE_NODE: u64 = 0x04;
-    pub const SET_TYPE: u64 = 0x05;
-    pub const SET_NAME: u64 = 0x06;
-    pub const SET_TAG: u64 = 0x07;
-    pub const CLEAR_TAG: u64 = 0x08;
+
+    pub const SNAPSHOT: u64 = 0x8;
+    pub const CHECKSUM: u64 = 0x9;
+    pub const REWIND: u64 = 0xA;
+
+    pub const SET_TYPE: u64 = 0x10;
+    pub const SET_NAME: u64 = 0x11;
+    pub const ADD_TAG: u64 = 0x12;
+    pub const REMOVE_TAG: u64 = 0x13;
 
     pub const ADD_SOURCE: u64 = 0x21;
     pub const UPDATE_SOURCE: u64 = 0x22;
@@ -62,15 +67,43 @@ impl ChangeType {
 
 #[derive(Debug, Clone)]
 pub enum Change {
+    /// Add a new node to the document tree with a given parent and index
     AddNode {id: NodeId, parent: NodeId, index_in_parent: u64},
+
+    /// Move a node to a new parent
     MoveNode {id: NodeId, new_parent: NodeId, index_in_new_parent: u64},
-    DeleteNode {id: NodeId },
+
+    /// Remove a node from the document tree
+    RemoveNode {id: NodeId },
+
+    /// Set the kind or type of node
     SetType {node: NodeId, type_name: String},
+
+    /// Set the name of a node
     SetName {node: NodeId, name: String},
+
+    /// Set a tag on a node
     SetTag {node: NodeId, tag: String},
-    ClearTag {node: NodeId, tag: String},
+
+    /// Clear a tag from a node
+    RemoveTag {node: NodeId, tag: String},
+
+    /// Add a named snapshot of the document
+    Snapshot {author: String, message: String},
+
+    /// Add a checksum to the document up until this point. This can be used to verify the document is not corrupted
+    Checksum {data: Vec<u8>},
+
+    /// Rewind the document to a previous revision
+    Rewind {revision: u64},
+
+    /// Set an attribute on a node
     SetAttribute {node: NodeId, attribute: String, value: AttributeValue},
+
+    /// Add a comment to a node
     AddComment {node: NodeId, comment: String, author: String, response_to: u64},
+
+    /// Unknown change type. Since the size is known, the data can be read and written without knowing the type
     UnknownChange {change_type: u64, data: Vec<u8>},
 }
 
@@ -81,7 +114,7 @@ impl Change {
             Change::AddNode {id, parent, index_in_parent} => {
                 nodes.add(*id, *parent, *index_in_parent as usize);
             }
-            Change::DeleteNode { id } => {
+            Change::RemoveNode { id } => {
                 nodes.delete_recursive(*id);
             }
             Change::MoveNode {id, new_parent, index_in_new_parent} => {
@@ -99,9 +132,18 @@ impl Change {
                 let x = nodes.get_mut(*node).expect("Node not found");
                 x.set_tag(tag);
             }
-            Change::ClearTag {node, tag} => {
+            Change::RemoveTag {node, tag} => {
                 let x = nodes.get_mut(*node).expect("Node not found");
                 x.clear_tag(tag);
+            }
+            Change::Snapshot {author: _, message: _} => {
+                !todo!()
+            }
+            Change::Checksum {data: _} => {
+                !todo!()
+            }
+            Change::Rewind {revision: _} => {
+                !todo!()
             }
             Change::SetAttribute {node, attribute, value} => {
                 let x = nodes.get_mut(*node).expect("Node not found");
@@ -129,13 +171,26 @@ impl Change {
             }
             ChangeType::REMOVE_NODE => {
                 let node = r.read_id()?;
-                Ok(Change::DeleteNode {id: node})
+                Ok(Change::RemoveNode {id: node})
             }
             ChangeType::MOVE_NODE => {
                 let id = r.read_id()?;
                 let new_parent = r.read_id()?;
                 let index_in_new_parent = r.read_length()?;
                 Ok(Change::MoveNode {id, new_parent, index_in_new_parent})
+            }
+            ChangeType::SNAPSHOT => {
+                let author = r.read_string()?;
+                let message = r.read_string()?;
+                Ok(Change::Snapshot {author, message})
+            }
+            ChangeType::CHECKSUM => {
+                let data = r.read_bytes()?;
+                Ok(Change::Checksum {data})
+            }
+            ChangeType::REWIND => {
+                let revision = r.read_length()?;
+                Ok(Change::Rewind {revision})
             }
             ChangeType::SET_STRING => {
                 let node = r.read_id()?;
@@ -252,8 +307,18 @@ impl Change {
                 w.write_id(new_parent)?;
                 w.write_length(*index_in_new_parent)
             }
-            Change::DeleteNode {id} => {
+            Change::RemoveNode {id} => {
                 w.write_id(id)
+            }
+            Change::Snapshot {author, message} => {
+                w.write_string(author)?;
+                w.write_string(message)
+            }
+            Change::Checksum {data} => {
+                w.write_bytes(data)
+            }
+            Change::Rewind {revision} => {
+                w.write_length(*revision)
             }
             Change::SetName {node, name: label } => {
                 w.write_id(node)?;
@@ -267,7 +332,7 @@ impl Change {
                 w.write_id(node)?;
                 w.write_string(tag)
             }
-            Change::ClearTag { node, tag } => {
+            Change::RemoveTag { node, tag } => {
                 w.write_id(node)?;
                 w.write_string(tag)
             }
@@ -306,11 +371,14 @@ impl Change {
         match self {
             Change::AddNode {id: _, parent: _, index_in_parent: _} => ChangeType::ADD_NODE,
             Change::MoveNode {id: _, new_parent: _, index_in_new_parent: _} => ChangeType::MOVE_NODE,
-            Change::DeleteNode {id: _} => ChangeType::REMOVE_NODE,
+            Change::RemoveNode {id: _} => ChangeType::REMOVE_NODE,
+            Change::Snapshot {author: _, message: _} => ChangeType::SNAPSHOT,
+            Change::Checksum {data: _} => ChangeType::CHECKSUM,
+            Change::Rewind {revision: _} => ChangeType::REWIND,
             Change::SetName {node: _, name: _} => ChangeType::SET_NAME,
             Change::SetType {node: _, type_name: _} => ChangeType::SET_TYPE,
-            Change::SetTag {node: _, tag: _} => ChangeType::SET_TAG,
-            Change::ClearTag {node: _, tag: _} => ChangeType::CLEAR_TAG,
+            Change::SetTag {node: _, tag: _} => ChangeType::ADD_TAG,
+            Change::RemoveTag {node: _, tag: _} => ChangeType::REMOVE_TAG,
             Change::SetAttribute {node: _, attribute: _, value} => match value {
                 AttributeValue::String(_) => ChangeType::SET_STRING,
                 AttributeValue::Bool(_) => ChangeType::SET_BOOL,
@@ -356,6 +424,12 @@ impl Change {
             }
         }
 
+        if let Change::Rewind {revision} = self {
+            if let Change::Rewind {revision: revision2} = last_change {
+                return Some(Change::Rewind {revision: *revision});
+            }
+        }
+
         None
     }
 }
@@ -365,11 +439,14 @@ impl Display for Change {
         match self {
             Change::AddNode {id, parent, index_in_parent} => write!(f, "AddNode({} in {}[{}])", id, parent, index_in_parent),
             Change::MoveNode {id, new_parent, index_in_new_parent} => write!(f, "MoveNode({} to {}[{}])", id, new_parent, index_in_new_parent),
-            Change::DeleteNode {id} => write!(f, "RemoveNode({})", id),
+            Change::RemoveNode {id} => write!(f, "RemoveNode({})", id),
+            Change::Snapshot {author, message} => write!(f, "Snapshot by {} ({})", author, message),
+            Change::Checksum {data} => write!(f, "Checksum({} bytes)", data.len()),
+            Change::Rewind {revision} => write!(f, "Rewind({})", revision),
             Change::SetType {node, type_name} => write!(f, "SetType({}, {})", node, type_name),
             Change::SetName {node, name: label } => write!(f, "SetLabel({}, {})", node, label),
             Change::SetTag {node, tag} => write!(f, "SetTag({}, {})", node, tag),
-            Change::ClearTag {node, tag} => write!(f, "ClearTag({}, {})", node, tag),
+            Change::RemoveTag {node, tag} => write!(f, "RemoveTag({}, {})", node, tag),
             Change::SetAttribute {node, attribute, value} => write!(f, "Set{}({}, {} = {})", attribute_type(value), node, attribute, value),
             Change::UnknownChange {change_type, data} => write!(f, "UnknownChange({}, {} bytes)", change_type, data.len()),
             Change::AddComment {node, comment, author, response_to} => write!(f, "AddComment({}, {} by {} in response to {})", node, comment, author, response_to),

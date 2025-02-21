@@ -221,7 +221,7 @@ impl Application {
     }
 
     pub fn remove_node(&mut self, node_id: &NodeId) {
-        let c = Change::DeleteNode {
+        let c = Change::RemoveNode {
             id: node_id.clone(),
         };
         self.document.add_and_apply_change(c);

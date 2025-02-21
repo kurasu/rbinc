@@ -23,7 +23,7 @@ impl Changes {
     }
 
     pub fn remove_node(&mut self, id: NodeId) -> &mut Self {
-        self.changes.push(Change::DeleteNode { id });
+        self.changes.push(Change::RemoveNode { id });
         self
     }
 
