@@ -50,10 +50,7 @@ impl PersistentClient {
                         return Err(io::Error::new(io::ErrorKind::Other, "Revision mismatch"));
                     }
                     if to_revision > from_revision {
-                        document.repository.append(&mut data.as_slice())?;
-                        for r in &document.repository.revisions {
-                            document.apply_revision(document.repository.revisions[r]);
-                        }
+                        document.append_and_apply(&mut data.as_slice())?;
                         self.current_revision = to_revision;
                     }
 

@@ -111,10 +111,19 @@ impl Document {
         }
     }
 
-    pub fn apply_revision(&mut self, revision: &Revision) {
-        for change in &revision.changes {
-            change.apply(&mut self.nodes);
+    pub fn append_and_apply<T: Read>(&mut self, mut r: &mut T) -> io::Result<()> {
+        let from = self.num_revisions();
+        self.repository.append(r)?;
+        let to = self.num_revisions();
+
+        for i in from..to {
+            let revision = &self.repository.revisions[i as usize];
+            for change in &revision.changes {
+                change.apply(&mut self.nodes);
+            }
         }
+
+        Ok(())
     }
 
     pub fn commit_changes(&mut self) {
