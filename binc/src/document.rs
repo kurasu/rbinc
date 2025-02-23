@@ -48,7 +48,6 @@ impl Document {
             undo_changes: vec![],
             node_id_generator: NodeIdGenerator::new(),
         }
-        
     }
 
     pub fn read<T: Read>(file: &mut T) -> io::Result<Document> {
@@ -72,8 +71,7 @@ impl Document {
         self.nodes.find_roots()
     }
 
-    pub fn add_and_apply_changes(&mut self, changes: Changes) -> &mut Self
-    {
+    pub fn add_and_apply_changes(&mut self, changes: Changes) -> &mut Self {
         for change in changes.changes {
             self.add_and_apply_change(change);
         }
@@ -85,7 +83,7 @@ impl Document {
         change.apply(&mut self.nodes);
         self.repository.add_change(change);
 
-       /* let last_change = self.pending_changes.changes.last();
+        /* let last_change = self.pending_changes.changes.last();
         let combined_change = if last_change.is_some() {
             change.combine_change(last_change.unwrap())
         } else {
@@ -131,8 +129,37 @@ impl Document {
         self.repository.changes.len() as u64
     }
 
+    pub fn can_undo(&self) -> bool {
+        if self.repository.changes.is_empty() {
+            return false;
+        }
+
+        if let Some(last) = self.repository.changes.last() {
+            if let Change::Rewind { revision } = last {
+                return *revision > 0;
+            }
+        }
+
+        true
+    }
+
     pub fn undo(&mut self) {
-        // TODO use Rewind
+        let mut undo_revision = self.num_change() - 1;
+        let mut should_pop = false;
+
+        if let Some(last) = self.repository.changes.last() {
+            if let Change::Rewind { revision } = last {
+                undo_revision = revision - 1;
+                should_pop = true;
+            }
+        }
+        if should_pop {
+            self.repository.changes.pop();
+        }
+
+        self.add_and_apply_change(Change::Rewind {
+            revision: undo_revision,
+        });
     }
 
     pub fn redo(&mut self) {
