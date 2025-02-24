@@ -15,6 +15,8 @@ impl Changes {
     }
 }
 
+// TODO move this to repository and use that to easily create new changes
+
 impl Changes {
     pub fn add_node(&mut self, id: NodeId, parent: NodeId, index_in_parent: usize) -> &mut Self {
         self.changes.push(Change::AddNode {
@@ -44,10 +46,15 @@ impl Changes {
         self
     }
 
-    pub fn set_type(&mut self, node: NodeId, type_name: &str) -> &mut Self {
+    pub fn set_type_s(&mut self, node: NodeId, type_name: &str) -> &mut Self {
+        let id = self.get_or_add_type_id(type_name);
+        self.set_type(node, id)
+    }
+
+    pub fn set_type(&mut self, node: NodeId, type_id: usize) -> &mut Self {
         self.changes.push(Change::SetType {
             node,
-            type_name: type_name.to_string(),
+            type_id: type_id,
         });
         self
     }
@@ -56,14 +63,6 @@ impl Changes {
         self.changes.push(Change::SetName {
             node,
             name: label.to_string(),
-        });
-        self
-    }
-
-    pub fn set_attribute_name(&mut self, attribute_id: usize, name: &str) -> &mut Self {
-        self.changes.push(Change::SetAttributeName {
-            id: attribute_id,
-            name: name.to_string(),
         });
         self
     }
@@ -91,20 +90,45 @@ impl Changes {
         self
     }
 
-    fn get_or_add_attribute_id(&mut self, name: &str) -> usize {
+    fn get_or_add_attribute_id(&mut self, attribute_name: &str) -> usize {
+        let mut next_id = 0;
         for c in &self.changes {
             match c {
-                Change::SetAttributeName { id, name } => {
-                    if name == name {
+                Change::DefineAttributeName { id, name } => {
+                    if attribute_name == name {
                         return *id;
                     }
+                    next_id = *id + 1;
                 }
                 _ => {}
             }
         }
 
-        let id = self.changes.len();
-        self.set_attribute_name(id, name);
-        id
+        self.changes.push(Change::DefineAttributeName {
+            id: next_id,
+            name: attribute_name.to_string(),
+        });
+        next_id
+    }
+
+    fn get_or_add_type_id(&mut self, type_name: &str) -> usize {
+        let mut next_id = 0;
+        for c in &self.changes {
+            match c {
+                Change::DefineTypeName { id, name } => {
+                    if type_name == name {
+                        return *id;
+                    }
+                    next_id = *id + 1;
+                }
+                _ => {}
+            }
+        }
+
+        self.changes.push(Change::DefineTypeName {
+            id: next_id,
+            name: type_name.to_string(),
+        });
+        next_id
     }
 }

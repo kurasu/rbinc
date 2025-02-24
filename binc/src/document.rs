@@ -168,12 +168,23 @@ impl Document {
             Some(index) => index,
             None => {
                 let next_id = self.nodes.attribute_names.len();
-                self.add_and_apply_change(Change::SetAttributeName {
+                self.add_and_apply_change(Change::DefineAttributeName {
                     id: next_id,
                     name: key.to_string(),
                 });
                 next_id
             }
+        }
+    }
+
+    pub fn type_name(&self, id: Option<usize>) -> String {
+        if let Some(id) = id {
+            match self.nodes.type_names.get(id) {
+                Some(name) => name.to_string(),
+                None => format!("Type #{}", id),
+            }
+        } else {
+            "None".to_string()
         }
     }
 

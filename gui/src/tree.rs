@@ -1,5 +1,6 @@
 use crate::app::{Application, GuiAction};
 use binc::change::Change;
+use binc::document::Document;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
 use eframe::egui::StrokeKind::Inside;
@@ -86,7 +87,7 @@ impl NodeTree {
         index_in_parent: usize,
         on_action: &mut impl FnMut(GuiAction),
     ) {
-        let node_name = self.get_label(node, index_in_parent);
+        let node_name = self.get_label(&app.document, node, index_in_parent);
         let node_id = node.id;
         let mut gui_action: Option<GuiAction> = None;
 
@@ -318,20 +319,21 @@ impl NodeTree {
         self.is_ancestor(app, node.parent, assumed_ancestor)
     }
 
-    fn get_label(&self, node: &Node, index_in_parent: usize) -> String {
+    fn get_label(&self, document: &Document, node: &Node, index_in_parent: usize) -> String {
         let name = node.get_name();
-        let type_name = node.get_type();
+        let type_id = node.get_type();
+        let type_name = document.type_name(type_id);
 
         if let Some(name) = name {
-            if let Some(t) = type_name {
-                return format!("{}: [{}] {}", index_in_parent, t, name);
+            if let Some(t) = type_id {
+                return format!("{}: [{}] {}", index_in_parent, type_name, name);
             } else {
                 return format!("{}: {}", index_in_parent, name);
             }
         }
 
-        if let Some(t) = type_name {
-            return format!("{}: [{}]", index_in_parent, t);
+        if let Some(t) = type_id {
+            return format!("{}: [{}]", index_in_parent, type_name);
         }
 
         format!("{}: ID{}", index_in_parent, node.id.index())

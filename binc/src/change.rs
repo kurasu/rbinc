@@ -19,8 +19,10 @@ impl ChangeType {
 
     pub const SET_TYPE: u64 = 0x10;
     pub const SET_NAME: u64 = 0x11;
-    pub const SET_ATTRIBUTE_NAME: u64 = 0x12;
-    pub const SET_TAG_NAME: u64 = 0x13;
+
+    pub const DEFINE_TYPE_NAME: u64 = 0x12;
+    pub const DEFINE_ATTRIBUTE_NAME: u64 = 0x13;
+    pub const DEFINE_TAG_NAME: u64 = 0x14;
 
     pub const ADD_TAG: u64 = 0x18;
     pub const REMOVE_TAG: u64 = 0x19;
@@ -86,17 +88,20 @@ pub enum Change {
     /// Remove a node from the document tree
     RemoveNode { id: NodeId },
 
-    /// Set the kind or type of node
-    SetType { node: NodeId, type_name: String },
+    /// Set the type-id for a node
+    SetType { node: NodeId, type_id: usize },
 
     /// Set the name of a node
     SetName { node: NodeId, name: String },
 
+    /// Defines a user-readable name for a type
+    DefineTypeName { id: usize, name: String },
+
     /// Defines a user-readable name for an attribute id
-    SetAttributeName { id: usize, name: String },
+    DefineAttributeName { id: usize, name: String },
 
     /// Defines a user-readable name for a tag id
-    SetTagName { id: usize, name: String },
+    DefineTagName { id: usize, name: String },
 
     /// Set a tag on a node
     SetTag { node: NodeId, tag: usize },
@@ -153,19 +158,22 @@ impl Change {
             } => {
                 nodes.move_node(*id, *new_parent, *index_in_new_parent as usize);
             }
-            Change::SetType { node, type_name } => {
+            Change::SetType { node, type_id: id } => {
                 let x = nodes.get_mut(*node).expect("Node not found");
-                x.set_type(type_name);
+                x.set_type(*id);
             }
             Change::SetName { node, name } => {
                 let x = nodes.get_mut(*node).expect("Node not found");
                 x.set_name(name);
             }
-            Change::SetAttributeName { id, name } => {
-                nodes.set_attribute_name(*id, name);
+            Change::DefineTypeName { id, name } => {
+                nodes.define_type_name(*id, name);
             }
-            Change::SetTagName { id, name } => {
-                nodes.set_tag_name(*id, name);
+            Change::DefineAttributeName { id, name } => {
+                nodes.define_attribute_name(*id, name);
+            }
+            Change::DefineTagName { id, name } => {
+                nodes.define_tag_name(*id, name);
             }
             Change::SetTag { node, tag } => {
                 let x = nodes.get_mut(*node).expect("Node not found");
@@ -391,18 +399,21 @@ impl Change {
             }
             ChangeType::SET_TYPE => {
                 let node = r.read_id()?;
-                let type_name = r.read_string()?;
-                Ok(Change::SetType { node, type_name })
+                let type_id = r.read_length()?;
+                Ok(Change::SetType {
+                    node,
+                    type_id: type_id,
+                })
             }
-            ChangeType::SET_ATTRIBUTE_NAME => {
+            ChangeType::DEFINE_ATTRIBUTE_NAME => {
                 let id = r.read_length()?;
                 let name = r.read_string()?;
-                Ok(Change::SetAttributeName { id, name })
+                Ok(Change::DefineAttributeName { id, name })
             }
-            ChangeType::SET_TAG_NAME => {
+            ChangeType::DEFINE_TAG_NAME => {
                 let id = r.read_length()?;
                 let name = r.read_string()?;
-                Ok(Change::SetTagName { id, name })
+                Ok(Change::DefineTagName { id, name })
             }
             ChangeType::ADD_COMMENT => {
                 let node = r.read_id()?;
@@ -469,15 +480,19 @@ impl Change {
                 w.write_id(node)?;
                 w.write_string(label)
             }
-            Change::SetType { node, type_name } => {
+            Change::SetType { node, type_id } => {
                 w.write_id(node)?;
-                w.write_string(type_name)
+                w.write_length(*type_id)
             }
-            Change::SetAttributeName { id, name } => {
+            Change::DefineTypeName { id, name } => {
                 w.write_length(*id)?;
                 w.write_string(name)
             }
-            Change::SetTagName { id, name } => {
+            Change::DefineAttributeName { id, name } => {
+                w.write_length(*id)?;
+                w.write_string(name)
+            }
+            Change::DefineTagName { id, name } => {
                 w.write_length(*id)?;
                 w.write_string(name)
             }
@@ -551,10 +566,11 @@ impl Change {
             Change::SetName { node: _, name: _ } => ChangeType::SET_NAME,
             Change::SetType {
                 node: _,
-                type_name: _,
+                type_id: _,
             } => ChangeType::SET_TYPE,
-            Change::SetAttributeName { id: _, name: _ } => ChangeType::SET_ATTRIBUTE_NAME,
-            Change::SetTagName { id: _, name: _ } => ChangeType::SET_TAG_NAME,
+            Change::DefineTypeName { id: _, name: _ } => ChangeType::DEFINE_TYPE_NAME,
+            Change::DefineAttributeName { id: _, name: _ } => ChangeType::DEFINE_ATTRIBUTE_NAME,
+            Change::DefineTagName { id: _, name: _ } => ChangeType::DEFINE_TAG_NAME,
             Change::SetTag { node: _, tag: _ } => ChangeType::ADD_TAG,
             Change::RemoveTag { node: _, tag: _ } => ChangeType::REMOVE_TAG,
             Change::SetAttribute {
@@ -604,8 +620,8 @@ impl Change {
             {
                 if node == node2 && attribute == attribute2 {
                     return Some(Change::SetAttribute {
-                        node: node.clone(),
-                        attribute: attribute.clone(),
+                        node: *node,
+                        attribute: *attribute,
                         value: value.clone(),
                     });
                 }
@@ -622,21 +638,6 @@ impl Change {
                     return Some(Change::SetName {
                         node: node.clone(),
                         name: label.clone(),
-                    });
-                }
-            }
-        }
-
-        if let Change::SetType { node, type_name } = self {
-            if let Change::SetType {
-                node: node2,
-                type_name: _type_name2,
-            } = last_change
-            {
-                if node == node2 {
-                    return Some(Change::SetType {
-                        node: node.clone(),
-                        type_name: type_name.clone(),
                     });
                 }
             }
@@ -668,12 +669,13 @@ impl Display for Change {
                 write!(f, "Snapshot by {} ({})", author, message)
             }
             Change::Checksum { data } => write!(f, "Checksum({} bytes)", data.len()),
-            Change::SetType { node, type_name } => write!(f, "SetType({}, {})", node, type_name),
+            Change::SetType { node, type_id } => write!(f, "SetType({}, {})", node, type_id),
             Change::SetName { node, name: label } => write!(f, "SetLabel({}, {})", node, label),
-            Change::SetAttributeName { id, name } => {
+            Change::DefineTypeName { id, name } => write!(f, "SetTypeName({}, {})", id, name),
+            Change::DefineAttributeName { id, name } => {
                 write!(f, "SetAttributeName({}, {})", id, name)
             }
-            Change::SetTagName { id, name } => write!(f, "SetTagName({}, {})", id, name),
+            Change::DefineTagName { id, name } => write!(f, "SetTagName({}, {})", id, name),
             Change::SetTag { node, tag } => write!(f, "SetTag({}, {})", node, tag),
             Change::RemoveTag { node, tag } => write!(f, "RemoveTag({}, {})", node, tag),
             Change::SetAttribute {

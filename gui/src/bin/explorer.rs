@@ -36,6 +36,13 @@ impl ExplorerApp {
         self.application.get(id).expect("Node not found")
     }
 
+    fn node_type(&self, id: NodeId) -> String {
+        match self.get_node(id).type_id {
+            Some(id) => self.application.document.type_name(Some(id)),
+            None => format!("Type #{}", id),
+        }
+    }
+
     fn check_keyboard(
         ctx: &Context,
         app: &Application,
@@ -131,16 +138,16 @@ impl ExplorerApp {
                         }
                         ui.end_row();
 
-                        let mut type_name = node.type_name.clone().unwrap_or_default();
                         ui.label("type");
-                        if ui.text_edit_singleline(&mut type_name).changed() {
+                        /*if ui.text_edit_singleline(&mut type_name).changed() {
                             on_action(GuiAction::WrappedChange {
                                 change: Change::SetType {
                                     node: node.id,
                                     type_name: type_name.clone(),
                                 },
                             });
-                        }
+                        }*/
+                        ui.label(self.node_type(node.id));
                         ui.end_row();
 
                         ui.label("ID");

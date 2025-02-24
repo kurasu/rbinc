@@ -8,6 +8,7 @@ pub type NodeStore = FlatNodeStore;
 #[derive(Default)]
 pub struct FlatNodeStore {
     nodes: Vec<Node>,
+    pub type_names: NameDictionary,
     pub attribute_names: NameDictionary,
     pub tag_names: NameDictionary,
 }
@@ -19,6 +20,7 @@ impl FlatNodeStore {
         nodes[0].parent = NodeId::NO_NODE;
         NodeStore {
             nodes,
+            type_names: NameDictionary::default(),
             attribute_names: NameDictionary::default(),
             tag_names: NameDictionary::default(),
         }
@@ -81,11 +83,15 @@ impl FlatNodeStore {
         self.nodes.get_mut(id.index())
     }
 
-    pub(crate) fn set_tag_name(&mut self, index: usize, name: &str) {
+    pub(crate) fn define_type_name(&mut self, index: usize, name: &str) {
+        self.type_names.insert(index, name);
+    }
+
+    pub(crate) fn define_tag_name(&mut self, index: usize, name: &str) {
         self.tag_names.insert(index, name);
     }
 
-    pub(crate) fn set_attribute_name(&mut self, index: usize, name: &str) {
+    pub(crate) fn define_attribute_name(&mut self, index: usize, name: &str) {
         self.attribute_names.insert(index, name);
     }
 
@@ -97,7 +103,7 @@ impl FlatNodeStore {
 pub struct Node {
     pub id: NodeId,
     pub name: Option<String>,
-    pub type_name: Option<String>,
+    pub type_id: Option<usize>,
     pub parent: NodeId,
     pub children: Vec<NodeId>,
     pub attributes: AttributeStore,
@@ -111,7 +117,7 @@ impl Default for Node {
             id: NodeId::NO_NODE,
             parent: NodeId::NO_NODE,
             name: None,
-            type_name: None,
+            type_id: None,
             children: vec![],
             attributes: AttributeStore::default(),
             comments: Comments::default(),
@@ -126,7 +132,7 @@ impl Node {
             id,
             parent,
             name: None,
-            type_name: None,
+            type_id: None,
             children: vec![],
             attributes: AttributeStore::default(),
             comments: Comments::default(),
@@ -138,12 +144,8 @@ impl Node {
         self.attributes.insert(key, Box::new(value));
     }*/
 
-    pub fn set_type(&mut self, type_name: &str) {
-        self.type_name = if type_name.is_empty() {
-            None
-        } else {
-            Some(type_name.to_string())
-        };
+    pub fn set_type(&mut self, id: usize) {
+        self.type_id = Some(id);
     }
 
     pub fn set_name(&mut self, label: &str) {
@@ -166,8 +168,8 @@ impl Node {
         self.name.as_ref()
     }
 
-    pub fn get_type(&self) -> Option<&String> {
-        self.type_name.as_ref()
+    pub fn get_type(&self) -> Option<usize> {
+        self.type_id
     }
 
     pub fn set_attribute(&mut self, key: usize, value: AttributeValue) {

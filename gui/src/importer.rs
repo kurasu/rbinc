@@ -65,7 +65,7 @@ fn import_xml<R: Read>(reader: &mut R) -> io::Result<Repository> {
                 let index_in_parent = count_stack.pop().expect("Count stack is empty");
                 count_stack.push(index_in_parent + 1);
                 changes.add_node(current_id, *parent_id, index_in_parent);
-                changes.set_type(current_id, name.local_name.as_str());
+                changes.set_type_s(current_id, name.local_name.as_str());
 
                 for attr in attributes {
                     changes.set_string_s(
