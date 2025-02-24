@@ -19,10 +19,21 @@ impl History {
         &self,
         ui: &mut Ui,
         repository: &Repository,
+        undo_revision: Option<usize>,
         on_action: &mut impl FnMut(GuiAction),
     ) {
-        for change in &repository.changes {
-            ui.label(change.to_string());
-        }
+        repository
+            .changes
+            .iter()
+            .enumerate()
+            .rev()
+            .take(100)
+            .for_each(|(index, change)| {
+                if undo_revision.is_some() && index >= undo_revision.unwrap() {
+                    ui.weak(change.to_string());
+                } else {
+                    ui.label(change.to_string());
+                }
+            });
     }
 }

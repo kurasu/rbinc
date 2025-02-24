@@ -206,6 +206,7 @@ impl eframe::App for ExplorerApp {
                             self.history.create_history(
                                 ui,
                                 &self.application.document.repository,
+                                self.application.document.undo_revision,
                                 &mut on_action,
                             );
                         });
