@@ -1,7 +1,6 @@
 use crate::store::Store;
 use binc::network_protocol::{NetworkRequest, NetworkResponse};
 use std::io;
-use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 
 struct Connection {

@@ -1,6 +1,6 @@
 use crate::readwrite::{ReadExt, WriteExt};
 use crate::repository::Repository;
-use std::fmt::{Display, Formatter, Write};
+use std::fmt::{Display, Formatter};
 use std::io;
 
 const DISCONNECT: u8 = 0;
@@ -275,7 +275,7 @@ impl Display for NetworkResponse {
 }
 
 impl NetworkResponse {
-    pub fn into_repository(&self) -> io::Result<Repository> {
+    pub fn as_repository(&self) -> io::Result<Repository> {
         match self {
             NetworkResponse::GetFileData { data, .. } => {
                 let mut repo = Repository::new();

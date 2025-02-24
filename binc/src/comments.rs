@@ -1,5 +1,5 @@
 #[derive(Debug, Default)]
-pub(crate) struct Comments {
+pub struct Comments {
     pub comments: Vec<Comment>,
 }
 
@@ -15,7 +15,7 @@ impl Comments {
 }
 
 #[derive(Debug)]
-struct Comment {
+pub struct Comment {
     pub author: String,
     pub text: String,
     pub response_to: Option<usize>,

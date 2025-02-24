@@ -18,7 +18,7 @@ impl PersistentClient {
                         from: 0,
                         path: path.to_string(),
                     })?
-                    .into_repository()
+                    .as_repository()
                 {
                     let document = Document::new(repo);
                     Ok((

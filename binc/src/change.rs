@@ -216,7 +216,7 @@ impl Change {
         }
     }
 
-    pub(crate) fn read<T: Read>(mut r: &mut T) -> io::Result<Change> {
+    pub(crate) fn read<T: Read>(r: &mut T) -> io::Result<Change> {
         let change_type = r.read_length()? as u64;
         let change_size = r.read_length()?;
         match change_type {
@@ -438,7 +438,7 @@ impl Change {
         }
     }
 
-    pub fn write<T: Write>(&self, mut w: &mut T) -> io::Result<()> {
+    pub fn write<T: Write>(&self, w: &mut T) -> io::Result<()> {
         let mut temp: Vec<u8> = vec![];
         self.write_content(&mut temp)?;
 
@@ -450,7 +450,7 @@ impl Change {
         w.write_all(&temp)
     }
 
-    fn write_content<T: Write>(&self, mut w: &mut T) -> io::Result<()> {
+    fn write_content<T: Write>(&self, w: &mut T) -> io::Result<()> {
         match self {
             Change::AddNode {
                 id,

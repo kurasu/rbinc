@@ -1,9 +1,9 @@
-use io::Write;
-use std::io;
-use std::io::Read;
 use crate::change::Change;
 use crate::changes::Changes;
 use crate::readwrite::{ReadExt, WriteExt};
+use io::Write;
+use std::io;
+use std::io::Read;
 
 pub struct Repository {
     pub changes: Vec<Change>,
@@ -22,7 +22,9 @@ impl Repository {
     pub const CONTAINER_VERSION: u32 = 1;
 
     pub fn new() -> Repository {
-        Repository { changes: Vec::new() }
+        Repository {
+            changes: Vec::new(),
+        }
     }
 
     pub fn add_change(&mut self, change: Change) {
@@ -35,7 +37,7 @@ impl Repository {
         }
     }
 
-    pub fn write<T: Write>(&self, mut w: &mut T) -> io::Result<()> {
+    pub fn write<T: Write>(&self, w: &mut T) -> io::Result<()> {
         w.write_u32(Repository::CONTAINER_ID)?;
         w.write_u32(Repository::CONTAINER_VERSION)?;
 
@@ -45,7 +47,7 @@ impl Repository {
         Ok(())
     }
 
-    pub fn read<T: Read>(mut r: &mut T) -> io::Result<Repository> {
+    pub fn read<T: Read>(r: &mut T) -> io::Result<Repository> {
         let mut repo = Repository::new();
         let container_id = r.read_u32()?;
         let container_version = r.read_u32()?;
