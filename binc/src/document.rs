@@ -111,51 +111,32 @@ impl Document {
         Ok(())
     }
 
-    pub fn commit_changes(&mut self) {
-        todo!("replace with snapshot")
-    }
-
-    pub fn uncommit_changes(&mut self) {
-        /*if self.pending_changes.changes.is_empty() && !self.repository.revisions.is_empty() {
-            let last_revision = self.repository.revisions.pop().unwrap();
-            self.pending_changes = Box::new(last_revision);
-            self.rebuild();
-        }
-        */
-        todo!();
-    }
-
     pub fn num_change(&self) -> u64 {
         self.repository.changes.len() as u64
     }
 
     pub fn can_undo(&self) -> bool {
-        if self.repository.changes.is_empty() {
-            return false;
+        match self.get_last_rewind_change_revision() {
+            None => self.num_change() > 0,
+            Some(revision) => revision > 0,
         }
+    }
 
-        if let Some(last) = self.repository.changes.last() {
-            if let Change::Rewind { revision } = last {
-                return *revision > 0;
-            }
+    pub fn can_redo(&self) -> bool {
+        match self.get_last_rewind_change_revision() {
+            None => false,
+            Some(revision) => revision < self.num_change(),
         }
-
-        true
     }
 
     pub fn undo(&mut self) {
-        let mut undo_revision = self.num_change() - 1;
-        let mut should_pop = false;
-
-        if let Some(last) = self.repository.changes.last() {
-            if let Change::Rewind { revision } = last {
-                undo_revision = revision - 1;
-                should_pop = true;
+        let undo_revision = match self.get_last_rewind_change_revision() {
+            Some(revision) => {
+                self.repository.changes.pop();
+                revision - 1
             }
-        }
-        if should_pop {
-            self.repository.changes.pop();
-        }
+            None => self.num_change() - 1,
+        };
 
         self.add_and_apply_change(Change::Rewind {
             revision: undo_revision,
@@ -163,6 +144,26 @@ impl Document {
     }
 
     pub fn redo(&mut self) {
-        // TODO modify last Rewind
+        match self.get_last_rewind_change_revision() {
+            Some(revision) => {
+                self.repository.changes.pop();
+
+                if revision + 1 < self.num_change() {
+                    self.add_and_apply_change(Change::Rewind {
+                        revision: revision + 1,
+                    });
+                }
+            }
+            None => {}
+        };
+    }
+
+    fn get_last_rewind_change_revision(&self) -> Option<u64> {
+        if let Some(change) = self.repository.changes.last() {
+            if let Change::Rewind { revision } = change {
+                return Some(*revision);
+            }
+        }
+        None
     }
 }

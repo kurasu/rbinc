@@ -1,4 +1,5 @@
 use crate::importer::{Import, Importer, IMPORTERS};
+use crate::persistent_client::PersistentClient;
 use binc::change::Change;
 use binc::changes::Changes;
 use binc::document::Document;
@@ -12,7 +13,8 @@ use std::fs::File;
 use std::io;
 use std::path::PathBuf;
 use std::time::SystemTime;
-use crate::persistent_client::PersistentClient;
+
+use crate::uiext::UiExt;
 
 pub enum GuiAction {
     Undo,
@@ -121,7 +123,10 @@ impl Application {
             let result = client.check_for_updates(self.document.as_mut());
 
             if result.is_err() {
-                let text = format!("Failed to check for updates\n\n{}", result.unwrap_err().to_string());
+                let text = format!(
+                    "Failed to check for updates\n\n{}",
+                    result.unwrap_err().to_string()
+                );
                 log::error!("{}", text);
             }
         }
@@ -235,7 +240,17 @@ impl Application {
         self.document.nodes.exists(id)
     }
 
+    pub fn get_author() -> String {
+        whoami::username()
+    }
+
     pub fn commit(&mut self, message: &str) {
+        if !message.is_empty() {
+            self.document.add_and_apply_change(Change::Snapshot {
+                author: Self::get_author(),
+                message: message.to_string(),
+            })
+        }
         /*self.document.pending_changes.message = message.to_string();
         self.document.commit_changes();
 
@@ -452,8 +467,7 @@ impl Application {
 }
 
 pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mut Ui)) {
-
-    // HACK
+    // HACK, find a better place for a timer
     app.check_for_updates();
 
     ui.horizontal(|ui| {
@@ -474,7 +488,10 @@ pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mu
                 app.ui.show_connect_dialog = true;
             }
 
-            if ui.button("Save").clicked() {
+            if ui
+                .button_with_enable("Save", can_save(&app.document))
+                .clicked()
+            {
                 save_document(&mut app.document, app.document_path.clone());
             }
             if ui.button("Save as…").clicked() {
@@ -499,16 +516,17 @@ pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mu
 
         ui.separator();
 
-        if ui.button("↺").clicked() {
+        if ui
+            .button_with_enable("↺", app.document.can_undo())
+            .clicked()
+        {
             app.document.undo();
         }
 
-        let mut redo = Button::new("↻");
-        if app.document.undo_changes.is_empty() {
-            redo = redo.sense(Sense::empty());
-        }
-
-        if redo.ui(ui).clicked() {
+        if ui
+            .button_with_enable("↻", app.document.can_redo())
+            .clicked()
+        {
             app.document.redo();
         }
 
@@ -589,6 +607,10 @@ pub fn import_document_from_file(importer: &Importer) -> io::Result<Option<Docum
     Ok(None)
 }
 
+pub fn can_save(document: &Document) -> bool {
+    document.num_change() > 0
+}
+
 pub fn save_document(
     document: &mut Document,
     known_path: Option<PathBuf>,
@@ -604,7 +626,6 @@ pub fn save_document(
         .save_file();
 
     if let Some(path) = path {
-        document.commit_changes();
         let mut file = File::create(path.clone())?;
         document.write(&mut file)?;
         return Ok(Some(path));
