@@ -150,4 +150,18 @@ impl Document {
     }
 
     pub fn redo(&mut self) {}
+
+    pub fn get_or_define_attribute_id(&mut self, key: &str) -> usize {
+        match self.nodes.attribute_names.get_index(key) {
+            Some(index) => index,
+            None => {
+                let next_id = self.nodes.attribute_names.len();
+                self.add_and_apply_change(Change::SetAttributeName {
+                    id: next_id,
+                    name: key.to_string(),
+                });
+                next_id
+            }
+        }
+    }
 }

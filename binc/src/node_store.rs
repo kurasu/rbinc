@@ -8,8 +8,8 @@ pub type NodeStore = FlatNodeStore;
 #[derive(Default)]
 pub struct FlatNodeStore {
     nodes: Vec<Node>,
-    attribute_names: NameDictionary,
-    tag_names: NameDictionary,
+    pub(crate) attribute_names: NameDictionary,
+    pub(crate) tag_names: NameDictionary,
 }
 
 impl FlatNodeStore {

@@ -191,6 +191,7 @@ impl Application {
 
     pub fn select_node(&mut self, node_id: NodeId) {
         self.ui.selected_node = node_id;
+        let attr_id = self.document.get_or_define_attribute_id("name");
         if node_id.exists() {
             let name = self
                 .document
@@ -198,7 +199,7 @@ impl Application {
                 .get(node_id)
                 .as_ref()
                 .expect("Should exist")
-                .get_string_attribute("name");
+                .get_string_attribute(attr_id);
             self.ui.selected_node_name = name.unwrap_or(String::new());
         } else {
             self.ui.selected_node_name = String::new();
