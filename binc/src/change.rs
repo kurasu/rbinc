@@ -405,6 +405,11 @@ impl Change {
                     type_id: type_id,
                 })
             }
+            ChangeType::DEFINE_TYPE_NAME => {
+                let id = r.read_length()?;
+                let name = r.read_string()?;
+                Ok(Change::DefineTypeName { id, name })
+            }
             ChangeType::DEFINE_ATTRIBUTE_NAME => {
                 let id = r.read_length()?;
                 let name = r.read_string()?;
