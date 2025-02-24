@@ -3,7 +3,7 @@ mod tests {
     use std::fs;
     use std::fs::File;
     use std::io::{Cursor, Read, Write};
-    
+
     use binc::repository::*;
 
     use binc::changes::Changes;
@@ -13,7 +13,7 @@ mod tests {
     #[test]
     fn test_create_example_document() {
         let d = create_example_repository();
-        assert_eq!(d.changes.len(), 4);
+        assert_eq!(d.changes.len(), 5);
     }
 
     fn create_example_repository() -> Repository {
@@ -27,7 +27,7 @@ mod tests {
         changes.add_node(id, NodeId::ROOT_NODE, 0);
         changes.remove_node(id);
         changes.add_node(id2, NodeId::ROOT_NODE, 0);
-        changes.set_string(id2, "name", "my value");
+        changes.set_string_s(id2, "name", "my value");
 
         repo.add_changes(changes);
         repo
@@ -67,10 +67,13 @@ mod tests {
         assert!(fs::metadata(path).is_ok());
         let mut file = File::open(path).unwrap();
         let repo = Repository::read(&mut file).unwrap();
-        assert!(!repo.changes.is_empty(), "Repository should have at least one change");
+        assert!(
+            !repo.changes.is_empty(),
+            "Repository should have at least one change"
+        );
         let doc = Document::new(repo);
         assert_eq!(doc.node_count(), 8);
-        let mut copy: Vec<u8> = vec!();
+        let mut copy: Vec<u8> = vec![];
         doc.repository.write(&mut copy).unwrap();
         let original = read_file(path);
 
