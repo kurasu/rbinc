@@ -1,5 +1,3 @@
-
-
 #[derive(Debug, Clone)]
 pub enum AttributeValue {
     String(String),
@@ -55,20 +53,19 @@ pub fn attribute_type(value: &AttributeValue) -> &str {
     }
 }
 
-
 #[derive(Debug, Clone, Default)]
 pub struct AttributeStore {
-    attributes: Vec<AttributeEntry>
+    attributes: Vec<AttributeEntry>,
 }
 
 #[derive(Debug, Clone)]
 pub struct AttributeEntry {
-    pub key: String,
-    pub value: AttributeValue
+    pub key: usize,
+    pub value: AttributeValue,
 }
 
 impl AttributeStore {
-    pub fn set(&mut self, key: &str, value: AttributeValue) {
+    pub fn set(&mut self, key: usize, value: AttributeValue) {
         for a in &mut self.attributes {
             if a.key == key {
                 a.value = value;
@@ -76,15 +73,21 @@ impl AttributeStore {
             }
         }
 
-        self.attributes.push(AttributeEntry { key: key.to_string(), value });
+        self.attributes.push(AttributeEntry { key, value });
     }
 
-    pub fn get(&self, key: &str) -> Option<&AttributeValue> {
-        self.attributes.iter().find(|x| x.key == key).map(|x| &x.value)
+    pub fn get(&self, key: usize) -> Option<&AttributeValue> {
+        self.attributes
+            .iter()
+            .find(|x| x.key == key)
+            .map(|x| &x.value)
     }
 
-    pub fn get_mut(&mut self, key: &str) -> Option<&mut AttributeValue> {
-        self.attributes.iter_mut().find(|x| x.key == key).map(|x| &mut x.value)
+    pub fn get_mut(&mut self, key: usize) -> Option<&mut AttributeValue> {
+        self.attributes
+            .iter_mut()
+            .find(|x| x.key == key)
+            .map(|x| &mut x.value)
     }
 
     pub fn iter(&self) -> std::slice::Iter<AttributeEntry> {

@@ -19,8 +19,11 @@ impl ChangeType {
 
     pub const SET_TYPE: u64 = 0x10;
     pub const SET_NAME: u64 = 0x11;
-    pub const ADD_TAG: u64 = 0x12;
-    pub const REMOVE_TAG: u64 = 0x13;
+    pub const SET_ATTRIBUTE_NAME: u64 = 0x12;
+    pub const SET_TAG_NAME: u64 = 0x13;
+
+    pub const ADD_TAG: u64 = 0x18;
+    pub const REMOVE_TAG: u64 = 0x19;
 
     pub const ADD_SOURCE: u64 = 0x21;
     pub const UPDATE_SOURCE: u64 = 0x22;
@@ -70,14 +73,14 @@ pub enum Change {
     AddNode {
         id: NodeId,
         parent: NodeId,
-        index_in_parent: u64,
+        index_in_parent: usize,
     },
 
     /// Move a node to a new parent
     MoveNode {
         id: NodeId,
         new_parent: NodeId,
-        index_in_new_parent: u64,
+        index_in_new_parent: usize,
     },
 
     /// Remove a node from the document tree
@@ -89,11 +92,17 @@ pub enum Change {
     /// Set the name of a node
     SetName { node: NodeId, name: String },
 
-    /// Set a tag on a node
-    SetTag { node: NodeId, tag: String },
+    /// Defines a user-readable name for an attribute id
+    SetAttributeName { id: usize, name: String },
 
-    /// Clear a tag from a node
-    RemoveTag { node: NodeId, tag: String },
+    /// Defines a user-readable name for a tag id
+    SetTagName { id: usize, name: String },
+
+    /// Set a tag on a node
+    SetTag { node: NodeId, tag: usize },
+
+    /// Remove a tag from a node
+    RemoveTag { node: NodeId, tag: usize },
 
     /// Add a named snapshot of the document
     Snapshot { author: String, message: String },
@@ -104,7 +113,7 @@ pub enum Change {
     /// Set an attribute on a node
     SetAttribute {
         node: NodeId,
-        attribute: String,
+        attribute: usize,
         value: AttributeValue,
     },
 
@@ -113,7 +122,7 @@ pub enum Change {
         node: NodeId,
         comment: String,
         author: String,
-        response_to: u64,
+        response_to: usize,
     },
 
     /// Unknown change type. Since the size is known, the data can be read and written without knowing the type
@@ -152,13 +161,19 @@ impl Change {
                 let x = nodes.get_mut(*node).expect("Node not found");
                 x.set_name(name);
             }
+            Change::SetAttributeName { id, name } => {
+                nodes.set_attribute_name(*id, name);
+            }
+            Change::SetTagName { id, name } => {
+                nodes.set_tag_name(*id, name);
+            }
             Change::SetTag { node, tag } => {
                 let x = nodes.get_mut(*node).expect("Node not found");
-                x.set_tag(tag);
+                x.set_tag(*tag);
             }
             Change::RemoveTag { node, tag } => {
                 let x = nodes.get_mut(*node).expect("Node not found");
-                x.clear_tag(tag);
+                x.clear_tag(*tag);
             }
             Change::Snapshot {
                 author: _,
@@ -175,7 +190,7 @@ impl Change {
                 value,
             } => {
                 let x = nodes.get_mut(*node).expect("Node not found");
-                x.set_attribute(attribute, value.clone());
+                x.set_attribute(*attribute, value.clone());
             }
             Change::AddComment {
                 node,
@@ -196,7 +211,7 @@ impl Change {
     }
 
     pub(crate) fn read<T: Read>(mut r: &mut T) -> io::Result<Change> {
-        let change_type = r.read_length()?;
+        let change_type = r.read_length()? as u64;
         let change_size = r.read_length()?;
         match change_type {
             ChangeType::ADD_NODE => {
@@ -241,7 +256,7 @@ impl Change {
             }
             ChangeType::SET_STRING => {
                 let node = r.read_id()?;
-                let attribute = r.read_string()?;
+                let attribute = r.read_length()?;
                 let value = r.read_string()?;
                 Ok(Change::SetAttribute {
                     node,
@@ -251,7 +266,7 @@ impl Change {
             }
             ChangeType::SET_BOOL => {
                 let node = r.read_id()?;
-                let attribute = r.read_string()?;
+                let attribute = r.read_length()?;
                 let value = r.read_u8()? != 0;
                 Ok(Change::SetAttribute {
                     node,
@@ -261,7 +276,7 @@ impl Change {
             }
             ChangeType::SET_UUID => {
                 let node = r.read_id()?;
-                let attribute = r.read_string()?;
+                let attribute = r.read_length()?;
                 let value = r.read_uuid()?;
                 Ok(Change::SetAttribute {
                     node,
@@ -271,7 +286,7 @@ impl Change {
             }
             ChangeType::SET_UINT8 => {
                 let node = r.read_id()?;
-                let attribute = r.read_string()?;
+                let attribute = r.read_length()?;
                 let value = r.read_u8()?;
                 Ok(Change::SetAttribute {
                     node,
@@ -281,7 +296,7 @@ impl Change {
             }
             ChangeType::SET_UINT16 => {
                 let node = r.read_id()?;
-                let attribute = r.read_string()?;
+                let attribute = r.read_length()?;
                 let value = r.read_u16()?;
                 Ok(Change::SetAttribute {
                     node,
@@ -291,7 +306,7 @@ impl Change {
             }
             ChangeType::SET_UINT32 => {
                 let node = r.read_id()?;
-                let attribute = r.read_string()?;
+                let attribute = r.read_length()?;
                 let value = r.read_u32()?;
                 Ok(Change::SetAttribute {
                     node,
@@ -301,7 +316,7 @@ impl Change {
             }
             ChangeType::SET_UINT64 => {
                 let node = r.read_id()?;
-                let attribute = r.read_string()?;
+                let attribute = r.read_length()?;
                 let value = r.read_u64()?;
                 Ok(Change::SetAttribute {
                     node,
@@ -311,7 +326,7 @@ impl Change {
             }
             ChangeType::SET_INT8 => {
                 let node = r.read_id()?;
-                let attribute = r.read_string()?;
+                let attribute = r.read_length()?;
                 let value = r.read_i8()?;
                 Ok(Change::SetAttribute {
                     node,
@@ -321,7 +336,7 @@ impl Change {
             }
             ChangeType::SET_INT16 => {
                 let node = r.read_id()?;
-                let attribute = r.read_string()?;
+                let attribute = r.read_length()?;
                 let value = r.read_i16()?;
                 Ok(Change::SetAttribute {
                     node,
@@ -331,7 +346,7 @@ impl Change {
             }
             ChangeType::SET_INT32 => {
                 let node = r.read_id()?;
-                let attribute = r.read_string()?;
+                let attribute = r.read_length()?;
                 let value = r.read_i32()?;
                 Ok(Change::SetAttribute {
                     node,
@@ -341,7 +356,7 @@ impl Change {
             }
             ChangeType::SET_INT64 => {
                 let node = r.read_id()?;
-                let attribute = r.read_string()?;
+                let attribute = r.read_length()?;
                 let value = r.read_i64()?;
                 Ok(Change::SetAttribute {
                     node,
@@ -351,7 +366,7 @@ impl Change {
             }
             ChangeType::SET_FLOAT32 => {
                 let node = r.read_id()?;
-                let attribute = r.read_string()?;
+                let attribute = r.read_length()?;
                 let value = r.read_f32()?;
                 Ok(Change::SetAttribute {
                     node,
@@ -361,7 +376,7 @@ impl Change {
             }
             ChangeType::SET_FLOAT64 => {
                 let node = r.read_id()?;
-                let attribute = r.read_string()?;
+                let attribute = r.read_length()?;
                 let value = r.read_f64()?;
                 Ok(Change::SetAttribute {
                     node,
@@ -378,6 +393,16 @@ impl Change {
                 let node = r.read_id()?;
                 let type_name = r.read_string()?;
                 Ok(Change::SetType { node, type_name })
+            }
+            ChangeType::SET_ATTRIBUTE_NAME => {
+                let id = r.read_length()?;
+                let name = r.read_string()?;
+                Ok(Change::SetAttributeName { id, name })
+            }
+            ChangeType::SET_TAG_NAME => {
+                let id = r.read_length()?;
+                let name = r.read_string()?;
+                Ok(Change::SetTagName { id, name })
             }
             ChangeType::ADD_COMMENT => {
                 let node = r.read_id()?;
@@ -404,8 +429,8 @@ impl Change {
         self.write_content(&mut temp)?;
 
         // header (id+size)
-        w.write_length(self.change_type())?;
-        w.write_length(temp.len() as u64)?;
+        w.write_length(self.change_type() as usize)?;
+        w.write_length(temp.len())?;
 
         // content
         w.write_all(&temp)
@@ -448,13 +473,21 @@ impl Change {
                 w.write_id(node)?;
                 w.write_string(type_name)
             }
+            Change::SetAttributeName { id, name } => {
+                w.write_length(*id)?;
+                w.write_string(name)
+            }
+            Change::SetTagName { id, name } => {
+                w.write_length(*id)?;
+                w.write_string(name)
+            }
             Change::SetTag { node, tag } => {
                 w.write_id(node)?;
-                w.write_string(tag)
+                w.write_length(*tag)
             }
             Change::RemoveTag { node, tag } => {
                 w.write_id(node)?;
-                w.write_string(tag)
+                w.write_length(*tag)
             }
             Change::SetAttribute {
                 node,
@@ -462,7 +495,7 @@ impl Change {
                 value,
             } => {
                 w.write_id(node)?;
-                w.write_string(attribute)?;
+                w.write_length(*attribute)?;
                 match value {
                     AttributeValue::String(s) => w.write_string(s),
                     AttributeValue::Bool(b) => w.write_u8(*b as u8),
@@ -520,6 +553,8 @@ impl Change {
                 node: _,
                 type_name: _,
             } => ChangeType::SET_TYPE,
+            Change::SetAttributeName { id: _, name: _ } => ChangeType::SET_ATTRIBUTE_NAME,
+            Change::SetTagName { id: _, name: _ } => ChangeType::SET_TAG_NAME,
             Change::SetTag { node: _, tag: _ } => ChangeType::ADD_TAG,
             Change::RemoveTag { node: _, tag: _ } => ChangeType::REMOVE_TAG,
             Change::SetAttribute {
@@ -635,6 +670,10 @@ impl Display for Change {
             Change::Checksum { data } => write!(f, "Checksum({} bytes)", data.len()),
             Change::SetType { node, type_name } => write!(f, "SetType({}, {})", node, type_name),
             Change::SetName { node, name: label } => write!(f, "SetLabel({}, {})", node, label),
+            Change::SetAttributeName { id, name } => {
+                write!(f, "SetAttributeName({}, {})", id, name)
+            }
+            Change::SetTagName { id, name } => write!(f, "SetTagName({}, {})", id, name),
             Change::SetTag { node, tag } => write!(f, "SetTag({}, {})", node, tag),
             Change::RemoveTag { node, tag } => write!(f, "RemoveTag({}, {})", node, tag),
             Change::SetAttribute {

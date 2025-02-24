@@ -1,17 +1,14 @@
-struct NameDictionary {
+#[derive(Default)]
+pub struct NameDictionary {
     names: Vec<Option<String>>,
 }
 
 impl NameDictionary {
-    pub fn new() -> NameDictionary {
-        NameDictionary { names: vec![] }
-    }
-
-    pub fn insert(&mut self, name: String, index: usize) {
+    pub fn insert(&mut self, index: usize, name: &str) {
         if index >= self.names.len() {
             self.names.resize(index + 1, None);
         }
-        self.names[index] = Some(name);
+        self.names[index] = Some(name.to_string());
     }
 
     pub fn get(&self, index: usize) -> Option<&str> {
