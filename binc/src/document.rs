@@ -176,4 +176,18 @@ impl Document {
             }
         }
     }
+
+    pub fn attribute_name(&self, id: usize) -> String {
+        match self.nodes.attribute_names.get(id) {
+            Some(name) => name.to_string(),
+            None => format!("Attribute #{}", id),
+        }
+    }
+
+    pub fn tag_name(&self, id: usize) -> String {
+        match self.nodes.tag_names.get(id) {
+            Some(name) => name.to_string(),
+            None => format!("Tag #{}", id),
+        }
+    }
 }

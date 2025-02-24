@@ -1,4 +1,5 @@
-use crate::app::{Application, GuiAction};
+use crate::app::GuiAction;
+use binc::repository::Repository;
 use eframe::egui::Ui;
 
 pub struct History {
@@ -15,12 +16,12 @@ impl History {
     }
 
     pub fn create_history(
-        &mut self,
+        &self,
         ui: &mut Ui,
-        app: &mut Application,
+        repository: &Repository,
         on_action: &mut impl FnMut(GuiAction),
     ) {
-        for change in &app.document.repository.changes {
+        for change in &repository.changes {
             ui.label(change.to_string());
         }
     }

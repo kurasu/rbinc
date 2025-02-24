@@ -1,5 +1,4 @@
 use crate::app::{Application, GuiAction};
-use binc::attributes::AttributeValue;
 use binc::change::Change;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
@@ -127,7 +126,7 @@ impl NodeTree {
                             ui.colored_label(Color32::TRANSPARENT, "⏵");
                         }
 
-                        let mut checked = node.get_bool_attribute("completed").unwrap_or_default();
+                        /*let mut checked = node.get_bool_attribute_s("completed").unwrap_or_default();
                         if ui.checkbox(&mut checked, "").clicked() {
                             on_action(GuiAction::WrappedChange {
                                 change: Change::SetAttribute {
@@ -136,7 +135,7 @@ impl NodeTree {
                                     value: AttributeValue::Bool(checked),
                                 },
                             });
-                        }
+                        }*/
 
                         if selected && app.ui.is_editing {
                             let mut node_name = node.name.clone().unwrap_or_default();
@@ -179,7 +178,7 @@ impl NodeTree {
             if ui.button("Add child node").clicked() {
                 on_action(GuiAction::AddNode {
                     parent: node_id,
-                    index: node.children.len() as u64,
+                    index: node.children.len(),
                 });
                 ui.close_menu()
             }
@@ -187,9 +186,9 @@ impl NodeTree {
                 on_action(GuiAction::RemoveNode { node: node_id });
                 ui.close_menu()
             }
-            for tag in node.tags.iter() {
+            /*for tag in node.tags.iter() {
                 ui.label(tag);
-            }
+            }*/
         });
 
         if let Some(action) = gui_action {
@@ -287,7 +286,7 @@ impl NodeTree {
                                 on_action(GuiAction::MoveNode {
                                     node: *node,
                                     new_parent: target,
-                                    index_in_new_parent: insert_idx as u64,
+                                    index_in_new_parent: insert_idx,
                                 });
                             }
                         };

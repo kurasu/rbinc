@@ -43,7 +43,7 @@ fn import_xml<R: Read>(reader: &mut R) -> io::Result<Repository> {
     let mut changes = Changes::new();
     let mut depth = 0;
     let mut parent_id_stack = Vec::<NodeId>::new();
-    let mut count_stack = Vec::<u64>::new();
+    let mut count_stack = Vec::<usize>::new();
     count_stack.push(0);
     parent_id_stack.push(NodeId::ROOT_NODE);
     let mut id_provider = NodeIdGenerator::new();
@@ -68,7 +68,7 @@ fn import_xml<R: Read>(reader: &mut R) -> io::Result<Repository> {
                 changes.set_type(current_id, name.local_name.as_str());
 
                 for attr in attributes {
-                    changes.set_string(
+                    changes.set_string_s(
                         current_id,
                         attr.name.local_name.as_str(),
                         attr.value.as_str(),
@@ -87,7 +87,7 @@ fn import_xml<R: Read>(reader: &mut R) -> io::Result<Repository> {
                 current_id = id_provider.next_id();
                 changes.add_node(current_id, *parent_id, index_in_parent);
 
-                changes.set_string(*parent_id, "text", text.as_str());
+                changes.set_string_s(*parent_id, "text", text.as_str());
             }
             Ok(XmlEvent::EndElement { name: _ }) => {
                 depth -= 1;

@@ -24,12 +24,12 @@ pub enum GuiAction {
     },
     AddNode {
         parent: NodeId,
-        index: u64,
+        index: usize,
     },
     MoveNode {
         node: NodeId,
         new_parent: NodeId,
-        index_in_new_parent: u64,
+        index_in_new_parent: usize,
     },
     RemoveNode {
         node: NodeId,
@@ -206,7 +206,7 @@ impl Application {
         }
     }
 
-    pub fn add_child(&mut self, parent_id: &NodeId, insertion_index: u64) {
+    pub fn add_child(&mut self, parent_id: &NodeId, insertion_index: usize) {
         let child_id = self.document.next_id();
 
         let c1 = Change::AddNode {
@@ -217,7 +217,7 @@ impl Application {
         self.document.add_and_apply_change(c1);
     }
 
-    pub fn move_node(&mut self, node_id: &NodeId, new_parent_id: &NodeId, insertion_index: u64) {
+    pub fn move_node(&mut self, node_id: &NodeId, new_parent_id: &NodeId, insertion_index: usize) {
         let c = Change::MoveNode {
             id: node_id.clone(),
             new_parent: new_parent_id.clone(),

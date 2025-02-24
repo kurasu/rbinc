@@ -60,6 +60,19 @@ impl Changes {
         self
     }
 
+    pub fn set_attribute_name(&mut self, attribute_id: usize, name: &str) -> &mut Self {
+        self.changes.push(Change::SetAttributeName {
+            id: attribute_id,
+            name: name.to_string(),
+        });
+        self
+    }
+
+    pub fn set_string_s(&mut self, node: NodeId, attribute: &str, value: &str) -> &mut Self {
+        let id = self.get_or_add_attribute_id(attribute);
+        self.set_string(node, id, value)
+    }
+
     pub fn set_string(&mut self, node: NodeId, attribute: usize, value: &str) -> &mut Self {
         self.changes.push(Change::SetAttribute {
             node,
@@ -76,5 +89,22 @@ impl Changes {
             value: AttributeValue::Bool(value),
         });
         self
+    }
+
+    fn get_or_add_attribute_id(&mut self, name: &str) -> usize {
+        for c in &self.changes {
+            match c {
+                Change::SetAttributeName { id, name } => {
+                    if name == name {
+                        return *id;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let id = self.changes.len();
+        self.set_attribute_name(id, name);
+        id
     }
 }

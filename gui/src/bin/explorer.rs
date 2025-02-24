@@ -106,6 +106,60 @@ impl ExplorerApp {
             on_action(GuiAction::ToggleEditing);
         }
     }
+
+    fn create_inspector(&mut self, ui: &mut Ui, on_action: &mut impl FnMut(GuiAction)) {
+        ui.vertical(|ui| {
+            if let Some(node) = self.application.get_selected_node() {
+                egui::Grid::new("inspector_grid")
+                    .num_columns(2)
+                    .show(ui, |ui| {
+                        ui.label("Inspector");
+                        if ui.button("Delete Node").clicked() {
+                            on_action(GuiAction::RemoveNode { node: node.id });
+                        }
+                        ui.end_row();
+
+                        let mut name = node.name.clone().unwrap_or_default();
+                        ui.label("name");
+                        if ui.text_edit_singleline(&mut name).changed() {
+                            on_action(GuiAction::WrappedChange {
+                                change: Change::SetName {
+                                    node: node.id,
+                                    name: name.clone(),
+                                },
+                            });
+                        }
+                        ui.end_row();
+
+                        let mut type_name = node.type_name.clone().unwrap_or_default();
+                        ui.label("type");
+                        if ui.text_edit_singleline(&mut type_name).changed() {
+                            on_action(GuiAction::WrappedChange {
+                                change: Change::SetType {
+                                    node: node.id,
+                                    type_name: type_name.clone(),
+                                },
+                            });
+                        }
+                        ui.end_row();
+
+                        ui.label("ID");
+                        ui.label(node.id.to_string());
+                        ui.end_row();
+
+                        for at in node.attributes.iter() {
+                            ui.label(self.application.document.attribute_name(at.key));
+                            ui.label(format!("{}", at.value));
+                            ui.end_row();
+                        }
+                    });
+            } else {
+                ui.vertical_centered(|ui| {
+                    ui.label("No node selected");
+                });
+            }
+        });
+    }
 }
 
 impl eframe::App for ExplorerApp {
@@ -133,8 +187,9 @@ impl eframe::App for ExplorerApp {
         egui::SidePanel::right("inspector_panel")
             .default_width(200f32)
             .show(ctx, |ui| {
-                create_inspector(ui, app.get_selected_node(), &mut on_action);
+                self.create_inspector(ui, &mut on_action);
             });
+
         if self.history.show_history {
             egui::TopBottomPanel::bottom("history_panel")
                 .default_height(160f32)
@@ -143,7 +198,11 @@ impl eframe::App for ExplorerApp {
                     egui::ScrollArea::vertical()
                         .auto_shrink(false)
                         .show(ui, |ui| {
-                            self.history.create_history(ui, app, &mut on_action);
+                            self.history.create_history(
+                                ui,
+                                &app.document.repository,
+                                &mut on_action,
+                            );
                         });
                 });
         }
@@ -181,58 +240,4 @@ fn main() -> eframe::Result {
         options,
         Box::new(|_cc| Ok(Box::new(ExplorerApp::new()))),
     )
-}
-
-fn create_inspector(ui: &mut Ui, node: Option<&Node>, on_action: &mut impl FnMut(GuiAction)) {
-    ui.vertical(|ui| {
-        if let Some(node) = node {
-            egui::Grid::new("inspector_grid")
-                .num_columns(2)
-                .show(ui, |ui| {
-                    ui.label("Inspector");
-                    if ui.button("Delete Node").clicked() {
-                        on_action(GuiAction::RemoveNode { node: node.id });
-                    }
-                    ui.end_row();
-
-                    let mut name = node.name.clone().unwrap_or_default();
-                    ui.label("name");
-                    if ui.text_edit_singleline(&mut name).changed() {
-                        on_action(GuiAction::WrappedChange {
-                            change: Change::SetName {
-                                node: node.id,
-                                name: name.clone(),
-                            },
-                        });
-                    }
-                    ui.end_row();
-
-                    let mut type_name = node.type_name.clone().unwrap_or_default();
-                    ui.label("type");
-                    if ui.text_edit_singleline(&mut type_name).changed() {
-                        on_action(GuiAction::WrappedChange {
-                            change: Change::SetType {
-                                node: node.id,
-                                type_name: type_name.clone(),
-                            },
-                        });
-                    }
-                    ui.end_row();
-
-                    ui.label("ID");
-                    ui.label(node.id.to_string());
-                    ui.end_row();
-
-                    for at in node.attributes.iter() {
-                        ui.label(&at.key);
-                        ui.label(format!("{}", at.value));
-                        ui.end_row();
-                    }
-                });
-        } else {
-            ui.vertical_centered(|ui| {
-                ui.label("No node selected");
-            });
-        }
-    });
 }

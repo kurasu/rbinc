@@ -1,5 +1,4 @@
 use crate::app::{Application, GuiAction};
-use binc::attributes::AttributeValue;
 use binc::change::Change;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
@@ -115,7 +114,7 @@ impl Columns {
                 if add_button.clicked() {
                     on_action(GuiAction::AddNode {
                         parent: node_id,
-                        index: children.len() as u64,
+                        index: children.len(),
                     });
                 }
             });
@@ -153,6 +152,7 @@ impl Columns {
             |action| gui_action = Some(action),
             |ui| {
                 ui.horizontal(|ui| {
+                    /*
                     if let Some(mut checked) = node.get_bool_attribute("completed") {
                         if ui.checkbox(&mut checked, "").clicked() {
                             on_action(GuiAction::WrappedChange {
@@ -163,7 +163,7 @@ impl Columns {
                                 },
                             });
                         }
-                    }
+                    }*/
 
                     let selected = app.ui.selected_node == node_id;
 
@@ -205,7 +205,7 @@ impl Columns {
             if ui.button("Add child node").clicked() {
                 on_action(GuiAction::AddNode {
                     parent: node_id,
-                    index: node.children.len() as u64,
+                    index: node.children.len(),
                 });
                 ui.close_menu()
             }
@@ -214,7 +214,11 @@ impl Columns {
                 ui.close_menu()
             }
             for tag in node.tags.iter() {
-                ui.label(tag);
+                let name = app.document.nodes.tag_names.get(*tag);
+                match name {
+                    Some(name) => ui.label(name),
+                    None => ui.label(format!("tag-{}", tag)),
+                };
             }
         });
 
@@ -313,7 +317,7 @@ impl Columns {
                                 on_action(GuiAction::MoveNode {
                                     node: *node,
                                     new_parent: target,
-                                    index_in_new_parent: insert_idx as u64,
+                                    index_in_new_parent: insert_idx,
                                 });
                             }
                         };
