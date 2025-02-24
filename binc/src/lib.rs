@@ -4,6 +4,7 @@ pub mod changes;
 pub mod client;
 pub mod comments;
 pub mod document;
+mod name_dictionary;
 pub mod network_protocol;
 pub mod node_id;
 pub mod node_store;

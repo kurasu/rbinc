@@ -16,7 +16,6 @@ impl ChangeType {
 
     pub const SNAPSHOT: u64 = 0x8;
     pub const CHECKSUM: u64 = 0x9;
-    pub const REWIND: u64 = 0xA;
 
     pub const SET_TYPE: u64 = 0x10;
     pub const SET_NAME: u64 = 0x11;
@@ -102,9 +101,6 @@ pub enum Change {
     /// Add a checksum to the document up until this point. This can be used to verify the document is not corrupted
     Checksum { data: Vec<u8> },
 
-    /// Rewind the document to a previous revision, effectively undoing all changes since that revision
-    Rewind { revision: u64 },
-
     /// Set an attribute on a node
     SetAttribute {
         node: NodeId,
@@ -168,13 +164,10 @@ impl Change {
                 author: _,
                 message: _,
             } => {
-                todo!()
+                // no-op
             }
             Change::Checksum { data: _ } => {
-                todo!()
-            }
-            Change::Rewind { revision: _ } => {
-                //todo!()
+                // no-op
             }
             Change::SetAttribute {
                 node,
@@ -245,10 +238,6 @@ impl Change {
                 }
                 let data = r.read_bytes()?;
                 Ok(Change::Checksum { data })
-            }
-            ChangeType::REWIND => {
-                let revision = r.read_length()?;
-                Ok(Change::Rewind { revision })
             }
             ChangeType::SET_STRING => {
                 let node = r.read_id()?;
@@ -451,7 +440,6 @@ impl Change {
                 w.write_u32(Change::HASH_ID)?;
                 w.write_bytes(data)
             }
-            Change::Rewind { revision } => w.write_length(*revision),
             Change::SetName { node, name: label } => {
                 w.write_id(node)?;
                 w.write_string(label)
@@ -527,7 +515,6 @@ impl Change {
                 message: _,
             } => ChangeType::SNAPSHOT,
             Change::Checksum { data: _ } => ChangeType::CHECKSUM,
-            Change::Rewind { revision: _ } => ChangeType::REWIND,
             Change::SetName { node: _, name: _ } => ChangeType::SET_NAME,
             Change::SetType {
                 node: _,
@@ -620,17 +607,6 @@ impl Change {
             }
         }
 
-        if let Change::Rewind { revision } = self {
-            if let Change::Rewind {
-                revision: revision2,
-            } = last_change
-            {
-                return Some(Change::Rewind {
-                    revision: *revision,
-                });
-            }
-        }
-
         None
     }
 }
@@ -657,7 +633,6 @@ impl Display for Change {
                 write!(f, "Snapshot by {} ({})", author, message)
             }
             Change::Checksum { data } => write!(f, "Checksum({} bytes)", data.len()),
-            Change::Rewind { revision } => write!(f, "Rewind({})", revision),
             Change::SetType { node, type_name } => write!(f, "SetType({}, {})", node, type_name),
             Change::SetName { node, name: label } => write!(f, "SetLabel({}, {})", node, label),
             Change::SetTag { node, tag } => write!(f, "SetTag({}, {})", node, tag),

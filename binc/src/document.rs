@@ -11,14 +11,16 @@ pub struct Document {
     pub repository: Repository,
     /// This is a cache of the current state of the document, as of the last revision and all pending changes
     pub nodes: NodeStore,
-    /// Changes that have been undone and can be redone
-    pub undo_changes: Vec<Change>,
+    /// Revision that have been undone to
+    pub undo_revision: Option<usize>,
     node_id_generator: NodeIdGenerator,
 }
 
-fn compute_nodes(repository: &Repository) -> NodeStore {
+fn compute_nodes(repository: &Repository, end_revision: Option<usize>) -> NodeStore {
     let mut nodes: NodeStore = NodeStore::new();
-    for change in &repository.changes {
+
+    let to = end_revision.unwrap_or(repository.changes.len());
+    for change in &repository.changes.as_slice()[..to] {
         change.apply(&mut nodes);
     }
     nodes
@@ -29,7 +31,7 @@ impl Default for Document {
         Document {
             repository: Repository::new(),
             nodes: NodeStore::new(),
-            undo_changes: Vec::new(),
+            undo_revision: None,
             node_id_generator: NodeIdGenerator::new(),
         }
     }
@@ -41,11 +43,11 @@ impl Document {
     }
 
     pub fn new(repository: Repository) -> Document {
-        let nodes = compute_nodes(&repository);
+        let nodes = compute_nodes(&repository, None);
         Document {
             repository,
             nodes,
-            undo_changes: vec![],
+            undo_revision: None,
             node_id_generator: NodeIdGenerator::new(),
         }
     }
@@ -55,8 +57,8 @@ impl Document {
         Ok(Self::new(repository))
     }
 
-    fn rebuild(&mut self) {
-        self.nodes = compute_nodes(&self.repository);
+    fn rebuild(&mut self, end_revision: Option<usize>) {
+        self.nodes = compute_nodes(&self.repository, end_revision);
     }
 
     pub fn write<T: Write>(&self, w: &mut T) -> io::Result<()> {
@@ -79,7 +81,12 @@ impl Document {
     }
 
     pub fn add_and_apply_change(&mut self, change: Change) {
-        self.undo_changes.clear();
+        if self.undo_revision.is_some() {
+            self.repository
+                .changes
+                .truncate(self.undo_revision.unwrap() as usize);
+            self.undo_revision = None;
+        }
         change.apply(&mut self.nodes);
         self.repository.add_change(change);
 
@@ -111,59 +118,36 @@ impl Document {
         Ok(())
     }
 
-    pub fn num_change(&self) -> u64 {
-        self.repository.changes.len() as u64
+    pub fn num_change(&self) -> usize {
+        self.repository.changes.len()
     }
 
     pub fn can_undo(&self) -> bool {
-        match self.get_last_rewind_change_revision() {
-            None => self.num_change() > 0,
-            Some(revision) => revision > 0,
-        }
+        self.num_change() > 0
     }
 
     pub fn can_redo(&self) -> bool {
-        match self.get_last_rewind_change_revision() {
-            None => false,
-            Some(revision) => revision < self.num_change(),
-        }
+        self.undo_revision.is_some()
     }
 
     pub fn undo(&mut self) {
-        let undo_revision = match self.get_last_rewind_change_revision() {
-            Some(revision) => {
-                self.repository.changes.pop();
-                revision - 1
-            }
-            None => self.num_change() - 1,
-        };
-
-        self.add_and_apply_change(Change::Rewind {
-            revision: undo_revision,
-        });
-    }
-
-    pub fn redo(&mut self) {
-        match self.get_last_rewind_change_revision() {
-            Some(revision) => {
-                self.repository.changes.pop();
-
-                if revision + 1 < self.num_change() {
-                    self.add_and_apply_change(Change::Rewind {
-                        revision: revision + 1,
-                    });
+        self.undo_revision = match self.undo_revision {
+            Some(rev) => {
+                if rev == 0 {
+                    return;
                 }
+                Some(rev - 1)
             }
-            None => {}
+            None => {
+                if self.num_change() == 0 {
+                    return;
+                }
+                Some(self.num_change() - 1)
+            }
         };
+
+        self.rebuild(self.undo_revision);
     }
 
-    fn get_last_rewind_change_revision(&self) -> Option<u64> {
-        if let Some(change) = self.repository.changes.last() {
-            if let Change::Rewind { revision } = change {
-                return Some(*revision);
-            }
-        }
-        None
-    }
+    pub fn redo(&mut self) {}
 }

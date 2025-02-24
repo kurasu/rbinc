@@ -1,7 +1,7 @@
-use std::io;
 use binc::client::Client;
 use binc::document::Document;
 use binc::network_protocol::{NetworkRequest, NetworkResponse};
+use std::io;
 
 pub struct PersistentClient {
     pub client: Client,
@@ -21,7 +21,14 @@ impl PersistentClient {
                     .into_repository()
                 {
                     let document = Document::new(repo);
-                    Ok((PersistentClient { client, current_pos: document.num_change(), path: path.to_string() }, document))
+                    Ok((
+                        PersistentClient {
+                            client,
+                            current_pos: document.num_change() as u64,
+                            path: path.to_string(),
+                        },
+                        document,
+                    ))
                 } else {
                     Err(io::Error::new(
                         io::ErrorKind::Other,
@@ -56,10 +63,13 @@ impl PersistentClient {
 
                     Ok(())
                 }
-                _ => Err(io::Error::new(io::ErrorKind::Other, "Invalid response"))
+                _ => Err(io::Error::new(io::ErrorKind::Other, "Invalid response")),
             }
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, "Failed to get file data"))
+            Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to get file data",
+            ))
         }
     }
 
@@ -76,17 +86,20 @@ impl PersistentClient {
                 }
                 index += 1;
             }
-            let response = self.client.request(NetworkRequest::AppendFile { from, to, path: self.path.clone(), data })?;
+            let response = self.client.request(NetworkRequest::AppendFile {
+                from,
+                to,
+                path: self.path.clone(),
+                data,
+            })?;
             match response {
-                NetworkResponse::AppendFile { result } => {
-                    match result {
-                        Ok(()) => {
-                            self.current_pos = to;
-                        },
-                        Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e))
+                NetworkResponse::AppendFile { result } => match result {
+                    Ok(()) => {
+                        self.current_pos = to;
                     }
+                    Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e)),
                 },
-                _ => return Err(io::Error::new(io::ErrorKind::Other, "Invalid response"))
+                _ => return Err(io::Error::new(io::ErrorKind::Other, "Invalid response")),
             }
         }
 
