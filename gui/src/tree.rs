@@ -69,7 +69,7 @@ impl NodeTree {
     fn node_frame(ui: &Ui, selected: bool) -> Frame {
         if selected {
             Frame::default()
-                .fill(Color32::from_rgb(60, 66, 107))
+                .fill(ui.visuals().selection.bg_fill)
                 .corner_radius(4.0)
                 .inner_margin(4.0)
         } else {
@@ -101,13 +101,6 @@ impl NodeTree {
             |ui| {
                 Self::node_frame(ui, selected).show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        let hovering = self.is_hovering(ui, node_id);
-                        if hovering {
-                            ui.label("☰").on_hover_text("Drag to move");
-                        } else {
-                            ui.colored_label(Color32::TRANSPARENT, "☰");
-                        }
-
                         let has_children = !node.children.is_empty();
 
                         if has_children {
@@ -126,17 +119,6 @@ impl NodeTree {
                         } else {
                             ui.colored_label(Color32::TRANSPARENT, "⏵");
                         }
-
-                        /*let mut checked = node.get_bool_attribute_s("completed").unwrap_or_default();
-                        if ui.checkbox(&mut checked, "").clicked() {
-                            on_action(GuiAction::WrappedChange {
-                                change: Change::SetAttribute {
-                                    node: node_id,
-                                    attribute: "completed".to_string(),
-                                    value: AttributeValue::Bool(checked),
-                                },
-                            });
-                        }*/
 
                         if selected && app.ui.is_editing {
                             let mut node_name = node.name.clone().unwrap_or_default();
@@ -187,9 +169,9 @@ impl NodeTree {
                 on_action(GuiAction::RemoveNode { node: node_id });
                 ui.close_menu()
             }
-            /*for tag in node.tags.iter() {
-                ui.label(tag);
-            }*/
+            for tag in node.tags.iter() {
+                ui.label(app.document.tag_name(*tag));
+            }
         });
 
         if let Some(action) = gui_action {
@@ -296,10 +278,8 @@ impl NodeTree {
             }
 
             // Check for drags:
-            let mut small_rect = response.rect.clone();
-            small_rect.set_width(20f32);
             let dnd_response = ui
-                .interact(small_rect, id, Sense::drag())
+                .interact(response.rect.clone(), id, Sense::drag())
                 .on_hover_cursor(CursorIcon::Grab);
 
             InnerResponse::new(inner, dnd_response | response)

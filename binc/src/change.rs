@@ -8,6 +8,7 @@ use std::io::{Read, Write};
 
 pub(crate) struct ChangeType;
 
+#[allow(dead_code)]
 impl ChangeType {
     pub const ADD_NODE: u64 = 0x01;
     pub const ADD_NODE_FROM_SOURCE: u64 = 0x02;
@@ -64,9 +65,6 @@ impl ChangeType {
     pub const SET_FLOAT32_ARRAY: u64 = 0x6C;
     pub const SET_FLOAT64_ARRAY: u64 = 0x6D;
     pub const SET_FLOAT80_ARRAY: u64 = 0x6E;
-
-    pub const UNKNOWN: u64 = 0x7FFFFE; // Only used internally
-    pub const ERROR: u64 = 0x7FFFFF; // Only used internally
 }
 
 #[derive(Debug, Clone)]
