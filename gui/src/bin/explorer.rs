@@ -170,9 +170,7 @@ impl eframe::App for ExplorerApp {
             actions.push(a);
         };
 
-        let mut app = &mut self.application;
-
-        Self::check_keyboard(ctx, &app, self.use_tree, &mut on_action);
+        Self::check_keyboard(ctx, &mut self.application, self.use_tree, &mut on_action);
 
         let frame = egui::Frame::default()
             .inner_margin(8.0)
@@ -180,7 +178,7 @@ impl eframe::App for ExplorerApp {
         egui::TopBottomPanel::top("toolbar")
             .frame(frame)
             .show(ctx, |ui| {
-                create_toolbar(&mut app, ui, |ui| {
+                create_toolbar(&mut self.application, ui, |ui| {
                     ui.checkbox(&mut self.history.show_history, "Show History");
                 });
             });
@@ -200,7 +198,7 @@ impl eframe::App for ExplorerApp {
                         .show(ui, |ui| {
                             self.history.create_history(
                                 ui,
-                                &app.document.repository,
+                                &self.application.document.repository,
                                 &mut on_action,
                             );
                         });
@@ -212,17 +210,19 @@ impl eframe::App for ExplorerApp {
                 egui::ScrollArea::vertical()
                     .auto_shrink(false)
                     .show(ui, |ui| {
-                        self.tree.create_tree(ui, &mut app, &mut on_action);
+                        self.tree
+                            .create_tree(ui, &mut self.application, &mut on_action);
                     });
             } else {
                 egui::ScrollArea::both().auto_shrink(false).show(ui, |ui| {
-                    self.columns.create_columns(ui, &mut app, &mut on_action);
+                    self.columns
+                        .create_columns(ui, &mut self.application, &mut on_action);
                 });
             }
         });
 
         for action in actions {
-            app.process_action(action);
+            self.application.process_action(action);
         }
     }
 }
