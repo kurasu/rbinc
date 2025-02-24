@@ -152,10 +152,11 @@ impl Document {
     pub fn redo(&mut self) {
         self.undo_revision = match self.undo_revision {
             Some(rev) => {
-                if rev >= self.num_change() {
-                    return;
+                if rev + 1 >= self.num_change() {
+                    None
+                } else {
+                    Some(rev + 1)
                 }
-                Some(rev + 1)
             }
             None => None,
         };
