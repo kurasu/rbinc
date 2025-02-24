@@ -149,7 +149,19 @@ impl Document {
         self.rebuild(self.undo_revision);
     }
 
-    pub fn redo(&mut self) {}
+    pub fn redo(&mut self) {
+        self.undo_revision = match self.undo_revision {
+            Some(rev) => {
+                if rev >= self.num_change() {
+                    return;
+                }
+                Some(rev + 1)
+            }
+            None => None,
+        };
+
+        self.rebuild(self.undo_revision);
+    }
 
     pub fn get_or_define_attribute_id(&mut self, key: &str) -> usize {
         match self.nodes.attribute_names.get_index(key) {
