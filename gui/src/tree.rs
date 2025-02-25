@@ -31,7 +31,6 @@ impl NodeTree {
         app: &mut Application,
         on_action: &mut impl FnMut(GuiAction),
     ) {
-        //self.create_node_tree_children(app, self.root_node, on_action, ui);
         self.create_node(ui, app, self.root_node, 0, on_action)
     }
 
@@ -49,8 +48,27 @@ impl NodeTree {
         let id = ui.make_persistent_id(node_id);
         let drag_id = ui.make_persistent_id(node_id.index() + 0923490234);
         let id2 = ui.make_persistent_id(node_id.index() + 1923490234);
-        egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
+
+
+        let header = egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
             .show_header(ui, |ui| {
+                ui.response().context_menu(|ui| {
+                    if ui.button("Add child node").clicked() {
+                        on_action(GuiAction::AddNode {
+                            parent: node_id,
+                            index: node.children.len(),
+                        });
+                        ui.close_menu()
+                    }
+                    if ui.button("Delete").clicked() {
+                        on_action(GuiAction::RemoveNode { node: node_id });
+                        ui.close_menu()
+                    }
+                    for tag in node.tags.iter() {
+                        ui.label(app.document.tag_name(*tag));
+                    }
+                });
+
                 ui.horizontal(|ui| {
                     self.dnd_area(
                         ui,
@@ -70,42 +88,13 @@ impl NodeTree {
                         on_action(GuiAction::SelectNode { node: node_id });
                     }
                 });
-            })
-            .body(|ui| {
+            });
+
+        if !node.children.is_empty() {
+            header.body(|ui| {
                 let children = &app.document.nodes.get(node_id).expect("").children;
                 for (index, child_id) in children.iter().enumerate() {
                     self.create_node(ui, app, *child_id, index, on_action);
-                }
-            });
-    }
-
-    fn create_node_and_children(
-        &self,
-        ui: &mut Ui,
-        node_id: NodeId,
-        app: &Application,
-        on_action: &mut impl FnMut(GuiAction),
-        index_in_parent: usize,
-    ) {
-        if let Some(node) = app.document.nodes.get(node_id) {
-            let selected = app.ui.selected_node == node_id;
-            let is_expanded = app.is_node_expanded(node_id);
-
-            ui.vertical(|ui| {
-                self.expandable_node_header(
-                    ui,
-                    app,
-                    node,
-                    is_expanded,
-                    selected,
-                    index_in_parent,
-                    on_action,
-                );
-
-                if is_expanded {
-                    ui.indent(node_id, |ui| {
-                        self.create_node_tree_children(app, node_id, on_action, ui);
-                    });
                 }
             });
         }
@@ -119,118 +108,6 @@ impl NodeTree {
                 .inner_margin(4.0)
         } else {
             Frame::new().inner_margin(4.0)
-        }
-    }
-
-    fn expandable_node_header(
-        &self,
-        ui: &mut Ui,
-        app: &Application,
-        node: &Node,
-        is_expanded: bool,
-        selected: bool,
-        index_in_parent: usize,
-        on_action: &mut impl FnMut(GuiAction),
-    ) {
-        let node_name = self.get_label(&app.document, node, index_in_parent);
-        let node_id = node.id;
-        let mut gui_action: Option<GuiAction> = None;
-
-        self.dnd_area(
-            ui,
-            app,
-            node,
-            index_in_parent,
-            DragDropPayload::WithNode(node_id),
-            &mut |action| gui_action = Some(action),
-            |ui| {
-                Self::node_frame(ui, selected).show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        let has_children = !node.children.is_empty();
-
-                        if has_children {
-                            let expand_icon = if is_expanded { "⏷" } else { "⏵" };
-                            if ui
-                                .label(expand_icon)
-                                .on_hover_cursor(CursorIcon::Default)
-                                .on_hover_text("Expand/collapse node")
-                                .clicked()
-                            {
-                                on_action(GuiAction::SetNodeExpanded {
-                                    node: node_id,
-                                    expanded: !is_expanded,
-                                });
-                            }
-                        } else {
-                            ui.colored_label(Color32::TRANSPARENT, "⏵");
-                        }
-
-                        let can_edit_name = false;
-
-                        if selected && app.ui.is_editing && can_edit_name {
-                            let mut node_name = node.name.clone().unwrap_or_default();
-                            let text_edit = ui.text_edit_singleline(&mut node_name);
-                            text_edit.request_focus();
-                            if text_edit.changed() {
-                                on_action(GuiAction::WrappedChange {
-                                    change: Change::SetName {
-                                        node: node_id,
-                                        name: node_name.clone(),
-                                    },
-                                });
-                            }
-                        } else {
-                            let mut text = RichText::new(node_name);
-                            if selected {
-                                text = text.color(ui.visuals().strong_text_color());
-                            }
-
-                            let label = ui.label(text);
-                            if label.clicked() {
-                                on_action(GuiAction::SelectNode { node: node_id });
-                            }
-                            if label.double_clicked() {
-                                on_action(GuiAction::ToggleEditing);
-                            }
-                        }
-
-                        if selected && !app.ui.is_editing {
-                            if ui.label("✖").clicked() {
-                                on_action(GuiAction::RemoveNode { node: node_id });
-                            }
-                        }
-                    });
-                });
-            },
-        );
-
-        ui.response().context_menu(|ui| {
-            if ui.button("Add child node").clicked() {
-                on_action(GuiAction::AddNode {
-                    parent: node_id,
-                    index: node.children.len(),
-                });
-                ui.close_menu()
-            }
-            if ui.button("Delete").clicked() {
-                on_action(GuiAction::RemoveNode { node: node_id });
-                ui.close_menu()
-            }
-            for tag in node.tags.iter() {
-                ui.label(app.document.tag_name(*tag));
-            }
-        });
-
-        if let Some(action) = gui_action {
-            on_action(action);
-        }
-    }
-
-    fn is_hovering(&self, ui: &Ui, node_id: NodeId) -> bool {
-        if let Some(r) = ui.ctx().read_response(Id::new(node_id)) {
-            r.hovered()
-        } else {
-            false
         }
     }
 
@@ -364,21 +241,5 @@ impl NodeTree {
         }
 
         format!("{}: ID{}", index_in_parent, node.id.index())
-    }
-
-    fn create_node_tree_children(
-        &self,
-        app: &Application,
-        node_id: NodeId,
-        on_action: &mut impl FnMut(GuiAction),
-        ui: &mut Ui,
-    ) {
-        let mut index: usize = 0;
-        let children = &app.document.nodes.get(node_id).expect("").children;
-
-        for child_id in children {
-            //self.create_node_tree(ui, *child_id, app, on_action, index);
-            index += 1;
-        }
     }
 }
