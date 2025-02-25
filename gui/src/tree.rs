@@ -5,8 +5,8 @@ use binc::node_id::NodeId;
 use binc::node_store::Node;
 use eframe::egui::StrokeKind::Inside;
 use eframe::egui::{
-    Color32, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Ui,
-    UiBuilder,
+    Color32, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Sense,
+    Ui, UiBuilder,
 };
 use eframe::{egui, emath};
 
@@ -48,13 +48,27 @@ impl NodeTree {
 
         let id = ui.make_persistent_id(node_id);
         let drag_id = ui.make_persistent_id(node_id.index() + 0923490234);
+        let id2 = ui.make_persistent_id(node_id.index() + 1923490234);
         egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
             .show_header(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.dnd_drag_source(drag_id, DragDropPayload::WithNode(node_id), |ui| {
-                        ui.label("○");
-                    });
-                    ui.label(node_name)
+                    self.dnd_area(
+                        ui,
+                        app,
+                        node,
+                        index_in_parent,
+                        DragDropPayload::WithNode(node_id),
+                        on_action,
+                        |ui| {
+                            ui.label("○");
+                            ui.label(node_name)
+                        },
+                    );
+
+                    let response = ui.interact(ui.min_rect(), id2, egui::Sense::click());
+                    if response.clicked() {
+                        on_action(GuiAction::SelectNode { node: node_id });
+                    }
                 });
             })
             .body(|ui| {
@@ -310,16 +324,12 @@ impl NodeTree {
                 }
             }
 
-            if !response.is_pointer_button_down_on() {
-                let dnd_response = ui.response();
-                if dnd_response.clicked() {
-                    on_action(GuiAction::SelectNode { node: node_id });
-                } else if dnd_response.drag_started() {
-                    ui.ctx().set_dragged_id(id);
-                }
-            }
+            // Check for drags:
+            let dnd_response = ui
+                .interact(response.rect.clone(), id, Sense::drag())
+                .on_hover_cursor(CursorIcon::Grab);
 
-            InnerResponse::new(inner, response)
+            InnerResponse::new(inner, dnd_response | response)
         }
     }
 

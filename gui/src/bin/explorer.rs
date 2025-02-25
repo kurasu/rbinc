@@ -214,6 +214,9 @@ impl eframe::App for ExplorerApp {
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            ui.ctx().style_mut(|style| {
+                style.interaction.selectable_labels = false;
+            });
             if self.use_tree {
                 egui::ScrollArea::vertical()
                     .auto_shrink(false)
