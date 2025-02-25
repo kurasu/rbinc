@@ -64,7 +64,10 @@ impl FlatNodeStore {
         let p1 = self.nodes[i].parent.index();
         let p2 = new_parent.index();
 
-        let insert_index = if p1 == p2 && index_in_new_parent > i {
+        let old_index = self.nodes[p1].children.iter().position(|x| *x == id).unwrap();
+        self.nodes[p1].children.remove(old_index);
+
+        let insert_index = if p1 == p2 && index_in_new_parent > old_index {
             index_in_new_parent - 1
         } else {
             index_in_new_parent

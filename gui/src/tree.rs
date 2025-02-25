@@ -4,10 +4,7 @@ use binc::document::Document;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
 use eframe::egui::StrokeKind::Inside;
-use eframe::egui::{
-    Color32, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Sense,
-    Ui, UiBuilder,
-};
+use eframe::egui::{Color32, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, PointerButton, RichText, Sense, Ui, UiBuilder};
 use eframe::{egui, emath};
 
 enum DragDropPayload {
@@ -52,23 +49,6 @@ impl NodeTree {
 
         let header = egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
             .show_header(ui, |ui| {
-                ui.response().context_menu(|ui| {
-                    if ui.button("Add child node").clicked() {
-                        on_action(GuiAction::AddNode {
-                            parent: node_id,
-                            index: node.children.len(),
-                        });
-                        ui.close_menu()
-                    }
-                    if ui.button("Delete").clicked() {
-                        on_action(GuiAction::RemoveNode { node: node_id });
-                        ui.close_menu()
-                    }
-                    for tag in node.tags.iter() {
-                        ui.label(app.document.tag_name(*tag));
-                    }
-                });
-
                 ui.horizontal(|ui| {
                     self.dnd_area(
                         ui,
@@ -200,6 +180,23 @@ impl NodeTree {
                     }
                 }
             }
+
+            response.context_menu(|ui| {
+                if ui.button("Add child node").clicked() {
+                    on_action(GuiAction::AddNode {
+                        parent: node_id,
+                        index: node.children.len(),
+                    });
+                    ui.close_menu()
+                }
+                if ui.button("Delete").clicked() {
+                    on_action(GuiAction::RemoveNode { node: node_id });
+                    ui.close_menu()
+                }
+                for tag in node.tags.iter() {
+                    ui.label(app.document.tag_name(*tag));
+                }
+            });
 
             // Check for drags:
             let dnd_response = ui
