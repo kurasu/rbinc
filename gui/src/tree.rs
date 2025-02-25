@@ -126,7 +126,7 @@ impl NodeTree {
         let id = Id::new(node_id);
         let is_self_being_dragged = ui.ctx().is_being_dragged(id);
 
-        if is_self_being_dragged {
+        if is_self_being_dragged && ui.ctx().input(|i| i.pointer.is_decidedly_dragging()) {
             DragAndDrop::set_payload(ui.ctx(), payload);
 
             // Paint the body to a new layer:
