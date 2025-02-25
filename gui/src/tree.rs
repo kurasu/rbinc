@@ -43,47 +43,65 @@ impl NodeTree {
         let node_name = self.get_label(&app.document, node, index_in_parent);
 
         let id = ui.make_persistent_id(node_id);
-        let drag_id = ui.make_persistent_id(node_id.index() + 0923490234);
-        let id2 = ui.make_persistent_id(node_id.index() + 1923490234);
+        let id2 = ui.make_persistent_id(node_id.index() + 100000000);
+        let id3 = ui.make_persistent_id(node_id.index() + 200000000);
+        let has_children = !node.children.is_empty();
+        let is_expanded = app.is_node_expanded(node_id);
 
+        let icon = match has_children {
+            true => match is_expanded {
+                true => {"⏷"}
+                false => {"⏵"}
+            },
+            false => "▪",
+        };
 
-        let header = egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
-            .show_header(ui, |ui| {
-                ui.horizontal(|ui| {
-                    self.dnd_area(
-                        ui,
-                        app,
-                        node,
-                        index_in_parent,
-                        DragDropPayload::WithNode(node_id),
-                        on_action,
-                        |ui| {
-                            Self::node_frame(ui, app.ui.selected_node == node_id).show(ui, |ui| {
-                                ui.label("○");
-                                ui.label(node_name);
-                            });
-                        },
-                    );
+        ui.vertical(|ui| {
+            let header = ui.horizontal(|ui| {
+                self.dnd_area(
+                    ui,
+                    app,
+                    node,
+                    index_in_parent,
+                    DragDropPayload::WithNode(node_id),
+                    on_action,
+                    |ui| {
+                        Self::node_frame(ui, app.ui.selected_node == node_id).show(ui, |ui| {
+                            ui.label(icon);
+                            ui.label(node_name);
+                        });
+                    },
+                );
 
-                    let response = ui.interact(ui.min_rect(), id2, egui::Sense::click());
-                    if response.clicked() {
-                        on_action(GuiAction::SelectNode { node: node_id });
-                    }
+                let mut square_rect = ui.min_rect();
+                square_rect.set_width(square_rect.height());
+                if ui.interact(square_rect, id, Sense::click()).clicked() {
+                    on_action(GuiAction::SetNodeExpanded { node: node_id, expanded: !is_expanded });
+                }
 
-                    response.context_menu(|ui| {
-                        Self::context_menu(app, node, on_action, node_id, ui);
-                    });
+                let mut drag_rect = ui.min_rect();
+                drag_rect.set_left(square_rect.right());
+                let response = ui.interact(drag_rect, id3, Sense::click());
+                if response.clicked() {
+                    on_action(GuiAction::SelectNode { node: node_id });
+                }
+
+                response.context_menu(|ui| {
+                    Self::context_menu(app, node, on_action, node_id, ui);
                 });
             });
 
-        if !node.children.is_empty() {
-            header.body(|ui| {
-                let children = &app.document.nodes.get(node_id).expect("").children;
-                for (index, child_id) in children.iter().enumerate() {
-                    self.create_node(ui, app, *child_id, index, on_action);
-                }
-            });
-        }
+            if has_children && is_expanded {
+                ui.indent(id2, |ui| {
+                    ui.vertical(|ui| {
+                        let children = &app.document.nodes.get(node_id).expect("").children;
+                        for (index, child_id) in children.iter().enumerate() {
+                            self.create_node(ui, app, *child_id, index, on_action);
+                        }
+                    });
+                });
+            }
+        });
     }
 
     fn node_frame(ui: &Ui, selected: bool) -> Frame {
