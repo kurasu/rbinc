@@ -58,8 +58,10 @@ impl NodeTree {
                         DragDropPayload::WithNode(node_id),
                         on_action,
                         |ui| {
-                            ui.label("○");
-                            ui.label(node_name)
+                            Self::node_frame(ui, app.ui.selected_node == node_id).show(ui, |ui| {
+                                ui.label("○");
+                                ui.label(node_name);
+                            });
                         },
                     );
 
@@ -67,6 +69,10 @@ impl NodeTree {
                     if response.clicked() {
                         on_action(GuiAction::SelectNode { node: node_id });
                     }
+
+                    response.context_menu(|ui| {
+                        Self::context_menu(app, node, on_action, node_id, ui);
+                    });
                 });
             });
 
@@ -181,29 +187,29 @@ impl NodeTree {
                 }
             }
 
-            response.context_menu(|ui| {
-                if ui.button("Add child node").clicked() {
-                    on_action(GuiAction::AddNode {
-                        parent: node_id,
-                        index: node.children.len(),
-                    });
-                    ui.close_menu()
-                }
-                if ui.button("Delete").clicked() {
-                    on_action(GuiAction::RemoveNode { node: node_id });
-                    ui.close_menu()
-                }
-                for tag in node.tags.iter() {
-                    ui.label(app.document.tag_name(*tag));
-                }
-            });
-
             // Check for drags:
             let dnd_response = ui
                 .interact(response.rect.clone(), id, Sense::drag())
                 .on_hover_cursor(CursorIcon::Grab);
 
             InnerResponse::new(inner, dnd_response | response)
+        }
+    }
+
+    fn context_menu(app: &Application, node: &Node, on_action: &mut impl FnMut(GuiAction), node_id: NodeId, ui: &mut Ui) {
+        if ui.button("Add child node").clicked() {
+            on_action(GuiAction::AddNode {
+                parent: node_id,
+                index: node.children.len(),
+            });
+            ui.close_menu()
+        }
+        if ui.button("Delete").clicked() {
+            on_action(GuiAction::RemoveNode { node: node_id });
+            ui.close_menu()
+        }
+        for tag in node.tags.iter() {
+            ui.label(app.document.tag_name(*tag));
         }
     }
 
