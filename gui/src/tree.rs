@@ -5,8 +5,8 @@ use binc::node_id::NodeId;
 use binc::node_store::Node;
 use eframe::egui::StrokeKind::Inside;
 use eframe::egui::{
-    Color32, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Sense,
-    Ui, UiBuilder,
+    Color32, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Ui,
+    UiBuilder,
 };
 use eframe::{egui, emath};
 
@@ -31,10 +31,41 @@ impl NodeTree {
         app: &mut Application,
         on_action: &mut impl FnMut(GuiAction),
     ) {
-        self.create_node_tree_children(app, self.root_node, on_action, ui);
+        //self.create_node_tree_children(app, self.root_node, on_action, ui);
+        self.create_node(ui, app, self.root_node, 0, on_action)
     }
 
-    fn create_node_tree(
+    fn create_node(
+        &self,
+        ui: &mut Ui,
+        app: &Application,
+        node_id: NodeId,
+        index_in_parent: usize,
+        on_action: &mut impl FnMut(GuiAction),
+    ) {
+        let node = app.document.nodes.get(node_id).expect("");
+        let node_name = self.get_label(&app.document, node, index_in_parent);
+
+        let id = ui.make_persistent_id(node_id);
+        let drag_id = ui.make_persistent_id(node_id.index() + 0923490234);
+        egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
+            .show_header(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.dnd_drag_source(drag_id, DragDropPayload::WithNode(node_id), |ui| {
+                        ui.label("○");
+                    });
+                    ui.label(node_name)
+                });
+            })
+            .body(|ui| {
+                let children = &app.document.nodes.get(node_id).expect("").children;
+                for (index, child_id) in children.iter().enumerate() {
+                    self.create_node(ui, app, *child_id, index, on_action);
+                }
+            });
+    }
+
+    fn create_node_and_children(
         &self,
         ui: &mut Ui,
         node_id: NodeId,
@@ -97,7 +128,7 @@ impl NodeTree {
             node,
             index_in_parent,
             DragDropPayload::WithNode(node_id),
-            |action| gui_action = Some(action),
+            &mut |action| gui_action = Some(action),
             |ui| {
                 Self::node_frame(ui, selected).show(ui, |ui| {
                     ui.horizontal(|ui| {
@@ -120,7 +151,9 @@ impl NodeTree {
                             ui.colored_label(Color32::TRANSPARENT, "⏵");
                         }
 
-                        if selected && app.ui.is_editing {
+                        let can_edit_name = false;
+
+                        if selected && app.ui.is_editing && can_edit_name {
                             let mut node_name = node.name.clone().unwrap_or_default();
                             let text_edit = ui.text_edit_singleline(&mut node_name);
                             text_edit.request_focus();
@@ -194,7 +227,7 @@ impl NodeTree {
         node: &Node,
         index_in_parent: usize,
         payload: DragDropPayload,
-        on_action: impl FnOnce(GuiAction) -> (),
+        on_action: &mut impl FnMut(GuiAction) -> (),
         add_contents: impl FnOnce(&mut Ui) -> R,
     ) -> InnerResponse<R> {
         let node_id = node.id;
@@ -277,12 +310,16 @@ impl NodeTree {
                 }
             }
 
-            // Check for drags:
-            let dnd_response = ui
-                .interact(response.rect.clone(), id, Sense::drag())
-                .on_hover_cursor(CursorIcon::Grab);
+            if !response.is_pointer_button_down_on() {
+                let dnd_response = ui.response();
+                if dnd_response.clicked() {
+                    on_action(GuiAction::SelectNode { node: node_id });
+                } else if dnd_response.drag_started() {
+                    ui.ctx().set_dragged_id(id);
+                }
+            }
 
-            InnerResponse::new(inner, dnd_response | response)
+            InnerResponse::new(inner, response)
         }
     }
 
@@ -330,7 +367,7 @@ impl NodeTree {
         let children = &app.document.nodes.get(node_id).expect("").children;
 
         for child_id in children {
-            self.create_node_tree(ui, *child_id, app, on_action, index);
+            //self.create_node_tree(ui, *child_id, app, on_action, index);
             index += 1;
         }
     }
