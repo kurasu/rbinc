@@ -53,6 +53,7 @@ pub trait WriteExt: Write {
         self.write_byte(if value { 1 } else { 0 })
     }
 
+    /// Write a variable length integer value to the stream.
     fn write_length(&mut self, value: usize) -> io::Result<()> {
         if value > usize::MAX {
             return Err(Error::new(
@@ -63,6 +64,18 @@ pub trait WriteExt: Write {
         self.write_length_u64(value as u64)
     }
 
+    /// Write a variable length integer value to the stream. This version xor flips the bytes.
+    fn write_length_flipped(&mut self, value: usize) -> io::Result<()> {
+        if value > usize::MAX {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Value would extend native range",
+            ));
+        }
+        self.write_length_flipped_u64(value as u64)
+    }
+
+    /// Write a variable length integer value to the stream.
     fn write_length_u64(&mut self, value: u64) -> io::Result<()> {
         let mut wrote = false;
         for i in 1..=9 {
@@ -77,6 +90,23 @@ pub trait WriteExt: Write {
             }
         }
         self.write_u8((value & 0x7f) as u8)
+    }
+
+    /// Write a variable length integer value to the stream. This version xor flips the bytes.
+    fn write_length_flipped_u64(&mut self, value: u64) -> io::Result<()> {
+        let mut wrote = false;
+        for i in 1..=9 {
+            let x = (value >> (7 * (10 - i))) & 0x7f;
+            if wrote || x != 0 {
+                let r = self.write_u8((x | 0x80) as u8 ^ 0xFF);
+                if r.is_err() {
+                    return r;
+                }
+
+                wrote = true;
+            }
+        }
+        self.write_u8((value & 0x7f) as u8 ^ 0xFF)
     }
 
     fn write_str(&mut self, d: &str) -> io::Result<()> {
@@ -209,8 +239,26 @@ pub trait ReadExt: Read {
         }
     }
 
+    /// Read a variable length integer value from the stream.
     fn read_length(&mut self) -> io::Result<usize> {
         match self.read_length_u64() {
+            Ok(value) => {
+                if value > usize::MAX as u64 {
+                    Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "Value would extend 64-bit range",
+                    ))
+                } else {
+                    Ok(value as usize)
+                }
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Read a variable length integer value from the stream. This version xor flips the bytes.
+    fn read_length_flipped(&mut self) -> io::Result<usize> {
+        match self.read_length_u64_flipped() {
             Ok(value) => {
                 if value > usize::MAX as u64 {
                     Err(Error::new(
@@ -229,6 +277,26 @@ pub trait ReadExt: Read {
         let mut value: u64 = 0;
         loop {
             let x = self.read_u8()?;
+            value = value | u64::from(x & 0x7f);
+            if x & 0x80 == 0 {
+                return Ok(value);
+            }
+            if value & 0xFE00000000000000 != 0 {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Value would extend 64-bit range",
+                ));
+            }
+
+            value = value << 7
+        }
+    }
+
+    /// Read a variable length integer value from the stream. This version xor flips the bytes.
+    fn read_length_u64_flipped(&mut self) -> io::Result<u64> {
+        let mut value: u64 = 0;
+        loop {
+            let x = self.read_u8()? ^ 0xFF;
             value = value | u64::from(x & 0x7f);
             if x & 0x80 == 0 {
                 return Ok(value);

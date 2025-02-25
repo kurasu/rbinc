@@ -18,7 +18,7 @@ impl From<Changes> for Repository {
 }
 
 impl Repository {
-    pub const CONTAINER_ID: u32 = u32::from_le_bytes(*b"binc");
+    pub const CONTAINER_ID: u32 = u32::from_be_bytes(*b"binc");
     pub const CONTAINER_VERSION: u32 = 1;
 
     pub fn new() -> Repository {

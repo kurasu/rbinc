@@ -135,7 +135,7 @@ pub enum Change {
 impl Change {
     // This is an id used to locate checksums in the file. In case of corruption this can be used to
     // locate which ranges of the file are corrupted and automatically repair them using other sources.
-    pub const HASH_ID: u32 = u32::from_le_bytes(*b"h@sH");
+    pub const HASH_ID: u32 = u32::from_be_bytes(*b"h@sH");
 
     pub(crate) fn apply(&self, nodes: &mut NodeStore) {
         match self {
@@ -217,7 +217,7 @@ impl Change {
     }
 
     pub(crate) fn read<T: Read>(r: &mut T) -> io::Result<Change> {
-        let change_type = r.read_length()? as u64;
+        let change_type = r.read_length_flipped()? as u64;
         let change_size = r.read_length()?;
         match change_type {
             ChangeType::ADD_NODE => {
@@ -443,7 +443,7 @@ impl Change {
         self.write_content(&mut temp)?;
 
         // header (id+size)
-        w.write_length(self.change_type() as usize)?;
+        w.write_length_flipped(self.change_type() as usize)?; // Flipped for better resiliency
         w.write_length(temp.len())?;
 
         // content
