@@ -171,8 +171,8 @@ impl Node {
         self.tags.retain(|x| *x != tag);
     }
 
-    pub fn get_name(&self) -> Option<&String> {
-        self.name.as_ref()
+    pub fn get_name(&self) -> Option<&str> {
+        self.name.as_deref()
     }
 
     pub fn get_type(&self) -> Option<usize> {
@@ -195,9 +195,9 @@ impl Node {
         self.set_attribute(key, AttributeValue::Bool(value));
     }
 
-    pub fn get_string_attribute(&self, key: usize) -> Option<String> {
+    pub fn get_string_attribute(&self, key: usize) -> Option<&str> {
         match self.attributes.get(key) {
-            Some(AttributeValue::String(s)) => Some(s.clone()),
+            Some(AttributeValue::String(s)) => Some(s),
             _ => None,
         }
     }
@@ -245,7 +245,7 @@ mod tests {
         let mut node = Node::new_with_id(NodeId::new(1), NodeId::ROOT_NODE);
         let key = 1;
         node.set_string_attribute(key, &"value".to_string());
-        assert_eq!(node.get_string_attribute(key), Some("value".to_string()));
+        assert_eq!(node.get_string_attribute(key), Some("value"));
     }
 
     #[test]

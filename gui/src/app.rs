@@ -200,7 +200,7 @@ impl Application {
                 .as_ref()
                 .expect("Should exist")
                 .get_string_attribute(attr_id);
-            self.ui.selected_node_name = name.unwrap_or(String::new());
+            self.ui.selected_node_name = name.unwrap_or("").to_string();
         } else {
             self.ui.selected_node_name = String::new();
         }
