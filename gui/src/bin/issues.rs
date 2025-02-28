@@ -4,9 +4,11 @@
 )] // hide console window on Windows in release
 #![allow(rustdoc::missing_crate_level_docs)]
 
+use std::fs::File;
 use binc::node_id::NodeId;
 use bincgui::app::{create_toolbar, Application};
-use eframe::{egui, Storage};
+use eframe::{egui, App, CreationContext, Storage};
+use binc::document::Document;
 
 fn main() -> eframe::Result {
     env_logger::init();
@@ -18,7 +20,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "Got issues",
         options,
-        Box::new(|_cc| Ok(Box::new(IssuesApp::new()))),
+        Box::new(|cc| Ok(IssuesApp::new_or_from_storage(cc))),
     )
 }
 
@@ -26,6 +28,23 @@ struct IssuesApp {
     application: Application,
     search_string: String,
     found_issues: Vec<NodeId>,
+}
+
+impl IssuesApp {
+    fn new_or_from_storage(cc: &CreationContext) -> Box<dyn App> {
+        if let Some(storage) = cc.storage {
+            if let Some(path) = storage.get_string("document_path") {
+                if let Ok(mut file) = File::open(&path) {
+                    if let Ok(doc) = Document::read(&mut file) {
+                        let mut app = IssuesApp::new();
+                        app.application.set_document(doc);
+                        return Box::new(app);
+                    }
+                }
+            }
+        }
+        Box::new(IssuesApp::new())
+    }
 }
 
 impl IssuesApp {
@@ -101,15 +120,18 @@ impl eframe::App for IssuesApp {
                     self.update_search();
                 }
 
+                ui.separator();
+
                 let f = egui::Frame::default()
                     .inner_margin(4.0)
+                    .corner_radius(4)
                     .fill(ctx.style().visuals.panel_fill)
                     .shadow(ctx.style().visuals.window_shadow)
                     .stroke(ctx.style().visuals.widgets.noninteractive.bg_stroke);
 
                 for id in &self.found_issues {
                     f.show(ui, |ui| {
-                        ui.horizontal(|ui| {
+                        ui.horizontal_top(|ui| {
                             let node = self.application.document.nodes.get(*id).unwrap();
                             let key = node.get_name().unwrap_or("?");
                             let label = node.get_string_attribute(summary_id).unwrap_or("?");
@@ -128,11 +150,13 @@ impl eframe::App for IssuesApp {
                         })
                     });
                 }
-        })
-    });
-}
+            })
+        });
+    }
 
-fn save(&mut self, _storage: &mut dyn Storage) {
-        // Save app state here
+    fn save(&mut self, storage: &mut dyn Storage) {
+        if let Some(path) = &self.application.document_path {
+            storage.set_string("document_path", path.to_str().unwrap().to_string());
+        }
     }
 }

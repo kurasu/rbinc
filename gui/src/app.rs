@@ -83,7 +83,7 @@ impl Default for UiState {
 pub struct Application {
     pub document: Box<Document>,
     pub ui: UiState,
-    document_path: Option<PathBuf>,
+    pub document_path: Option<PathBuf>,
     client: Option<PersistentClient>,
     last_update: SystemTime,
 }
