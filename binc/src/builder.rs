@@ -2,7 +2,6 @@ use crate::attributes::AttributeValue;
 use crate::change::Change;
 use crate::document::Document;
 use crate::node_id::NodeId;
-use std::any::Any;
 
 pub trait NodeBuilder {
     fn add_node(&mut self, parent: NodeId) -> NodeId;

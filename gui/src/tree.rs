@@ -1,10 +1,11 @@
 use crate::app::{Application, GuiAction};
-use binc::change::Change;
 use binc::document::Document;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
 use eframe::egui::StrokeKind::Inside;
-use eframe::egui::{Color32, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, PointerButton, RichText, Sense, Ui, UiBuilder};
+use eframe::egui::{
+    CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, Sense, Ui, UiBuilder,
+};
 use eframe::{egui, emath};
 
 enum DragDropPayload {
@@ -50,14 +51,14 @@ impl NodeTree {
 
         let icon = match has_children {
             true => match is_expanded {
-                true => {"⏷"}
-                false => {"⏵"}
+                true => "⏷",
+                false => "⏵",
             },
             false => "▪",
         };
 
         ui.vertical(|ui| {
-            let header = ui.horizontal(|ui| {
+            ui.horizontal(|ui| {
                 self.dnd_area(
                     ui,
                     app,
@@ -76,7 +77,10 @@ impl NodeTree {
                 let mut square_rect = ui.min_rect();
                 square_rect.set_width(square_rect.height());
                 if ui.interact(square_rect, id, Sense::click()).clicked() {
-                    on_action(GuiAction::SetNodeExpanded { node: node_id, expanded: !is_expanded });
+                    on_action(GuiAction::SetNodeExpanded {
+                        node: node_id,
+                        expanded: !is_expanded,
+                    });
                 }
 
                 let mut drag_rect = ui.min_rect();
@@ -214,7 +218,13 @@ impl NodeTree {
         }
     }
 
-    fn context_menu(app: &Application, node: &Node, on_action: &mut impl FnMut(GuiAction), node_id: NodeId, ui: &mut Ui) {
+    fn context_menu(
+        app: &Application,
+        node: &Node,
+        on_action: &mut impl FnMut(GuiAction),
+        node_id: NodeId,
+        ui: &mut Ui,
+    ) {
         if ui.button("Add child node").clicked() {
             on_action(GuiAction::AddNode {
                 parent: node_id,
@@ -250,14 +260,14 @@ impl NodeTree {
         let type_name = document.type_name(type_id);
 
         if let Some(name) = name {
-            if let Some(t) = type_id {
+            if let Some(_t) = type_id {
                 return format!("{}: [{}] {}", index_in_parent, type_name, name);
             } else {
                 return format!("{}: {}", index_in_parent, name);
             }
         }
 
-        if let Some(t) = type_id {
+        if let Some(_t) = type_id {
             return format!("{}: [{}]", index_in_parent, type_name);
         }
 

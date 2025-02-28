@@ -4,7 +4,7 @@ use binc::node_id::NodeId;
 use binc::node_store::Node;
 use eframe::egui::StrokeKind::Inside;
 use eframe::egui::{
-    CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, Sense, Ui, UiBuilder,
+    CursorIcon, DragAndDrop, Id, InnerResponse, LayerId, Order, Sense, Ui, UiBuilder,
 };
 use eframe::{egui, emath};
 use egui_extras::{Column, TableBuilder};
@@ -67,9 +67,6 @@ impl Columns {
         on_action: &mut impl FnMut(GuiAction),
         ui: &mut Ui,
     ) {
-        let frame = Frame::default().inner_margin(2.0);
-        let node = app.document.nodes.get(node_id).expect("");
-
         ui.push_id(node_id, |ui| {
             ui.vertical(|ui| {
                 //let (_, dropped_payload) = ui.dnd_drop_zone::<NodeId, ()>(frame, |ui| {

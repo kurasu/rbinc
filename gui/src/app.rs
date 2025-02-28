@@ -7,7 +7,7 @@ use binc::node_id::NodeId;
 use binc::node_store::Node;
 use binc::repository::Repository;
 use eframe::egui;
-use eframe::egui::{Button, Id, Modal, Sense, Ui, Widget};
+use eframe::egui::{Id, Modal, Sense, Ui, Widget};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io;
@@ -74,14 +74,14 @@ impl Default for UiState {
             selected_node_name: String::new(),
             expanded_nodes: HashSet::new(),
             is_editing: false,
-            host_address: "localhost:2525/test-file.binc".to_string(),
+            host_address: "".to_string(),
             show_connect_dialog: false,
         }
     }
 }
 
 pub struct Application {
-    pub document: Box<Document>,
+    pub document: Document,
     pub ui: UiState,
     pub document_path: Option<PathBuf>,
     client: Option<PersistentClient>,
@@ -96,11 +96,17 @@ impl Application {
             .expect("Root node should exist")
     }
 
+    pub fn new_with_document(document: Document) -> Application {
+        let mut application = Application::new();
+        application.set_document(document);
+        application
+    }
+
     pub(crate) fn connect_to_url(&mut self, url: &str) {
         let result = PersistentClient::connect_to_document(url);
         if let Ok((client, document)) = result {
             self.client = Some(client);
-            self.document = Box::from(document);
+            self.document = document;
         } else if let Err(error) = result {
             let text = format!("Failed to connect to host\n\n{}", error.to_string());
             rfd::MessageDialog::new()
@@ -120,7 +126,7 @@ impl Application {
         }
 
         if let Some(client) = &mut self.client {
-            let result = client.check_for_updates(self.document.as_mut());
+            let result = client.check_for_updates(&mut self.document);
 
             if result.is_err() {
                 let text = format!(
@@ -175,7 +181,7 @@ impl Application {
 impl Application {
     pub fn new() -> Application {
         Application {
-            document: Box::from(new_document()),
+            document: new_document(),
             ui: UiState::default(),
             document_path: None,
             client: None,
@@ -184,7 +190,7 @@ impl Application {
     }
 
     pub fn set_document(&mut self, document: Document) {
-        self.document = Box::from(document);
+        self.document = document;
         self.ui.root = NodeId::ROOT_NODE;
         self.select_node(NodeId::NO_NODE);
     }

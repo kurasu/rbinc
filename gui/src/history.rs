@@ -20,7 +20,7 @@ impl History {
         ui: &mut Ui,
         repository: &Repository,
         undo_revision: Option<usize>,
-        on_action: &mut impl FnMut(GuiAction),
+        _on_action: &mut impl FnMut(GuiAction),
     ) {
         let to = undo_revision.unwrap_or(repository.changes.len());
 
