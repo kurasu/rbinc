@@ -52,6 +52,9 @@ pub enum GuiAction {
     SelectNextSibling,
     SelectParent,
     SelectFirstChild,
+    SetRootNode {
+        node: NodeId,
+    },
     ToggleEditing,
 }
 
@@ -165,6 +168,7 @@ impl Application {
             GuiAction::SetNodeExpanded { node, expanded } => self.set_node_expanded(node, expanded),
             GuiAction::ToggleSelectedNodeExpanded => self.toggle_selected_node_expanded(),
             GuiAction::ToggleEditing => self.toggle_editing(),
+            GuiAction::SetRootNode { node } => self.ui.root = node,
         }
     }
 }

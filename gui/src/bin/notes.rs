@@ -5,7 +5,7 @@ use binc::builder::NodeBuilder;
 use binc::document::Document;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
-use bincgui::app::{create_toolbar, Application};
+use bincgui::app::{create_toolbar, Application, GuiAction};
 use eframe::egui::{ComboBox, Ui};
 use eframe::{egui, App, CreationContext, Storage};
 use std::fs::File;
@@ -26,7 +26,6 @@ fn main() -> eframe::Result {
 
 struct NotesApp {
     application: Application,
-    current_list: NodeId,
 }
 
 impl NotesApp {
@@ -54,10 +53,11 @@ impl NotesApp {
         d.set_node_type(t1, "task");
         d.set_node_name(t1, "start");
 
-        Self {
+        let mut app = Self {
             application: Application::new_with_document(d),
-            current_list: l1,
-        }
+        };
+        app.application.ui.root = l1;
+        app
     }
 
     fn child_nodes(&self, ui: &mut Ui, node: &Node) {
@@ -113,6 +113,10 @@ impl NotesApp {
             .retain(|id| self.application.get(*id).expect("Must exist").type_id == Some(list_type));
         lists
     }
+
+    fn perform_action(&mut self, action: GuiAction) {
+        self.application.process_action(action)
+    }
 }
 
 impl eframe::App for NotesApp {
@@ -136,23 +140,20 @@ impl eframe::App for NotesApp {
                 .stroke(ctx.style().visuals.widgets.noninteractive.bg_stroke);
 
             let lists = self.get_lists().clone();
+            let root = self.application.ui.root;
 
             ui.vertical_centered(|ui| {
                 f.show(ui, |ui| {
-                    let label = self.get_name(self.current_list);
+                    let label = self.get_name(root);
                     ComboBox::new("lists-combo", "")
                         .selected_text(label)
                         .show_ui(ui, |ui| {
                             for list in lists {
                                 if ui
-                                    .selectable_label(
-                                        list == self.current_list,
-                                        self.get_name(list),
-                                    )
+                                    .selectable_label(list == root, self.get_name(list))
                                     .clicked()
                                 {
-                                    // TODO message up
-                                    //self.current_list = list;
+                                    self.perform_action(GuiAction::SetRootNode { node: list })
                                 }
                             }
                             if ui.label("+ new list").clicked() {
@@ -160,7 +161,7 @@ impl eframe::App for NotesApp {
                             }
                         });
 
-                    self.child_nodes(ui, root);
+                    self.child_nodes(ui, self.get_node(root));
                 })
             });
         });
