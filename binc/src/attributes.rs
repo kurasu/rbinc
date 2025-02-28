@@ -15,6 +15,15 @@ pub enum AttributeValue {
     F64(f64),
 }
 
+impl AttributeValue {
+    pub (crate) fn too_long_for_display(&self) -> bool {
+        match self {
+            AttributeValue::String(s) => s.len() > 100,
+            _ => false,
+        }
+    }
+}
+
 impl std::fmt::Display for AttributeValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

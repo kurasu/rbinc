@@ -24,3 +24,7 @@ path = "src/bin/explorer.rs"
 [[bin]]
 name = "binc-notes"
 path = "src/bin/notes.rs"
+
+[[bin]]
+name = "binc-issues"
+path = "src/bin/issues.rs"

@@ -687,12 +687,12 @@ impl Display for Change {
                 value,
             } => if value.too_long_for_display() {
                 write!(
-                f,
-                "Set{}({}, {} = {})",
-                attribute_type(value),
-                node,
-                attribute,
-                "<...>")
+                    f,
+                    "Set{}({}, {} = {})",
+                    attribute_type(value),
+                    node,
+                    attribute,
+                    "<...>")
                 } else {
                 write!(
                     f,

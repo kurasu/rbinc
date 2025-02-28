@@ -26,6 +26,10 @@ impl FlatNodeStore {
         }
     }
 
+    pub fn nodes(&self) -> &Vec<Node> {
+        &self.nodes
+    }
+
     pub fn find_roots(&self) -> &Vec<NodeId> {
         let x = self.nodes.get(0).expect("Root node should exist");
         x.children.as_ref()
