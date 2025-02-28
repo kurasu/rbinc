@@ -13,7 +13,7 @@ pub struct Document {
     pub nodes: NodeStore,
     /// Revision that have been undone to
     pub undo_revision: Option<usize>,
-    node_id_generator: NodeIdGenerator,
+    pub node_id_generator: NodeIdGenerator,
 }
 
 fn compute_nodes(repository: &Repository, end_revision: Option<usize>) -> NodeStore {
