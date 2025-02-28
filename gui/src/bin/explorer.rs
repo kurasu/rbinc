@@ -192,7 +192,9 @@ impl eframe::App for ExplorerApp {
         egui::SidePanel::right("inspector_panel")
             .default_width(200f32)
             .show(ctx, |ui| {
-                self.create_inspector(ui, &mut on_action);
+                egui::ScrollArea::both().auto_shrink(false).show(ui, |ui| {
+                    self.create_inspector(ui, &mut on_action);
+                });
             });
 
         if self.history.show_history {

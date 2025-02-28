@@ -2,7 +2,7 @@ use crate::attributes::{attribute_type, AttributeValue};
 use crate::node_id::NodeId;
 use crate::node_store::NodeStore;
 use crate::readwrite::{ReadExt, WriteExt};
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::io;
 use std::io::{Read, Write};
 
@@ -685,14 +685,24 @@ impl Display for Change {
                 node,
                 attribute,
                 value,
-            } => write!(
+            } => if value.too_long_for_display() {
+                write!(
                 f,
                 "Set{}({}, {} = {})",
                 attribute_type(value),
                 node,
                 attribute,
-                value
-            ),
+                "<...>")
+                } else {
+                write!(
+                    f,
+                    "Set{}({}, {} = {})",
+                    attribute_type(value),
+                    node,
+                    attribute,
+                    value)
+
+            },
             Change::UnknownChange { change_type, data } => {
                 write!(f, "UnknownChange({}, {} bytes)", change_type, data.len())
             }
