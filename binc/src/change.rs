@@ -91,14 +91,21 @@ pub enum Change {
     /// Set the type-id for a node
     SetType { node: NodeId, type_id: usize },
 
-    /// Set the name of a node
-    SetName { node: NodeId, name: String },
-
     /// Defines a user-readable name for a type
     DefineTypeName { id: usize, name: String },
 
+    /// Set the name of a node
+    SetName { node: NodeId, name: String },
+
     /// Defines a user-readable name for an attribute id
     DefineAttributeName { id: usize, name: String },
+
+    /// Set an attribute on a node
+    SetAttribute {
+        node: NodeId,
+        attribute: usize,
+        value: AttributeValue,
+    },
 
     /// Defines a user-readable name for a tag id
     DefineTagName { id: usize, name: String },
@@ -114,13 +121,6 @@ pub enum Change {
 
     /// Add a checksum to the document up until this point. This can be used to verify the document is not corrupted
     Checksum { data: Vec<u8> },
-
-    /// Set an attribute on a node
-    SetAttribute {
-        node: NodeId,
-        attribute: usize,
-        value: AttributeValue,
-    },
 
     /// Add a comment to a node
     AddComment {
