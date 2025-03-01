@@ -1,11 +1,16 @@
 use crate::attributes::{AttributeStore, AttributeValue};
-use crate::node_id::NodeId;
 use crate::comments::Comments;
+use crate::name_dictionary::NameDictionary;
+use crate::node_id::NodeId;
 
 pub type NodeStore = FlatNodeStore;
 
+#[derive(Default)]
 pub struct FlatNodeStore {
-    nodes: Vec<Node>
+    nodes: Vec<Node>,
+    pub type_names: NameDictionary,
+    pub attribute_names: NameDictionary,
+    pub tag_names: NameDictionary,
 }
 
 impl FlatNodeStore {
@@ -13,8 +18,16 @@ impl FlatNodeStore {
         let mut nodes = vec![Node::default()];
         nodes[0].id = NodeId::ROOT_NODE;
         nodes[0].parent = NodeId::NO_NODE;
+        NodeStore {
+            nodes,
+            type_names: NameDictionary::default(),
+            attribute_names: NameDictionary::default(),
+            tag_names: NameDictionary::default(),
+        }
+    }
 
-        NodeStore { nodes }
+    pub fn nodes(&self) -> &Vec<Node> {
+        &self.nodes
     }
 
     pub fn find_roots(&self) -> &Vec<NodeId> {
@@ -50,12 +63,15 @@ impl FlatNodeStore {
         self.nodes[i] = Node::default();
     }
 
-    pub (crate) fn move_node(&mut self, id: NodeId, new_parent: NodeId, index_in_new_parent: usize) {
+    pub(crate) fn move_node(&mut self, id: NodeId, new_parent: NodeId, index_in_new_parent: usize) {
         let i = id.index();
         let p1 = self.nodes[i].parent.index();
         let p2 = new_parent.index();
 
-        let insert_index = if p1 == p2 && index_in_new_parent > i {
+        let old_index = self.nodes[p1].children.iter().position(|x| *x == id).unwrap();
+        self.nodes[p1].children.remove(old_index);
+
+        let insert_index = if p1 == p2 && index_in_new_parent > old_index {
             index_in_new_parent - 1
         } else {
             index_in_new_parent
@@ -74,21 +90,32 @@ impl FlatNodeStore {
         self.nodes.get_mut(id.index())
     }
 
+    pub(crate) fn define_type_name(&mut self, index: usize, name: &str) {
+        self.type_names.insert(index, name);
+    }
+
+    pub(crate) fn define_tag_name(&mut self, index: usize, name: &str) {
+        self.tag_names.insert(index, name);
+    }
+
+    pub(crate) fn define_attribute_name(&mut self, index: usize, name: &str) {
+        self.attribute_names.insert(index, name);
+    }
+
     pub(crate) fn len(&self) -> usize {
         self.nodes.len()
     }
 }
 
-
 pub struct Node {
     pub id: NodeId,
     pub name: Option<String>,
-    pub type_name: Option<String>,
+    pub type_id: Option<usize>,
     pub parent: NodeId,
     pub children: Vec<NodeId>,
     pub attributes: AttributeStore,
     pub comments: Comments,
-    pub tags: Vec<String>,
+    pub tags: Vec<usize>,
 }
 
 impl Default for Node {
@@ -97,7 +124,7 @@ impl Default for Node {
             id: NodeId::NO_NODE,
             parent: NodeId::NO_NODE,
             name: None,
-            type_name: None,
+            type_id: None,
             children: vec![],
             attributes: AttributeStore::default(),
             comments: Comments::default(),
@@ -107,13 +134,12 @@ impl Default for Node {
 }
 
 impl Node {
-
     pub fn new_with_id(id: NodeId, parent: NodeId) -> Node {
         Node {
             id,
             parent,
             name: None,
-            type_name: None,
+            type_id: None,
             children: vec![],
             attributes: AttributeStore::default(),
             comments: Comments::default(),
@@ -125,65 +151,69 @@ impl Node {
         self.attributes.insert(key, Box::new(value));
     }*/
 
-    pub fn set_type(&mut self, type_name: &str) {
-        self.type_name = if type_name.is_empty() { None } else { Some(type_name.to_string()) };
+    pub fn set_type(&mut self, id: usize) {
+        self.type_id = Some(id);
     }
 
     pub fn set_name(&mut self, label: &str) {
-        self.name = if label.is_empty() { None } else { Some(label.to_string()) };
+        self.name = if label.is_empty() {
+            None
+        } else {
+            Some(label.to_string())
+        };
     }
 
-    pub fn set_tag(&mut self, tag: &str) {
-        self.tags.push(tag.to_string());
+    pub fn set_tag(&mut self, tag: usize) {
+        self.tags.push(tag);
     }
 
-    pub fn clear_tag(&mut self, tag: &str) {
-        self.tags.retain(|x| x != tag);
+    pub fn clear_tag(&mut self, tag: usize) {
+        self.tags.retain(|x| *x != tag);
     }
 
-    pub fn get_name(&self) -> Option<&String> {
-        self.name.as_ref()
+    pub fn get_name(&self) -> Option<&str> {
+        self.name.as_deref()
     }
 
-    pub fn get_type(&self) -> Option<&String> {
-        self.type_name.as_ref()
+    pub fn get_type(&self) -> Option<usize> {
+        self.type_id
     }
-    
-    pub fn set_attribute(&mut self, key: &str, value: AttributeValue) {
+
+    pub fn set_attribute(&mut self, key: usize, value: AttributeValue) {
         self.attributes.set(key, value);
     }
 
-    pub fn get_attribute(&self, key: &str) -> Option<&AttributeValue> {
+    pub fn get_attribute(&self, key: usize) -> Option<&AttributeValue> {
         self.attributes.get(key)
     }
 
-    pub fn set_string_attribute(&mut self, key: &str, value: &String) {
+    pub fn set_string_attribute(&mut self, key: usize, value: &String) {
         self.set_attribute(key, AttributeValue::String(value.clone()));
     }
 
-    pub fn set_bool_attribute(&mut self, key: &str, value: bool) {
+    pub fn set_bool_attribute(&mut self, key: usize, value: bool) {
         self.set_attribute(key, AttributeValue::Bool(value));
     }
 
-    pub fn get_string_attribute(&self, key: &str) -> Option<String> {
+    pub fn get_string_attribute(&self, key: usize) -> Option<&str> {
         match self.attributes.get(key) {
-            Some(AttributeValue::String(s)) => Some(s.clone()),
+            Some(AttributeValue::String(s)) => Some(s),
             _ => None,
         }
     }
 
-    pub fn get_bool_attribute(&self, key: &str) -> Option<bool> {
+    pub fn get_bool_attribute(&self, key: usize) -> Option<bool> {
         match self.attributes.get(key) {
             Some(AttributeValue::Bool(s)) => Some(s.clone()),
             _ => None,
         }
     }
 
-    pub (crate) fn get_child_index(&self, id: NodeId) -> Option<usize> {
+    pub(crate) fn get_child_index(&self, id: NodeId) -> Option<usize> {
         self.children.iter().position(|x| *x == id)
     }
 
-    pub(crate) fn add_comment(&mut self, comment: &str, author: &str, response_to: u64) {
+    pub(crate) fn add_comment(&mut self, comment: &str, author: &str, response_to: usize) {
         self.comments.add_comment(comment, author, response_to);
     }
 }
@@ -213,8 +243,9 @@ mod tests {
     #[test]
     fn test_set_and_get_attribute() {
         let mut node = Node::new_with_id(NodeId::new(1), NodeId::ROOT_NODE);
-        node.set_string_attribute(&"key".to_string(), &"value".to_string());
-        assert_eq!(node.get_string_attribute("key"), Some("value".to_string()));
+        let key = 1;
+        node.set_string_attribute(key, &"value".to_string());
+        assert_eq!(node.get_string_attribute(key), Some("value"));
     }
 
     #[test]

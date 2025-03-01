@@ -1,5 +1,3 @@
-
-
 #[derive(Debug, Clone)]
 pub enum AttributeValue {
     String(String),
@@ -7,14 +5,28 @@ pub enum AttributeValue {
     Uuid(uuid::Uuid),
     U8(u8),
     U16(u16),
+    U24(U24),
     U32(u32),
     U64(u64),
     I8(i8),
     I16(i16),
+    I24(I24),
     I32(i32),
     I64(i64),
     F32(f32),
     F64(f64),
+}
+
+type I24 = [u8; 3];
+type U24 = [u8; 3];
+
+impl AttributeValue {
+    pub(crate) fn too_long_for_display(&self) -> bool {
+        match self {
+            AttributeValue::String(s) => s.len() > 100,
+            _ => false,
+        }
+    }
 }
 
 impl std::fmt::Display for AttributeValue {
@@ -25,10 +37,12 @@ impl std::fmt::Display for AttributeValue {
             AttributeValue::Uuid(u) => write!(f, "{}", u),
             AttributeValue::U8(u) => write!(f, "{}", u),
             AttributeValue::U16(u) => write!(f, "{}", u),
+            AttributeValue::U24(u) => write!(f, "U24"),
             AttributeValue::U32(u) => write!(f, "{}", u),
             AttributeValue::U64(u) => write!(f, "{}", u),
             AttributeValue::I8(u) => write!(f, "{}", u),
             AttributeValue::I16(u) => write!(f, "{}", u),
+            AttributeValue::I24(u) => write!(f, "I24"),
             AttributeValue::I32(u) => write!(f, "{}", u),
             AttributeValue::I64(u) => write!(f, "{}", u),
             AttributeValue::F32(u) => write!(f, "{}", u),
@@ -44,10 +58,12 @@ pub fn attribute_type(value: &AttributeValue) -> &str {
         AttributeValue::Uuid(_) => "Uuid",
         AttributeValue::U8(_) => "U8",
         AttributeValue::U16(_) => "U16",
+        AttributeValue::U24(_) => "U24",
         AttributeValue::U32(_) => "U32",
         AttributeValue::U64(_) => "U64",
         AttributeValue::I8(_) => "I8",
         AttributeValue::I16(_) => "I16",
+        AttributeValue::I24(_) => "I24",
         AttributeValue::I32(_) => "I32",
         AttributeValue::I64(_) => "I64",
         AttributeValue::F32(_) => "F32",
@@ -55,20 +71,19 @@ pub fn attribute_type(value: &AttributeValue) -> &str {
     }
 }
 
-
 #[derive(Debug, Clone, Default)]
 pub struct AttributeStore {
-    attributes: Vec<AttributeEntry>
+    attributes: Vec<AttributeEntry>,
 }
 
 #[derive(Debug, Clone)]
 pub struct AttributeEntry {
-    pub key: String,
-    pub value: AttributeValue
+    pub key: usize,
+    pub value: AttributeValue,
 }
 
 impl AttributeStore {
-    pub fn set(&mut self, key: &str, value: AttributeValue) {
+    pub fn set(&mut self, key: usize, value: AttributeValue) {
         for a in &mut self.attributes {
             if a.key == key {
                 a.value = value;
@@ -76,15 +91,21 @@ impl AttributeStore {
             }
         }
 
-        self.attributes.push(AttributeEntry { key: key.to_string(), value });
+        self.attributes.push(AttributeEntry { key, value });
     }
 
-    pub fn get(&self, key: &str) -> Option<&AttributeValue> {
-        self.attributes.iter().find(|x| x.key == key).map(|x| &x.value)
+    pub fn get(&self, key: usize) -> Option<&AttributeValue> {
+        self.attributes
+            .iter()
+            .find(|x| x.key == key)
+            .map(|x| &x.value)
     }
 
-    pub fn get_mut(&mut self, key: &str) -> Option<&mut AttributeValue> {
-        self.attributes.iter_mut().find(|x| x.key == key).map(|x| &mut x.value)
+    pub fn get_mut(&mut self, key: usize) -> Option<&mut AttributeValue> {
+        self.attributes
+            .iter_mut()
+            .find(|x| x.key == key)
+            .map(|x| &mut x.value)
     }
 
     pub fn iter(&self) -> std::slice::Iter<AttributeEntry> {

@@ -1,12 +1,10 @@
 use crate::app::{Application, GuiAction};
-use binc::attributes::AttributeValue;
-use binc::change::Change;
+use binc::document::Document;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
 use eframe::egui::StrokeKind::Inside;
 use eframe::egui::{
-    Color32, CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, RichText, Sense,
-    Ui, UiBuilder,
+    CursorIcon, DragAndDrop, Frame, Id, InnerResponse, LayerId, Order, Sense, Ui, UiBuilder,
 };
 use eframe::{egui, emath};
 
@@ -31,177 +29,93 @@ impl NodeTree {
         app: &mut Application,
         on_action: &mut impl FnMut(GuiAction),
     ) {
-        self.create_node_tree_children(app, self.root_node, on_action, ui);
+        self.create_node(ui, app, self.root_node, 0, on_action)
     }
 
-    fn create_node_tree(
+    fn create_node(
         &self,
         ui: &mut Ui,
-        node_id: NodeId,
         app: &Application,
-        on_action: &mut impl FnMut(GuiAction),
+        node_id: NodeId,
         index_in_parent: usize,
+        on_action: &mut impl FnMut(GuiAction),
     ) {
-        if let Some(node) = app.document.nodes.get(node_id) {
-            let selected = app.ui.selected_node == node_id;
-            let is_expanded = app.is_node_expanded(node_id);
+        let node = app.document.nodes.get(node_id).expect("");
+        let node_name = self.get_label(&app.document, node, index_in_parent);
 
-            ui.vertical(|ui| {
-                self.expandable_node_header(
+        let id = ui.make_persistent_id(node_id);
+        let id2 = ui.make_persistent_id(node_id.index() + 100000000);
+        let id3 = ui.make_persistent_id(node_id.index() + 200000000);
+        let has_children = !node.children.is_empty();
+        let is_expanded = app.is_node_expanded(node_id);
+
+        let icon = match has_children {
+            true => match is_expanded {
+                true => "⏷",
+                false => "⏵",
+            },
+            false => "▪",
+        };
+
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                self.dnd_area(
                     ui,
                     app,
                     node,
-                    is_expanded,
-                    selected,
                     index_in_parent,
+                    DragDropPayload::WithNode(node_id),
                     on_action,
+                    |ui| {
+                        Self::node_frame(ui, app.ui.selected_node == node_id).show(ui, |ui| {
+                            ui.label(icon);
+                            ui.label(node_name);
+                        });
+                    },
                 );
 
-                if is_expanded {
-                    ui.indent(node_id, |ui| {
-                        self.create_node_tree_children(app, node_id, on_action, ui);
+                let mut square_rect = ui.min_rect();
+                square_rect.set_width(square_rect.height());
+                if ui.interact(square_rect, id, Sense::click()).clicked() {
+                    on_action(GuiAction::SetNodeExpanded {
+                        node: node_id,
+                        expanded: !is_expanded,
                     });
                 }
+
+                let mut drag_rect = ui.min_rect();
+                drag_rect.set_left(square_rect.right());
+                let response = ui.interact(drag_rect, id3, Sense::click());
+                if response.clicked() {
+                    on_action(GuiAction::SelectNode { node: node_id });
+                }
+
+                response.context_menu(|ui| {
+                    Self::context_menu(app, node, on_action, node_id, ui);
+                });
             });
-        }
+
+            if has_children && is_expanded {
+                ui.indent(id2, |ui| {
+                    ui.vertical(|ui| {
+                        let children = &app.document.nodes.get(node_id).expect("").children;
+                        for (index, child_id) in children.iter().enumerate() {
+                            self.create_node(ui, app, *child_id, index, on_action);
+                        }
+                    });
+                });
+            }
+        });
     }
 
     fn node_frame(ui: &Ui, selected: bool) -> Frame {
         if selected {
             Frame::default()
-                .fill(Color32::from_rgb(60, 66, 107))
+                .fill(ui.visuals().selection.bg_fill)
                 .corner_radius(4.0)
                 .inner_margin(4.0)
         } else {
             Frame::new().inner_margin(4.0)
-        }
-    }
-
-    fn expandable_node_header(
-        &self,
-        ui: &mut Ui,
-        app: &Application,
-        node: &Node,
-        is_expanded: bool,
-        selected: bool,
-        index_in_parent: usize,
-        on_action: &mut impl FnMut(GuiAction),
-    ) {
-        let node_name = self.get_label(node, index_in_parent);
-        let node_id = node.id;
-        let mut gui_action: Option<GuiAction> = None;
-
-        self.dnd_area(
-            ui,
-            app,
-            node,
-            index_in_parent,
-            DragDropPayload::WithNode(node_id),
-            |action| gui_action = Some(action),
-            |ui| {
-                Self::node_frame(ui, selected).show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        let hovering = self.is_hovering(ui, node_id);
-                        if hovering {
-                            ui.label("☰").on_hover_text("Drag to move");
-                        } else {
-                            ui.colored_label(Color32::TRANSPARENT, "☰");
-                        }
-
-                        let has_children = !node.children.is_empty();
-
-                        if has_children {
-                            let expand_icon = if is_expanded { "⏷" } else { "⏵" };
-                            if ui
-                                .label(expand_icon)
-                                .on_hover_cursor(CursorIcon::Default)
-                                .on_hover_text("Expand/collapse node")
-                                .clicked()
-                            {
-                                on_action(GuiAction::SetNodeExpanded {
-                                    node: node_id,
-                                    expanded: !is_expanded,
-                                });
-                            }
-                        } else {
-                            ui.colored_label(Color32::TRANSPARENT, "⏵");
-                        }
-
-                        let mut checked = node.get_bool_attribute("completed").unwrap_or_default();
-                        if ui.checkbox(&mut checked, "").clicked() {
-                            on_action(GuiAction::WrappedChange {
-                                change: Change::SetAttribute {
-                                    node: node_id,
-                                    attribute: "completed".to_string(),
-                                    value: AttributeValue::Bool(checked),
-                                },
-                            });
-                        }
-
-                        if selected && app.ui.is_editing {
-                            let mut node_name = node.name.clone().unwrap_or_default();
-                            let text_edit = ui.text_edit_singleline(&mut node_name);
-                            text_edit.request_focus();
-                            if text_edit.changed() {
-                                on_action(GuiAction::WrappedChange {
-                                    change: Change::SetName {
-                                        node: node_id,
-                                        name: node_name.clone(),
-                                    },
-                                });
-                            }
-                        } else {
-                            let mut text = RichText::new(node_name);
-                            if selected {
-                                text = text.color(ui.visuals().strong_text_color());
-                            }
-
-                            let label = ui.label(text);
-                            if label.clicked() {
-                                on_action(GuiAction::SelectNode { node: node_id });
-                            }
-                            if label.double_clicked() {
-                                on_action(GuiAction::ToggleEditing);
-                            }
-                        }
-
-                        if selected && !app.ui.is_editing {
-                            if ui.label("✖").clicked() {
-                                on_action(GuiAction::RemoveNode { node: node_id });
-                            }
-                        }
-                    });
-                });
-            },
-        );
-
-        ui.response().context_menu(|ui| {
-            if ui.button("Add child node").clicked() {
-                on_action(GuiAction::AddNode {
-                    parent: node_id,
-                    index: node.children.len() as u64,
-                });
-                ui.close_menu()
-            }
-            if ui.button("Delete").clicked() {
-                on_action(GuiAction::RemoveNode { node: node_id });
-                ui.close_menu()
-            }
-            for tag in node.tags.iter() {
-                ui.label(tag);
-            }
-        });
-
-        if let Some(action) = gui_action {
-            on_action(action);
-        }
-    }
-
-    fn is_hovering(&self, ui: &Ui, node_id: NodeId) -> bool {
-        if let Some(r) = ui.ctx().read_response(Id::new(node_id)) {
-            r.hovered()
-        } else {
-            false
         }
     }
 
@@ -212,7 +126,7 @@ impl NodeTree {
         node: &Node,
         index_in_parent: usize,
         payload: DragDropPayload,
-        on_action: impl FnOnce(GuiAction) -> (),
+        on_action: &mut impl FnMut(GuiAction) -> (),
         add_contents: impl FnOnce(&mut Ui) -> R,
     ) -> InnerResponse<R> {
         let node_id = node.id;
@@ -220,7 +134,7 @@ impl NodeTree {
         let id = Id::new(node_id);
         let is_self_being_dragged = ui.ctx().is_being_dragged(id);
 
-        if is_self_being_dragged {
+        if is_self_being_dragged && ui.ctx().input(|i| i.pointer.is_decidedly_dragging()) {
             DragAndDrop::set_payload(ui.ctx(), payload);
 
             // Paint the body to a new layer:
@@ -287,7 +201,7 @@ impl NodeTree {
                                 on_action(GuiAction::MoveNode {
                                     node: *node,
                                     new_parent: target,
-                                    index_in_new_parent: insert_idx as u64,
+                                    index_in_new_parent: insert_idx,
                                 });
                             }
                         };
@@ -296,13 +210,34 @@ impl NodeTree {
             }
 
             // Check for drags:
-            let mut small_rect = response.rect.clone();
-            small_rect.set_width(20f32);
             let dnd_response = ui
-                .interact(small_rect, id, Sense::drag())
+                .interact(response.rect.clone(), id, Sense::drag())
                 .on_hover_cursor(CursorIcon::Grab);
 
             InnerResponse::new(inner, dnd_response | response)
+        }
+    }
+
+    fn context_menu(
+        app: &Application,
+        node: &Node,
+        on_action: &mut impl FnMut(GuiAction),
+        node_id: NodeId,
+        ui: &mut Ui,
+    ) {
+        if ui.button("Add child node").clicked() {
+            on_action(GuiAction::AddNode {
+                parent: node_id,
+                index: node.children.len(),
+            });
+            ui.close_menu()
+        }
+        if ui.button("Delete").clicked() {
+            on_action(GuiAction::RemoveNode { node: node_id });
+            ui.close_menu()
+        }
+        for tag in node.tags.iter() {
+            ui.label(app.document.tag_name(*tag));
         }
     }
 
@@ -319,38 +254,23 @@ impl NodeTree {
         self.is_ancestor(app, node.parent, assumed_ancestor)
     }
 
-    fn get_label(&self, node: &Node, index_in_parent: usize) -> String {
+    fn get_label(&self, document: &Document, node: &Node, index_in_parent: usize) -> String {
         let name = node.get_name();
-        let type_name = node.get_type();
+        let type_id = node.get_type();
+        let type_name = document.type_name(type_id);
 
         if let Some(name) = name {
-            if let Some(t) = type_name {
-                return format!("{}: [{}] {}", index_in_parent, t, name);
+            if let Some(_t) = type_id {
+                return format!("{}: [{}] {}", index_in_parent, type_name, name);
             } else {
                 return format!("{}: {}", index_in_parent, name);
             }
         }
 
-        if let Some(t) = type_name {
-            return format!("{}: [{}]", index_in_parent, t);
+        if let Some(_t) = type_id {
+            return format!("{}: [{}]", index_in_parent, type_name);
         }
 
         format!("{}: ID{}", index_in_parent, node.id.index())
-    }
-
-    fn create_node_tree_children(
-        &self,
-        app: &Application,
-        node_id: NodeId,
-        on_action: &mut impl FnMut(GuiAction),
-        ui: &mut Ui,
-    ) {
-        let mut index: usize = 0;
-        let children = &app.document.nodes.get(node_id).expect("").children;
-
-        for child_id in children {
-            self.create_node_tree(ui, *child_id, app, on_action, index);
-            index += 1;
-        }
     }
 }

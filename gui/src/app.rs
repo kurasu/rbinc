@@ -1,4 +1,5 @@
 use crate::importer::{Import, Importer, IMPORTERS};
+use crate::persistent_client::PersistentClient;
 use binc::change::Change;
 use binc::changes::Changes;
 use binc::document::Document;
@@ -6,13 +7,14 @@ use binc::node_id::NodeId;
 use binc::node_store::Node;
 use binc::repository::Repository;
 use eframe::egui;
-use eframe::egui::{Button, Id, Modal, Sense, Ui, Widget};
+use eframe::egui::{Id, Modal, Sense, Ui, Widget};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
 use std::time::SystemTime;
-use crate::persistent_client::PersistentClient;
+
+use crate::uiext::UiExt;
 
 pub enum GuiAction {
     Undo,
@@ -22,12 +24,12 @@ pub enum GuiAction {
     },
     AddNode {
         parent: NodeId,
-        index: u64,
+        index: usize,
     },
     MoveNode {
         node: NodeId,
         new_parent: NodeId,
-        index_in_new_parent: u64,
+        index_in_new_parent: usize,
     },
     RemoveNode {
         node: NodeId,
@@ -50,6 +52,9 @@ pub enum GuiAction {
     SelectNextSibling,
     SelectParent,
     SelectFirstChild,
+    SetRootNode {
+        node: NodeId,
+    },
     ToggleEditing,
 }
 
@@ -72,16 +77,16 @@ impl Default for UiState {
             selected_node_name: String::new(),
             expanded_nodes: HashSet::new(),
             is_editing: false,
-            host_address: "localhost:2525/test-file.binc".to_string(),
+            host_address: "".to_string(),
             show_connect_dialog: false,
         }
     }
 }
 
 pub struct Application {
-    pub document: Box<Document>,
+    pub document: Document,
     pub ui: UiState,
-    document_path: Option<PathBuf>,
+    pub document_path: Option<PathBuf>,
     client: Option<PersistentClient>,
     last_update: SystemTime,
 }
@@ -94,11 +99,17 @@ impl Application {
             .expect("Root node should exist")
     }
 
+    pub fn new_with_document(document: Document) -> Application {
+        let mut application = Application::new();
+        application.set_document(document);
+        application
+    }
+
     pub(crate) fn connect_to_url(&mut self, url: &str) {
         let result = PersistentClient::connect_to_document(url);
         if let Ok((client, document)) = result {
             self.client = Some(client);
-            self.document = Box::from(document);
+            self.document = document;
         } else if let Err(error) = result {
             let text = format!("Failed to connect to host\n\n{}", error.to_string());
             rfd::MessageDialog::new()
@@ -118,10 +129,13 @@ impl Application {
         }
 
         if let Some(client) = &mut self.client {
-            let result = client.check_for_updates(self.document.as_mut());
+            let result = client.check_for_updates(&mut self.document);
 
             if result.is_err() {
-                let text = format!("Failed to check for updates\n\n{}", result.unwrap_err().to_string());
+                let text = format!(
+                    "Failed to check for updates\n\n{}",
+                    result.unwrap_err().to_string()
+                );
                 log::error!("{}", text);
             }
         }
@@ -154,6 +168,7 @@ impl Application {
             GuiAction::SetNodeExpanded { node, expanded } => self.set_node_expanded(node, expanded),
             GuiAction::ToggleSelectedNodeExpanded => self.toggle_selected_node_expanded(),
             GuiAction::ToggleEditing => self.toggle_editing(),
+            GuiAction::SetRootNode { node } => self.ui.root = node,
         }
     }
 }
@@ -170,7 +185,7 @@ impl Application {
 impl Application {
     pub fn new() -> Application {
         Application {
-            document: Box::from(new_document()),
+            document: new_document(),
             ui: UiState::default(),
             document_path: None,
             client: None,
@@ -179,13 +194,14 @@ impl Application {
     }
 
     pub fn set_document(&mut self, document: Document) {
-        self.document = Box::from(document);
+        self.document = document;
         self.ui.root = NodeId::ROOT_NODE;
         self.select_node(NodeId::NO_NODE);
     }
 
     pub fn select_node(&mut self, node_id: NodeId) {
         self.ui.selected_node = node_id;
+        let attr_id = self.document.get_or_define_attribute_id("name");
         if node_id.exists() {
             let name = self
                 .document
@@ -193,14 +209,14 @@ impl Application {
                 .get(node_id)
                 .as_ref()
                 .expect("Should exist")
-                .get_string_attribute("name");
-            self.ui.selected_node_name = name.unwrap_or(String::new());
+                .get_string_attribute(attr_id);
+            self.ui.selected_node_name = name.unwrap_or("").to_string();
         } else {
             self.ui.selected_node_name = String::new();
         }
     }
 
-    pub fn add_child(&mut self, parent_id: &NodeId, insertion_index: u64) {
+    pub fn add_child(&mut self, parent_id: &NodeId, insertion_index: usize) {
         let child_id = self.document.next_id();
 
         let c1 = Change::AddNode {
@@ -211,7 +227,7 @@ impl Application {
         self.document.add_and_apply_change(c1);
     }
 
-    pub fn move_node(&mut self, node_id: &NodeId, new_parent_id: &NodeId, insertion_index: u64) {
+    pub fn move_node(&mut self, node_id: &NodeId, new_parent_id: &NodeId, insertion_index: usize) {
         let c = Change::MoveNode {
             id: node_id.clone(),
             new_parent: new_parent_id.clone(),
@@ -221,7 +237,7 @@ impl Application {
     }
 
     pub fn remove_node(&mut self, node_id: &NodeId) {
-        let c = Change::DeleteNode {
+        let c = Change::RemoveNode {
             id: node_id.clone(),
         };
         self.document.add_and_apply_change(c);
@@ -235,8 +251,18 @@ impl Application {
         self.document.nodes.exists(id)
     }
 
+    pub fn get_author() -> String {
+        whoami::username()
+    }
+
     pub fn commit(&mut self, message: &str) {
-        self.document.pending_changes.message = message.to_string();
+        if !message.is_empty() {
+            self.document.add_and_apply_change(Change::Snapshot {
+                author: Self::get_author(),
+                message: message.to_string(),
+            })
+        }
+        /*self.document.pending_changes.message = message.to_string();
         self.document.commit_changes();
 
         if let Some(client) = &mut self.client {
@@ -250,7 +276,7 @@ impl Application {
                     .set_description(text)
                     .show();
             }
-        }
+        }*/
     }
 
     pub fn get_previous_sibling(&self, node_id: NodeId) -> Option<NodeId> {
@@ -452,8 +478,7 @@ impl Application {
 }
 
 pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mut Ui)) {
-
-    // HACK
+    // HACK, find a better place for a timer
     app.check_for_updates();
 
     ui.horizontal(|ui| {
@@ -474,7 +499,10 @@ pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mu
                 app.ui.show_connect_dialog = true;
             }
 
-            if ui.button("Save").clicked() {
+            if ui
+                .button_with_enable("Save", can_save(&app.document))
+                .clicked()
+            {
                 save_document(&mut app.document, app.document_path.clone());
             }
             if ui.button("Save as…").clicked() {
@@ -499,16 +527,17 @@ pub fn create_toolbar(app: &mut Application, ui: &mut Ui, extra: impl FnOnce(&mu
 
         ui.separator();
 
-        if ui.button("↺").clicked() {
+        if ui
+            .button_with_enable("↺", app.document.can_undo())
+            .clicked()
+        {
             app.document.undo();
         }
 
-        let mut redo = Button::new("↻");
-        if app.document.undo_changes.is_empty() {
-            redo = redo.sense(Sense::empty());
-        }
-
-        if redo.ui(ui).clicked() {
+        if ui
+            .button_with_enable("↻", app.document.can_redo())
+            .clicked()
+        {
             app.document.redo();
         }
 
@@ -589,6 +618,10 @@ pub fn import_document_from_file(importer: &Importer) -> io::Result<Option<Docum
     Ok(None)
 }
 
+pub fn can_save(document: &Document) -> bool {
+    document.num_change() > 0
+}
+
 pub fn save_document(
     document: &mut Document,
     known_path: Option<PathBuf>,
@@ -604,7 +637,6 @@ pub fn save_document(
         .save_file();
 
     if let Some(path) = path {
-        document.commit_changes();
         let mut file = File::create(path.clone())?;
         document.write(&mut file)?;
         return Ok(Some(path));

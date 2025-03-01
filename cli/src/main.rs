@@ -2,7 +2,6 @@ mod server;
 mod store;
 
 use crate::store::Store;
-use binc::attributes::AttributeValue;
 use binc::client::Client;
 use binc::document::Document;
 use binc::network_protocol::{NetworkRequest, NetworkResponse};
@@ -70,19 +69,22 @@ fn main() -> io::Result<()> {
             }
             Commands::Tree { path } => {
                 println!("Printing document tree for {}", path);
-                if let Ok(repo) = client.request(NetworkRequest::GetFileData { from_revision: 0, path })?.into_repository() {
+                if let Ok(repo) = client
+                    .request(NetworkRequest::GetFileData { from: 0, path })?
+                    .as_repository()
+                {
                     let document = Document::new(repo);
                     print_tree(&document, NodeId::ROOT_NODE, 0, 0);
                 }
-            },
+            }
             Commands::History { store: path } => {
                 println!("Listing revisions for {}", path);
-                if let Ok(repo) = client.request(NetworkRequest::GetFileData { from_revision: 0, path })?.into_repository() {
-                    repo.revisions.iter().for_each(|rev| {
-                        println!("{} {} {} {}", rev.user_name, rev.date, rev.id, rev.message);
-                        rev.changes.iter().for_each(|c| {
-                            println!("  {}", c);
-                        });
+                if let Ok(repo) = client
+                    .request(NetworkRequest::GetFileData { from: 0, path })?
+                    .as_repository()
+                {
+                    repo.changes.iter().for_each(|c| {
+                        println!(" * {}", c);
                     });
                 }
             }
@@ -101,20 +103,13 @@ fn main() -> io::Result<()> {
             store.create_file(filename)
         }
         Commands::History { store } => {
-            println!("Listing revisions for store {}", store);
+            println!("Listing changes for store {}", store);
 
             let repo = Repository::read(&mut std::fs::File::open(store)?)?;
             let mut index = 1;
-            for rev in &repo.revisions {
-                println!(
-                    "{}: {} {} {} {}",
-                    index, rev.user_name, rev.date, rev.id, rev.message
-                );
 
-                for c in &rev.changes {
-                    println!("  {}", c);
-                }
-
+            for c in &repo.changes {
+                println!("{}: {}", index, c);
                 index += 1;
             }
 
@@ -165,9 +160,7 @@ fn get_label(node: &Node, index_in_parent: usize) -> String {
     if let Some(name) = name {
         if let Some(t) = type_name {
             return format!("{}: [{}] {}", index_in_parent, t, name);
-        }
-        else
-        {
+        } else {
             return format!("{}: {}", index_in_parent, name);
         }
     }

@@ -36,6 +36,13 @@ impl ExplorerApp {
         self.application.get(id).expect("Node not found")
     }
 
+    fn node_type(&self, id: NodeId) -> String {
+        match self.get_node(id).type_id {
+            Some(id) => self.application.document.type_name(Some(id)),
+            None => format!("Type #{}", id),
+        }
+    }
+
     fn check_keyboard(
         ctx: &Context,
         app: &Application,
@@ -106,6 +113,60 @@ impl ExplorerApp {
             on_action(GuiAction::ToggleEditing);
         }
     }
+
+    fn create_inspector(&mut self, ui: &mut Ui, on_action: &mut impl FnMut(GuiAction)) {
+        ui.vertical(|ui| {
+            if let Some(node) = self.application.get_selected_node() {
+                egui::Grid::new("inspector_grid")
+                    .num_columns(2)
+                    .show(ui, |ui| {
+                        ui.label("Inspector");
+                        if ui.button("Delete Node").clicked() {
+                            on_action(GuiAction::RemoveNode { node: node.id });
+                        }
+                        ui.end_row();
+
+                        let mut name = node.name.clone().unwrap_or_default();
+                        ui.label("name");
+                        if ui.text_edit_singleline(&mut name).changed() {
+                            on_action(GuiAction::WrappedChange {
+                                change: Change::SetName {
+                                    node: node.id,
+                                    name: name.clone(),
+                                },
+                            });
+                        }
+                        ui.end_row();
+
+                        ui.label("type");
+                        /*if ui.text_edit_singleline(&mut type_name).changed() {
+                            on_action(GuiAction::WrappedChange {
+                                change: Change::SetType {
+                                    node: node.id,
+                                    type_name: type_name.clone(),
+                                },
+                            });
+                        }*/
+                        ui.label(self.node_type(node.id));
+                        ui.end_row();
+
+                        ui.label("ID");
+                        ui.label(node.id.to_string());
+                        ui.end_row();
+
+                        for at in node.attributes.iter() {
+                            ui.label(self.application.document.attribute_name(at.key));
+                            ui.label(format!("{}", at.value));
+                            ui.end_row();
+                        }
+                    });
+            } else {
+                ui.vertical_centered(|ui| {
+                    ui.label("No node selected");
+                });
+            }
+        });
+    }
 }
 
 impl eframe::App for ExplorerApp {
@@ -116,9 +177,7 @@ impl eframe::App for ExplorerApp {
             actions.push(a);
         };
 
-        let mut app = &mut self.application;
-
-        Self::check_keyboard(ctx, &app, self.use_tree, &mut on_action);
+        Self::check_keyboard(ctx, &mut self.application, self.use_tree, &mut on_action);
 
         let frame = egui::Frame::default()
             .inner_margin(8.0)
@@ -126,15 +185,18 @@ impl eframe::App for ExplorerApp {
         egui::TopBottomPanel::top("toolbar")
             .frame(frame)
             .show(ctx, |ui| {
-                create_toolbar(&mut app, ui, |ui| {
+                create_toolbar(&mut self.application, ui, |ui| {
                     ui.checkbox(&mut self.history.show_history, "Show History");
                 });
             });
         egui::SidePanel::right("inspector_panel")
             .default_width(200f32)
             .show(ctx, |ui| {
-                create_inspector(ui, app.get_selected_node(), &mut on_action);
+                egui::ScrollArea::both().auto_shrink(false).show(ui, |ui| {
+                    self.create_inspector(ui, &mut on_action);
+                });
             });
+
         if self.history.show_history {
             egui::TopBottomPanel::bottom("history_panel")
                 .default_height(160f32)
@@ -143,27 +205,37 @@ impl eframe::App for ExplorerApp {
                     egui::ScrollArea::vertical()
                         .auto_shrink(false)
                         .show(ui, |ui| {
-                            self.history.create_history(ui, app, &mut on_action);
+                            self.history.create_history(
+                                ui,
+                                &self.application.document.repository,
+                                self.application.document.undo_revision,
+                                &mut on_action,
+                            );
                         });
                 });
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            ui.ctx().style_mut(|style| {
+                style.interaction.selectable_labels = false;
+            });
             if self.use_tree {
                 egui::ScrollArea::vertical()
                     .auto_shrink(false)
                     .show(ui, |ui| {
-                        self.tree.create_tree(ui, &mut app, &mut on_action);
+                        self.tree
+                            .create_tree(ui, &mut self.application, &mut on_action);
                     });
             } else {
                 egui::ScrollArea::both().auto_shrink(false).show(ui, |ui| {
-                    self.columns.create_columns(ui, &mut app, &mut on_action);
+                    self.columns
+                        .create_columns(ui, &mut self.application, &mut on_action);
                 });
             }
         });
 
         for action in actions {
-            app.process_action(action);
+            self.application.process_action(action);
         }
     }
 }
@@ -181,58 +253,4 @@ fn main() -> eframe::Result {
         options,
         Box::new(|_cc| Ok(Box::new(ExplorerApp::new()))),
     )
-}
-
-fn create_inspector(ui: &mut Ui, node: Option<&Node>, on_action: &mut impl FnMut(GuiAction)) {
-    ui.vertical(|ui| {
-        if let Some(node) = node {
-            egui::Grid::new("inspector_grid")
-                .num_columns(2)
-                .show(ui, |ui| {
-                    ui.label("Inspector");
-                    if ui.button("Delete Node").clicked() {
-                        on_action(GuiAction::RemoveNode { node: node.id });
-                    }
-                    ui.end_row();
-
-                    let mut name = node.name.clone().unwrap_or_default();
-                    ui.label("name");
-                    if ui.text_edit_singleline(&mut name).changed() {
-                        on_action(GuiAction::WrappedChange {
-                            change: Change::SetName {
-                                node: node.id,
-                                name: name.clone(),
-                            },
-                        });
-                    }
-                    ui.end_row();
-
-                    let mut type_name = node.type_name.clone().unwrap_or_default();
-                    ui.label("type");
-                    if ui.text_edit_singleline(&mut type_name).changed() {
-                        on_action(GuiAction::WrappedChange {
-                            change: Change::SetType {
-                                node: node.id,
-                                type_name: type_name.clone(),
-                            },
-                        });
-                    }
-                    ui.end_row();
-
-                    ui.label("ID");
-                    ui.label(node.id.to_string());
-                    ui.end_row();
-
-                    for at in node.attributes.iter() {
-                        ui.label(&at.key);
-                        ui.label(format!("{}", at.value));
-                        ui.end_row();
-                    }
-                });
-        } else {
-            ui.vertical_centered(|ui| {
-                ui.label("No node selected");
-            });
-        }
-    });
 }

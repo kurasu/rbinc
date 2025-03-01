@@ -1,5 +1,4 @@
 use std::{fs, io};
-use std::fmt::format;
 use std::fs::OpenOptions;
 use std::io::Write;
 use binc::repository::Repository;
@@ -41,35 +40,35 @@ impl Store {
         }
     }
 
-    pub fn get_file_data(&self, from_revision: u64, path: String) -> io::Result<(u64, u64, Vec<u8>)> {
+    pub fn get_file_data(&self, from: u64, path: String) -> io::Result<(u64, u64, Vec<u8>)> {
         let repo = Repository::read(&mut fs::File::open(self.translate_path(&path))?)?;
-        let to_revision = repo.revisions.len() as u64;
+        let to = repo.changes.len() as u64;
 
-        if from_revision > to_revision {
+        if from > to {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, "Revision out of range"));
         }
 
         let mut data = vec![0; 0];
 
         let mut index = 0;
-        for rev in &repo.revisions {
-            if index >= from_revision {
-                rev.write(&mut data)?;
+        for change in &repo.changes {
+            if index >= from {
+                change.write(&mut data)?;
             }
             index += 1;
         }
 
-        Ok((from_revision, to_revision, data))
+        Ok((from, to, data))
     }
 
-    pub(crate) fn append_file(&self, from_revision: u64, to_revision: u64, path: &str, data: Vec<u8>) -> io::Result<()> {
-        if from_revision >= to_revision {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("No revisions to append. {}..{}", from_revision, to_revision)));
+    pub(crate) fn append_file(&self, from: u64, to: u64, path: &str, data: Vec<u8>) -> io::Result<()> {
+        if from >= to {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("No changes to append. {}..{}", from, to)));
         }
 
         let fs_path = self.translate_path(path);
         let repo = Repository::read(&mut fs::File::open(fs_path.clone())?)?;
-        if repo.revisions.len() as u64 != from_revision {
+        if repo.changes.len() as u64 != from {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, "Revision mismatch"));
         }
 

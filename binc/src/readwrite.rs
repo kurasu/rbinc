@@ -1,7 +1,7 @@
-use std::io::{self, Error, ErrorKind, Read, Write};
-use blake3::Hash;
-use uuid::Uuid;
 use crate::node_id::NodeId;
+use blake3::Hash;
+use std::io::{self, Error, ErrorKind, Read, Write};
+use uuid::Uuid;
 
 /// Extend `Write` with additional methods for writing primitive types.
 pub trait WriteExt: Write {
@@ -53,13 +53,38 @@ pub trait WriteExt: Write {
         self.write_byte(if value { 1 } else { 0 })
     }
 
-    fn write_length(&mut self, value: u64) -> io::Result<()> {
+    /// Write a variable length integer value to the stream.
+    fn write_length(&mut self, value: usize) -> io::Result<()> {
+        if value > usize::MAX {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Value would extend native range",
+            ));
+        }
+        self.write_length_u64(value as u64)
+    }
+
+    /// Write a variable length integer value to the stream. This version xor flips the bytes.
+    fn write_length_flipped(&mut self, value: usize) -> io::Result<()> {
+        if value > usize::MAX {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Value would extend native range",
+            ));
+        }
+        self.write_length_flipped_u64(value as u64)
+    }
+
+    /// Write a variable length integer value to the stream.
+    fn write_length_u64(&mut self, value: u64) -> io::Result<()> {
         let mut wrote = false;
         for i in 1..=9 {
-            let x = (value >> (7 * (10-i))) & 0x7f;
+            let x = (value >> (7 * (10 - i))) & 0x7f;
             if wrote || x != 0 {
                 let r = self.write_u8((x | 0x80) as u8);
-                if r.is_err() { return r; }
+                if r.is_err() {
+                    return r;
+                }
 
                 wrote = true;
             }
@@ -67,20 +92,37 @@ pub trait WriteExt: Write {
         self.write_u8((value & 0x7f) as u8)
     }
 
+    /// Write a variable length integer value to the stream. This version xor flips the bytes.
+    fn write_length_flipped_u64(&mut self, value: u64) -> io::Result<()> {
+        let mut wrote = false;
+        for i in 1..=9 {
+            let x = (value >> (7 * (10 - i))) & 0x7f;
+            if wrote || x != 0 {
+                let r = self.write_u8((x | 0x80) as u8 ^ 0xFF);
+                if r.is_err() {
+                    return r;
+                }
+
+                wrote = true;
+            }
+        }
+        self.write_u8((value & 0x7f) as u8 ^ 0xFF)
+    }
+
     fn write_str(&mut self, d: &str) -> io::Result<()> {
         let bytes = d.as_bytes();
-        self.write_length(bytes.len() as u64)?;
+        self.write_length(bytes.len())?;
         self.write_all(bytes)
     }
 
     fn write_string(&mut self, d: &String) -> io::Result<()> {
         let bytes = d.as_bytes();
-        self.write_length(bytes.len() as u64)?;
+        self.write_length(bytes.len())?;
         self.write_all(bytes)
     }
-    
+
     fn write_id(&mut self, id: &NodeId) -> io::Result<()> {
-        self.write_length(id.id as u64)
+        self.write_length(id.id)
     }
 
     fn write_uuid(&mut self, value: &Uuid) -> io::Result<()> {
@@ -88,7 +130,7 @@ pub trait WriteExt: Write {
     }
 
     fn write_uuid_array(&mut self, value: &Vec<Uuid>) -> io::Result<()> {
-        self.write_length(value.len() as u64)?;
+        self.write_length(value.len())?;
         for id in value {
             self.write_uuid(id)?;
         }
@@ -96,7 +138,7 @@ pub trait WriteExt: Write {
     }
 
     fn write_string_array(&mut self, value: &Vec<String>) -> io::Result<()> {
-        self.write_length(value.len() as u64)?;
+        self.write_length(value.len())?;
         for s in value {
             self.write_string(s)?;
         }
@@ -109,7 +151,7 @@ pub trait WriteExt: Write {
     }
 
     fn write_bytes(&mut self, value: &[u8]) -> io::Result<()> {
-        self.write_length(value.len() as u64)?;
+        self.write_length(value.len())?;
         self.write_all(value)
     }
 }
@@ -190,20 +232,80 @@ pub trait ReadExt: Read {
         match byte {
             0 => Ok(false),
             1 => Ok(true),
-            _ => Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid boolean value")),
+            _ => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Invalid boolean value",
+            )),
         }
     }
 
-    fn read_length(&mut self) -> io::Result<u64> {
-        let mut value : u64 = 0;
+    /// Read a variable length integer value from the stream.
+    fn read_length(&mut self) -> io::Result<usize> {
+        match self.read_length_u64() {
+            Ok(value) => {
+                if value > usize::MAX as u64 {
+                    Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "Value would extend 64-bit range",
+                    ))
+                } else {
+                    Ok(value as usize)
+                }
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Read a variable length integer value from the stream. This version xor flips the bytes.
+    fn read_length_flipped(&mut self) -> io::Result<usize> {
+        match self.read_length_u64_flipped() {
+            Ok(value) => {
+                if value > usize::MAX as u64 {
+                    Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "Value would extend 64-bit range",
+                    ))
+                } else {
+                    Ok(value as usize)
+                }
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    fn read_length_u64(&mut self) -> io::Result<u64> {
+        let mut value: u64 = 0;
         loop {
-            let x = self.read_u8().unwrap();
+            let x = self.read_u8()?;
             value = value | u64::from(x & 0x7f);
             if x & 0x80 == 0 {
-                return Ok(value)
+                return Ok(value);
             }
             if value & 0xFE00000000000000 != 0 {
-                return Err(Error::new(ErrorKind::InvalidData, "Value would extend 64-bit range"))
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Value would extend 64-bit range",
+                ));
+            }
+
+            value = value << 7
+        }
+    }
+
+    /// Read a variable length integer value from the stream. This version xor flips the bytes.
+    fn read_length_u64_flipped(&mut self) -> io::Result<u64> {
+        let mut value: u64 = 0;
+        loop {
+            let x = self.read_u8()? ^ 0xFF;
+            value = value | u64::from(x & 0x7f);
+            if x & 0x80 == 0 {
+                return Ok(value);
+            }
+            if value & 0xFE00000000000000 != 0 {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Value would extend 64-bit range",
+                ));
             }
 
             value = value << 7
@@ -218,7 +320,7 @@ pub trait ReadExt: Read {
     }
 
     fn read_id(&mut self) -> io::Result<NodeId> {
-        self.read_length().map(|id| NodeId {id: id as usize})
+        self.read_length().map(|id| NodeId { id: id as usize })
     }
 
     fn read_uuid(&mut self) -> io::Result<Uuid> {
@@ -317,10 +419,27 @@ mod tests {
         assert_eq!(cursor.read_uuid().unwrap(), id);
     }
 
-
     #[test]
     fn test_length() {
-        let values = [0, 1, 9, 127, 128, 129, 254, 255, 256, 267, 333, 513, 1000, 10000, 100000, 1000000000, 1000000000000000];
+        let values = [
+            0,
+            1,
+            9,
+            127,
+            128,
+            129,
+            254,
+            255,
+            256,
+            267,
+            333,
+            513,
+            1000,
+            10000,
+            100000,
+            1000000000,
+            1000000000000000,
+        ];
         for value in values {
             let mut w: Vec<u8> = Vec::new();
             w.write_length(value).unwrap();
@@ -346,7 +465,9 @@ mod tests {
     fn test_u8() {
         let values: [u8; 11] = [0, 1, 2, 5, 88, 109, 127, 128, 129, 223, 255];
         let mut w: Vec<u8> = Vec::new();
-        for value in values { w.write_u8(value).unwrap() }
+        for value in values {
+            w.write_u8(value).unwrap()
+        }
 
         let mut r = w.as_slice();
         for value in values {
@@ -358,7 +479,9 @@ mod tests {
     fn test_i8() {
         let values: [i8; 11] = [0, 1, 2, 5, 88, 109, 127, -128, -127, -1, -23];
         let mut w: Vec<u8> = Vec::new();
-        for value in values { w.write_i8(value).unwrap() }
+        for value in values {
+            w.write_i8(value).unwrap()
+        }
 
         let mut r = w.as_slice();
         for value in values {
@@ -368,9 +491,13 @@ mod tests {
 
     #[test]
     fn test_u16() {
-        let values: [u16; 15] = [0, 1, 2, 5, 88, 109, 127, 128, 129, 223, 255, 256, 3434, 32767, 65535];
+        let values: [u16; 15] = [
+            0, 1, 2, 5, 88, 109, 127, 128, 129, 223, 255, 256, 3434, 32767, 65535,
+        ];
         let mut w: Vec<u8> = Vec::new();
-        for value in values { w.write_u16(value).unwrap() }
+        for value in values {
+            w.write_u16(value).unwrap()
+        }
 
         let mut r = w.as_slice();
         for value in values {
@@ -380,9 +507,13 @@ mod tests {
 
     #[test]
     fn test_i16() {
-        let values: [i16; 15] = [0, 1, 2, 5, 88, 109, 127, -128, -127, -1, -23, 32767, -1000, 2000, -32768];
+        let values: [i16; 15] = [
+            0, 1, 2, 5, 88, 109, 127, -128, -127, -1, -23, 32767, -1000, 2000, -32768,
+        ];
         let mut w: Vec<u8> = Vec::new();
-        for value in values { w.write_i16(value).unwrap() }
+        for value in values {
+            w.write_i16(value).unwrap()
+        }
 
         let mut r = w.as_slice();
         for value in values {

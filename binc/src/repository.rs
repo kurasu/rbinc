@@ -1,46 +1,54 @@
+use crate::change::Change;
+use crate::changes::Changes;
+use crate::readwrite::{ReadExt, WriteExt};
 use io::Write;
 use std::io;
 use std::io::Read;
-use crate::changes::Changes;
-use crate::readwrite::{ReadExt, WriteExt};
-use crate::revision::*;
 
 pub struct Repository {
-    pub revisions: Vec<Revision>
+    pub changes: Vec<Change>,
 }
 
 impl From<Changes> for Repository {
     fn from(changes: Changes) -> Repository {
         let mut r = Self::new();
-        r.add_revision(Revision::from(changes));
+        r.changes = changes.changes;
         r
     }
 }
 
 impl Repository {
-    pub const CONTAINER_ID: u32 = 0x42494E43;
+    pub const CONTAINER_ID: u32 = u32::from_be_bytes(*b"binc");
     pub const CONTAINER_VERSION: u32 = 1;
 
     pub fn new() -> Repository {
-        Repository { revisions: Vec::new() }
+        Repository {
+            changes: Vec::new(),
+        }
     }
 
-    pub fn add_revision(&mut self, revision: Revision) {
-        self.revisions.push(revision);
+    pub fn add_change(&mut self, change: Change) {
+        self.changes.push(change);
     }
 
-    pub fn write(&self, mut w: &mut dyn Write) -> io::Result<()> {
+    pub fn add_changes(&mut self, changes: Changes) {
+        for c in changes.changes {
+            self.add_change(c);
+        }
+    }
+
+    pub fn write<T: Write>(&self, w: &mut T) -> io::Result<()> {
         w.write_u32(Repository::CONTAINER_ID)?;
         w.write_u32(Repository::CONTAINER_VERSION)?;
 
-        for revision in &self.revisions {
-            revision.write(w)?;
+        for change in &self.changes {
+            change.write(w)?
         }
         Ok(())
     }
 
-    pub fn read(mut r: &mut dyn Read) -> io::Result<Repository> {
-        let mut doc = Repository::new();
+    pub fn read<T: Read>(r: &mut T) -> io::Result<Repository> {
+        let mut repo = Repository::new();
         let container_id = r.read_u32()?;
         let container_version = r.read_u32()?;
 
@@ -50,16 +58,16 @@ impl Repository {
             return Err(io::Error::from(io::ErrorKind::InvalidData));
         }
 
-        while let Ok(revision) = Revision::read(r) {
-            doc.add_revision(revision);
+        while let Ok(change) = Change::read(r) {
+            repo.add_change(change);
         }
 
-        Ok(doc)
+        Ok(repo)
     }
 
     pub fn append<T: Read>(&mut self, mut r: &mut T) -> io::Result<()> {
-        while let Ok(revision) = Revision::read(&mut r) {
-            self.add_revision(revision);
+        while let Ok(change) = Change::read(&mut r) {
+            self.add_change(change);
         }
         Ok(())
     }
