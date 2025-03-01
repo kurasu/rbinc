@@ -31,7 +31,23 @@ impl AttributeValue {
 
 impl std::fmt::Display for AttributeValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
+        match self {
+            AttributeValue::String(s) => write!(f, "{}", s),
+            AttributeValue::Bool(b) => write!(f, "{}", b),
+            AttributeValue::Uuid(u) => write!(f, "{}", u),
+            AttributeValue::U8(u) => write!(f, "{}", u),
+            AttributeValue::U16(u) => write!(f, "{}", u),
+            AttributeValue::U24(u) => write!(f, "U24"),
+            AttributeValue::U32(u) => write!(f, "{}", u),
+            AttributeValue::U64(u) => write!(f, "{}", u),
+            AttributeValue::I8(u) => write!(f, "{}", u),
+            AttributeValue::I16(u) => write!(f, "{}", u),
+            AttributeValue::I24(u) => write!(f, "I24"),
+            AttributeValue::I32(u) => write!(f, "{}", u),
+            AttributeValue::I64(u) => write!(f, "{}", u),
+            AttributeValue::F32(u) => write!(f, "{}", u),
+            AttributeValue::F64(u) => write!(f, "{}", u),
+        }
     }
 }
 
