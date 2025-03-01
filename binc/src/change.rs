@@ -10,20 +10,22 @@ pub(crate) struct ChangeType;
 
 #[allow(dead_code)]
 impl ChangeType {
+    // v1
     pub const ADD_NODE: u64 = 0x01;
-    pub const ADD_NODE_FROM_SOURCE: u64 = 0x02;
+    pub const REMOVE_NODE: u64 = 0x02;
     pub const MOVE_NODE: u64 = 0x03;
-    pub const REMOVE_NODE: u64 = 0x04;
+    pub const SET_TYPE: u64 = 0x04;
+    pub const DEFINE_TYPE_NAME: u64 = 0x05;
+    pub const SET_NAME: u64 = 0x06;
+    pub const DEFINE_ATTRIBUTE_NAME: u64 = 0x07;
+    pub const SET_BOOL: u64 = 0x08;
+    pub const SET_STRING: u64 = 0x09;
 
-    pub const SNAPSHOT: u64 = 0x8;
-    pub const CHECKSUM: u64 = 0x9;
-
-    pub const SET_TYPE: u64 = 0x10;
-    pub const SET_NAME: u64 = 0x11;
-
-    pub const DEFINE_TYPE_NAME: u64 = 0x12;
-    pub const DEFINE_ATTRIBUTE_NAME: u64 = 0x13;
+    // work in progress
     pub const DEFINE_TAG_NAME: u64 = 0x14;
+
+    pub const SNAPSHOT: u64 = 0x10;
+    pub const CHECKSUM: u64 = 0x11;
 
     pub const ADD_TAG: u64 = 0x18;
     pub const REMOVE_TAG: u64 = 0x19;
@@ -34,8 +36,6 @@ impl ChangeType {
 
     pub const ADD_COMMENT: u64 = 0x31;
 
-    pub const SET_BOOL: u64 = 0x40;
-    pub const SET_STRING: u64 = 0x41;
     pub const SET_UUID: u64 = 0x42;
     pub const SET_UINT8: u64 = 0x43;
     pub const SET_UINT16: u64 = 0x44;
