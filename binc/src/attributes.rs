@@ -5,18 +5,23 @@ pub enum AttributeValue {
     Uuid(uuid::Uuid),
     U8(u8),
     U16(u16),
+    U24(U24),
     U32(u32),
     U64(u64),
     I8(i8),
     I16(i16),
+    I24(I24),
     I32(i32),
     I64(i64),
     F32(f32),
     F64(f64),
 }
 
+type I24 = [u8; 3];
+type U24 = [u8; 3];
+
 impl AttributeValue {
-    pub (crate) fn too_long_for_display(&self) -> bool {
+    pub(crate) fn too_long_for_display(&self) -> bool {
         match self {
             AttributeValue::String(s) => s.len() > 100,
             _ => false,
@@ -26,21 +31,7 @@ impl AttributeValue {
 
 impl std::fmt::Display for AttributeValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AttributeValue::String(s) => write!(f, "{}", s),
-            AttributeValue::Bool(b) => write!(f, "{}", b),
-            AttributeValue::Uuid(u) => write!(f, "{}", u),
-            AttributeValue::U8(u) => write!(f, "{}", u),
-            AttributeValue::U16(u) => write!(f, "{}", u),
-            AttributeValue::U32(u) => write!(f, "{}", u),
-            AttributeValue::U64(u) => write!(f, "{}", u),
-            AttributeValue::I8(u) => write!(f, "{}", u),
-            AttributeValue::I16(u) => write!(f, "{}", u),
-            AttributeValue::I32(u) => write!(f, "{}", u),
-            AttributeValue::I64(u) => write!(f, "{}", u),
-            AttributeValue::F32(u) => write!(f, "{}", u),
-            AttributeValue::F64(u) => write!(f, "{}", u),
-        }
+        write!(f, "{}", self)
     }
 }
 
@@ -51,10 +42,12 @@ pub fn attribute_type(value: &AttributeValue) -> &str {
         AttributeValue::Uuid(_) => "Uuid",
         AttributeValue::U8(_) => "U8",
         AttributeValue::U16(_) => "U16",
+        AttributeValue::U24(_) => "U24",
         AttributeValue::U32(_) => "U32",
         AttributeValue::U64(_) => "U64",
         AttributeValue::I8(_) => "I8",
         AttributeValue::I16(_) => "I16",
+        AttributeValue::I24(_) => "I24",
         AttributeValue::I32(_) => "I32",
         AttributeValue::I64(_) => "I64",
         AttributeValue::F32(_) => "F32",

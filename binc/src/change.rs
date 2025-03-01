@@ -39,32 +39,34 @@ impl ChangeType {
     pub const SET_UUID: u64 = 0x42;
     pub const SET_UINT8: u64 = 0x43;
     pub const SET_UINT16: u64 = 0x44;
-    pub const SET_UINT32: u64 = 0x45;
-    pub const SET_UINT64: u64 = 0x46;
-    pub const SET_INT8: u64 = 0x47;
-    pub const SET_INT16: u64 = 0x48;
-    pub const SET_INT32: u64 = 0x49;
-    pub const SET_INT64: u64 = 0x4A;
-    pub const SET_FLOAT16: u64 = 0x4B;
-    pub const SET_FLOAT32: u64 = 0x4C;
-    pub const SET_FLOAT64: u64 = 0x4D;
-    pub const SET_FLOAT80: u64 = 0x4E;
+    pub const SET_UINT24: u64 = 0x45;
+    pub const SET_UINT32: u64 = 0x46;
+    pub const SET_UINT64: u64 = 0x47;
+    pub const SET_INT8: u64 = 0x48;
+    pub const SET_INT16: u64 = 0x49;
+    pub const SET_INT24: u64 = 0x4A;
+    pub const SET_INT32: u64 = 0x4B;
+    pub const SET_INT64: u64 = 0x4C;
+    pub const SET_FLOAT16: u64 = 0x4D;
+    pub const SET_FLOAT32: u64 = 0x4E;
+    pub const SET_FLOAT64: u64 = 0x4F;
 
     pub const SET_BOOL_ARRAY: u64 = 0x60;
     pub const SET_STRING_ARRAY: u64 = 0x61;
     pub const SET_UUID_ARRAY: u64 = 0x62;
     pub const SET_UINT8_ARRAY: u64 = 0x63;
     pub const SET_UINT16_ARRAY: u64 = 0x64;
-    pub const SET_UINT32_ARRAY: u64 = 0x65;
-    pub const SET_UINT64_ARRAY: u64 = 0x66;
-    pub const SET_INT8_ARRAY: u64 = 0x67;
-    pub const SET_INT16_ARRAY: u64 = 0x68;
-    pub const SET_INT32_ARRAY: u64 = 0x69;
-    pub const SET_INT64_ARRAY: u64 = 0x6A;
-    pub const SET_FLOAT16_ARRAY: u64 = 0x6B;
-    pub const SET_FLOAT32_ARRAY: u64 = 0x6C;
-    pub const SET_FLOAT64_ARRAY: u64 = 0x6D;
-    pub const SET_FLOAT80_ARRAY: u64 = 0x6E;
+    pub const SET_UINT24_ARRAY: u64 = 0x65;
+    pub const SET_UINT32_ARRAY: u64 = 0x66;
+    pub const SET_UINT64_ARRAY: u64 = 0x67;
+    pub const SET_INT8_ARRAY: u64 = 0x68;
+    pub const SET_INT16_ARRAY: u64 = 0x69;
+    pub const SET_INT24_ARRAY: u64 = 0x6A;
+    pub const SET_INT32_ARRAY: u64 = 0x6B;
+    pub const SET_INT64_ARRAY: u64 = 0x6C;
+    pub const SET_FLOAT16_ARRAY: u64 = 0x6D;
+    pub const SET_FLOAT32_ARRAY: u64 = 0x6E;
+    pub const SET_FLOAT64_ARRAY: u64 = 0x6F;
 }
 
 #[derive(Debug, Clone)]
@@ -520,10 +522,12 @@ impl Change {
                     AttributeValue::Uuid(u) => w.write_uuid(u),
                     AttributeValue::U8(u) => w.write_u8(*u),
                     AttributeValue::U16(u) => w.write_u16(*u),
+                    AttributeValue::U24(u) => w.write_bytes(u),
                     AttributeValue::U32(u) => w.write_u32(*u),
                     AttributeValue::U64(u) => w.write_u64(*u),
                     AttributeValue::I8(u) => w.write_i8(*u),
                     AttributeValue::I16(u) => w.write_i16(*u),
+                    AttributeValue::I24(u) => w.write_bytes(u),
                     AttributeValue::I32(u) => w.write_i32(*u),
                     AttributeValue::I64(u) => w.write_i64(*u),
                     AttributeValue::F32(u) => w.write_f32(*u),
@@ -586,10 +590,12 @@ impl Change {
                 AttributeValue::Uuid(_) => ChangeType::SET_UUID,
                 AttributeValue::U8(_) => ChangeType::SET_UINT8,
                 AttributeValue::U16(_) => ChangeType::SET_UINT16,
+                AttributeValue::U24(_) => ChangeType::SET_UINT24,
                 AttributeValue::U32(_) => ChangeType::SET_UINT32,
                 AttributeValue::U64(_) => ChangeType::SET_UINT64,
                 AttributeValue::I8(_) => ChangeType::SET_INT8,
                 AttributeValue::I16(_) => ChangeType::SET_INT16,
+                AttributeValue::I24(_) => ChangeType::SET_INT24,
                 AttributeValue::I32(_) => ChangeType::SET_INT32,
                 AttributeValue::I64(_) => ChangeType::SET_INT64,
                 AttributeValue::F32(_) => ChangeType::SET_FLOAT32,
@@ -685,24 +691,27 @@ impl Display for Change {
                 node,
                 attribute,
                 value,
-            } => if value.too_long_for_display() {
-                write!(
-                    f,
-                    "Set{}({}, {} = {})",
-                    attribute_type(value),
-                    node,
-                    attribute,
-                    "<...>")
+            } => {
+                if value.too_long_for_display() {
+                    write!(
+                        f,
+                        "Set{}({}, {} = {})",
+                        attribute_type(value),
+                        node,
+                        attribute,
+                        "<...>"
+                    )
                 } else {
-                write!(
-                    f,
-                    "Set{}({}, {} = {})",
-                    attribute_type(value),
-                    node,
-                    attribute,
-                    value)
-
-            },
+                    write!(
+                        f,
+                        "Set{}({}, {} = {})",
+                        attribute_type(value),
+                        node,
+                        attribute,
+                        value
+                    )
+                }
+            }
             Change::UnknownChange { change_type, data } => {
                 write!(f, "UnknownChange({}, {} bytes)", change_type, data.len())
             }
