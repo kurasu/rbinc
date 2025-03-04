@@ -449,6 +449,46 @@ mod tests {
         }
     }
 
+    fn test_length_128() {
+        let bytes = [0x81u8, 0];
+        assert_eq!(128, bytes.as_slice().read_length().unwrap());
+    }
+
+    fn test_length_flipped_128() {
+        let bytes = [0x7eu8, 0xffu8];
+        assert_eq!(128, bytes.as_slice().read_length_flipped().unwrap());
+    }
+
+    #[test]
+    fn test_length_flipped() {
+        let values = [
+            0,
+            1,
+            9,
+            127,
+            128,
+            129,
+            254,
+            255,
+            256,
+            267,
+            333,
+            513,
+            1000,
+            10000,
+            100000,
+            1000000000,
+            1000000000000000,
+        ];
+        for value in values {
+            let mut w: Vec<u8> = Vec::new();
+            w.write_length_flipped(value).unwrap();
+
+            let mut r = w.as_slice();
+            assert_eq!(value, r.read_length_flipped().unwrap());
+        }
+    }
+
     #[test]
     fn test_string() {
         let values = ["hej", "crazy fox", "", "goodbye"];
