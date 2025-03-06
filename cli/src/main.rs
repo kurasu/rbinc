@@ -83,7 +83,7 @@ fn main() -> io::Result<()> {
                     .request(NetworkRequest::GetFileData { from: 0, path })?
                     .as_repository()
                 {
-                    repo.changes.iter().for_each(|c| {
+                    repo.operations.iter().for_each(|c| {
                         println!(" * {}", c);
                     });
                 }
@@ -108,7 +108,7 @@ fn main() -> io::Result<()> {
             let repo = Repository::read(&mut std::fs::File::open(store)?)?;
             let mut index = 1;
 
-            for c in &repo.changes {
+            for c in &repo.operations {
                 println!("{}: {}", index, c);
                 index += 1;
             }

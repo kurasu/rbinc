@@ -1,18 +1,18 @@
-use crate::change::Change;
 use crate::changes::Changes;
+use crate::operation::Operation;
 use crate::readwrite::{ReadExt, WriteExt};
 use io::Write;
 use std::io;
 use std::io::Read;
 
 pub struct Repository {
-    pub changes: Vec<Change>,
+    pub operations: Vec<Operation>,
 }
 
 impl From<Changes> for Repository {
     fn from(changes: Changes) -> Repository {
         let mut r = Self::new();
-        r.changes = changes.changes;
+        r.operations = changes.operations;
         r
     }
 }
@@ -23,17 +23,17 @@ impl Repository {
 
     pub fn new() -> Repository {
         Repository {
-            changes: Vec::new(),
+            operations: Vec::new(),
         }
     }
 
-    pub fn add_change(&mut self, change: Change) {
-        self.changes.push(change);
+    pub fn add_operation(&mut self, change: Operation) {
+        self.operations.push(change);
     }
 
-    pub fn add_changes(&mut self, changes: Changes) {
-        for c in changes.changes {
-            self.add_change(c);
+    pub fn add_operations(&mut self, changes: Changes) {
+        for c in changes.operations {
+            self.add_operation(c);
         }
     }
 
@@ -41,7 +41,7 @@ impl Repository {
         w.write_u32(Repository::CONTAINER_ID)?;
         w.write_u32(Repository::CONTAINER_VERSION)?;
 
-        for change in &self.changes {
+        for change in &self.operations {
             change.write(w)?
         }
         Ok(())
@@ -58,16 +58,16 @@ impl Repository {
             return Err(io::Error::from(io::ErrorKind::InvalidData));
         }
 
-        while let Ok(change) = Change::read(r) {
-            repo.add_change(change);
+        while let Ok(change) = Operation::read(r) {
+            repo.add_operation(change);
         }
 
         Ok(repo)
     }
 
     pub fn append<T: Read>(&mut self, mut r: &mut T) -> io::Result<()> {
-        while let Ok(change) = Change::read(&mut r) {
-            self.add_change(change);
+        while let Ok(operation) = Operation::read(&mut r) {
+            self.add_operation(operation);
         }
         Ok(())
     }

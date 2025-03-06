@@ -1,7 +1,7 @@
-use crate::change::Change;
 use crate::changes::Changes;
 use crate::node_id::{NodeId, NodeIdGenerator};
 use crate::node_store::NodeStore;
+use crate::operation::Operation;
 use crate::repository::Repository;
 use std::io;
 use std::io::{Read, Write};
@@ -9,7 +9,7 @@ use std::io::{Read, Write};
 pub struct Document {
     /// Repository containing all revisions
     pub repository: Repository,
-    /// This is a cache of the current state of the document, as of the last revision and all pending changes
+    /// This is a cache of the current state of the document, as of the last revision and all pending operations
     pub nodes: NodeStore,
     /// Revision that have been undone to
     pub undo_revision: Option<usize>,
@@ -19,9 +19,9 @@ pub struct Document {
 fn compute_nodes(repository: &Repository, end_revision: Option<usize>) -> NodeStore {
     let mut nodes: NodeStore = NodeStore::new();
 
-    let to = end_revision.unwrap_or(repository.changes.len());
-    for change in &repository.changes.as_slice()[..to] {
-        change.apply(&mut nodes);
+    let to = end_revision.unwrap_or(repository.operations.len());
+    for operation in &repository.operations.as_slice()[..to] {
+        operation.apply(&mut nodes);
     }
     nodes
 }
@@ -74,21 +74,21 @@ impl Document {
     }
 
     pub fn add_and_apply_changes(&mut self, changes: Changes) -> &mut Self {
-        for change in changes.changes {
-            self.add_and_apply_change(change);
+        for change in changes.operations {
+            self.add_and_apply(change);
         }
         self
     }
 
-    pub fn add_and_apply_change(&mut self, change: Change) {
+    pub fn add_and_apply(&mut self, operation: Operation) {
         if self.undo_revision.is_some() {
             self.repository
-                .changes
+                .operations
                 .truncate(self.undo_revision.unwrap() as usize);
             self.undo_revision = None;
         }
-        change.apply(&mut self.nodes);
-        self.repository.add_change(change);
+        operation.apply(&mut self.nodes);
+        self.repository.add_operation(operation);
 
         /* let last_change = self.pending_changes.changes.last();
         let combined_change = if last_change.is_some() {
@@ -106,24 +106,24 @@ impl Document {
     }
 
     pub fn append_and_apply<T: Read>(&mut self, r: &mut T) -> io::Result<()> {
-        let from = self.num_change();
+        let from = self.num_operations();
         self.repository.append(r)?;
-        let to = self.num_change();
+        let to = self.num_operations();
 
         for i in from..to {
-            let change = &self.repository.changes[i as usize];
+            let change = &self.repository.operations[i as usize];
             change.apply(&mut self.nodes);
         }
 
         Ok(())
     }
 
-    pub fn num_change(&self) -> usize {
-        self.repository.changes.len()
+    pub fn num_operations(&self) -> usize {
+        self.repository.operations.len()
     }
 
     pub fn can_undo(&self) -> bool {
-        self.num_change() > 0
+        self.num_operations() > 0
     }
 
     pub fn can_redo(&self) -> bool {
@@ -139,10 +139,10 @@ impl Document {
                 Some(rev - 1)
             }
             None => {
-                if self.num_change() == 0 {
+                if self.num_operations() == 0 {
                     return;
                 }
-                Some(self.num_change() - 1)
+                Some(self.num_operations() - 1)
             }
         };
 
@@ -152,7 +152,7 @@ impl Document {
     pub fn redo(&mut self) {
         self.undo_revision = match self.undo_revision {
             Some(rev) => {
-                if rev + 1 >= self.num_change() {
+                if rev + 1 >= self.num_operations() {
                     None
                 } else {
                     Some(rev + 1)
@@ -169,7 +169,7 @@ impl Document {
             Some(index) => index,
             None => {
                 let next_id = self.nodes.attribute_names.len();
-                self.add_and_apply_change(Change::DefineAttributeName {
+                self.add_and_apply(Operation::DefineAttributeName {
                     id: next_id,
                     name: key.to_string(),
                 });

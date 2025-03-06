@@ -22,10 +22,10 @@ impl History {
         undo_revision: Option<usize>,
         _on_action: &mut impl FnMut(GuiAction),
     ) {
-        let to = undo_revision.unwrap_or(repository.changes.len());
+        let to = undo_revision.unwrap_or(repository.operations.len());
 
         if undo_revision.is_some() {
-            repository.changes[to..]
+            repository.operations[to..]
                 .iter()
                 .rev()
                 .take(30)
@@ -35,7 +35,7 @@ impl History {
             ui.separator();
         }
 
-        repository.changes[..to]
+        repository.operations[..to]
             .iter()
             .rev()
             .take(100)

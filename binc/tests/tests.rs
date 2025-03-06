@@ -13,7 +13,7 @@ mod tests {
     #[test]
     fn test_create_example_document() {
         let d = create_example_repository();
-        assert_eq!(d.changes.len(), 5);
+        assert_eq!(d.operations.len(), 5);
     }
 
     fn create_example_repository() -> Repository {
@@ -29,7 +29,7 @@ mod tests {
         changes.add_node(id2, NodeId::ROOT_NODE, 0);
         changes.set_string_s(id2, "name", "my value");
 
-        repo.add_changes(changes);
+        repo.add_operations(changes);
         repo
     }
 
@@ -49,7 +49,7 @@ mod tests {
         repo.write(&mut buf).unwrap();
         let mut r = Cursor::new(buf);
         let repo2 = Repository::read(&mut r).unwrap();
-        assert_eq!(repo.changes.len(), repo2.changes.len());
+        assert_eq!(repo.operations.len(), repo2.operations.len());
         let doc = Document::new(repo2);
         assert_eq!(doc.find_roots().len(), 1)
     }
@@ -68,7 +68,7 @@ mod tests {
         let mut file = File::open(path).unwrap();
         let repo = Repository::read(&mut file).unwrap();
         assert!(
-            !repo.changes.is_empty(),
+            !repo.operations.is_empty(),
             "Repository should have at least one change"
         );
         let doc = Document::new(repo);

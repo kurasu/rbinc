@@ -1,6 +1,5 @@
 pub mod attributes;
 pub mod builder;
-pub mod change;
 pub mod changes;
 pub mod client;
 pub mod comments;
@@ -9,6 +8,7 @@ pub mod name_dictionary;
 pub mod network_protocol;
 pub mod node_id;
 pub mod node_store;
+pub mod operation;
 pub mod readwrite;
 pub mod repository;
 pub mod util;
