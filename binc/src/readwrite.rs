@@ -61,7 +61,7 @@ pub trait WriteExt: Write {
                 "Value would extend native range",
             ));
         }
-        self.write_length_u64(value as u64)
+        self.write_varint(value as u64)
     }
 
     /// Write a variable length integer value to the stream. This version xor flips the bytes.
@@ -72,11 +72,11 @@ pub trait WriteExt: Write {
                 "Value would extend native range",
             ));
         }
-        self.write_length_flipped_u64(value as u64)
+        self.write_varint_flipped(value as u64)
     }
 
     /// Write a variable length integer value to the stream.
-    fn write_length_u64(&mut self, value: u64) -> io::Result<()> {
+    fn write_length_vlq(&mut self, value: u64) -> io::Result<()> {
         let mut wrote = false;
         for i in 1..=9 {
             let x = (value >> (7 * (10 - i))) & 0x7f;
@@ -93,7 +93,7 @@ pub trait WriteExt: Write {
     }
 
     /// Write a variable length integer value to the stream. This version xor flips the bytes.
-    fn write_length_flipped_u64(&mut self, value: u64) -> io::Result<()> {
+    fn write_length_flipped_vlq(&mut self, value: u64) -> io::Result<()> {
         let mut wrote = false;
         for i in 1..=9 {
             let x = (value >> (7 * (10 - i))) & 0x7f;
@@ -107,6 +107,60 @@ pub trait WriteExt: Write {
             }
         }
         self.write_u8((value & 0x7f) as u8 ^ 0xFF)
+    }
+
+    fn write_varint(&mut self, value: u64) -> io::Result<()> {
+        const T1: u64 = 219;
+        const T2: u64 = 32 * 256 + T1;
+
+        if value <= T1 {
+            self.write_u8(value as u8)?
+        } else if value < T2 {
+            self.write_u8((((value - T1) >> 8) + T1 + 1) as u8)?;
+            self.write_u8(((value - T1) & 0xFF) as u8)?
+        } else if value < (65536 + T2) {
+            self.write_u8(252)?;
+            self.write_u16((value - T2) as u16)?
+        } else if value < 16777216 {
+            self.write_u8(253)?;
+            self.write_u8((value >> 16) as u8)?;
+            self.write_u8((value >> 8) as u8)?;
+            self.write_u8(value as u8)?
+        } else if value <= u32::MAX as u64 {
+            self.write_u8(254)?;
+            self.write_u32(value as u32)?
+        } else {
+            self.write_u8(255)?;
+            self.write_u64(value)?
+        }
+        Ok(())
+    }
+
+    fn write_varint_flipped(&mut self, value: u64) -> io::Result<()> {
+        const T1: u64 = 219;
+        const T2: u64 = 32 * 256 + T1;
+
+        if value <= T1 {
+            self.write_u8(value as u8 ^ 0xFF)?
+        } else if value < T2 {
+            self.write_u8((((value - T1) >> 8) + T1 + 1) as u8 ^ 0xFF)?;
+            self.write_u8(((value - T1) & 0xFF) as u8 ^ 0xFF)?
+        } else if value < (65536 + T2) {
+            self.write_u8(252 ^ 0xFF)?;
+            self.write_u16((value - T2) as u16 ^ 0xFFFF)?
+        } else if value < 16777216 {
+            self.write_u8(253 ^ 0xFF)?;
+            self.write_u8((value >> 16) as u8 ^ 0xFF)?;
+            self.write_u8((value >> 8) as u8 ^ 0xFF)?;
+            self.write_u8(value as u8 ^ 0xFF)?
+        } else if value <= u32::MAX as u64 {
+            self.write_u8(254 ^ 0xFF)?;
+            self.write_u32(value as u32 ^ 0xFFFFFFFF)?
+        } else {
+            self.write_u8(255 ^ 0xFF)?;
+            self.write_u64(value ^ 0xFFFFFFFFFFFFFFFF)?
+        }
+        Ok(())
     }
 
     fn write_str(&mut self, d: &str) -> io::Result<()> {
@@ -241,7 +295,7 @@ pub trait ReadExt: Read {
 
     /// Read a variable length integer value from the stream.
     fn read_length(&mut self) -> io::Result<usize> {
-        match self.read_length_u64() {
+        match self.read_varint() {
             Ok(value) => {
                 if value > usize::MAX as u64 {
                     Err(Error::new(
@@ -258,7 +312,7 @@ pub trait ReadExt: Read {
 
     /// Read a variable length integer value from the stream. This version xor flips the bytes.
     fn read_length_flipped(&mut self) -> io::Result<usize> {
-        match self.read_length_u64_flipped() {
+        match self.read_varint_flipped() {
             Ok(value) => {
                 if value > usize::MAX as u64 {
                     Err(Error::new(
@@ -273,7 +327,7 @@ pub trait ReadExt: Read {
         }
     }
 
-    fn read_length_u64(&mut self) -> io::Result<u64> {
+    fn read_length_vlq(&mut self) -> io::Result<u64> {
         let mut value: u64 = 0;
         loop {
             let x = self.read_u8()?;
@@ -309,6 +363,80 @@ pub trait ReadExt: Read {
             }
 
             value = value << 7
+        }
+    }
+
+    fn read_varint(&mut self) -> io::Result<u64> {
+        const T1: u8 = 219;
+        const T11: u8 = T1 + 1;
+        const T2: u64 = 32 * 256 + T1 as u64;
+
+        assert_eq!(8411, T2);
+
+        let a0 = self.read_u8()?;
+
+        match a0 {
+            0..=T1 => Ok(a0 as u64),
+            T11..=251 => {
+                let a1 = self.read_u8()?;
+                Ok((((a0 as u64 - T11 as u64) << 8) | a1 as u64) + T1 as u64)
+            }
+            252 => {
+                let a1 = self.read_u16()?;
+                Ok(a1 as u64 + T2)
+            }
+            253 => {
+                let a1 = self.read_u8()?;
+                let a2 = self.read_u8()?;
+                let a3 = self.read_u8()?;
+                Ok(((a1 as u64) << 16) | ((a2 as u64) << 8) | a3 as u64)
+            }
+            254 => {
+                let a1 = self.read_u32()?;
+                Ok(a1 as u64)
+            }
+            255 => {
+                let a1 = self.read_u64()?;
+                Ok(a1)
+            }
+            _ => Err(Error::new(ErrorKind::InvalidData, "Invalid value")),
+        }
+    }
+
+    fn read_varint_flipped(&mut self) -> io::Result<u64> {
+        const T1: u8 = 219;
+        const T11: u8 = T1 + 1;
+        const T2: u64 = 32 * 256 + T1 as u64;
+
+        assert_eq!(8411, T2);
+
+        let a0 = self.read_u8()? ^ 0xFF;
+
+        match a0 {
+            0..=T1 => Ok(a0 as u64),
+            T11..=251 => {
+                let a1 = self.read_u8()? ^ 0xFF;
+                Ok((((a0 as u64 - T11 as u64) << 8) | a1 as u64) + T1 as u64)
+            }
+            252 => {
+                let a1 = self.read_u16()? ^ 0xFFFF;
+                Ok(a1 as u64 + T2)
+            }
+            253 => {
+                let a1 = self.read_u8()? ^ 0xFF;
+                let a2 = self.read_u8()? ^ 0xFF;
+                let a3 = self.read_u8()? ^ 0xFF;
+                Ok(((a1 as u64) << 16) | ((a2 as u64) << 8) | a3 as u64)
+            }
+            254 => {
+                let a1 = self.read_u32()? ^ 0xFFFFFFFF;
+                Ok(a1 as u64)
+            }
+            255 => {
+                let a1 = self.read_u64()? ^ 0xFFFFFFFFFFFFFFFF;
+                Ok(a1)
+            }
+            _ => Err(Error::new(ErrorKind::InvalidData, "Invalid value")),
         }
     }
 
@@ -558,6 +686,83 @@ mod tests {
         let mut r = w.as_slice();
         for value in values {
             assert_eq!(value, r.read_i16().unwrap());
+        }
+    }
+
+    #[test]
+    fn test_varint() {
+        let values = [
+            0,
+            1,
+            9,
+            127,
+            128,
+            129,
+            218,
+            219,
+            220,
+            254,
+            255,
+            256,
+            267,
+            333,
+            513,
+            1000,
+            8410,
+            8411,
+            8412,
+            10000,
+            65536 + 8410,
+            65536 + 8411,
+            65536 + 8412,
+            100000,
+            16777215,
+            16777216,
+            1000000000,
+            1000000000000000,
+        ];
+
+        let mut w: Vec<u8> = Vec::new();
+        for value in values {
+            w.clear();
+            w.write_varint(value).unwrap();
+
+            let mut r = w.as_slice();
+            assert_eq!(value, r.read_varint().expect("Could not read varint"));
+        }
+
+        for value in 0..200000 as u64 {
+            w.clear();
+            w.write_varint(value).unwrap();
+
+            let mut r = w.as_slice();
+            assert_eq!(value, r.read_varint().expect("Could not read varint"));
+        }
+    }
+
+    #[test]
+    fn test_varint_size() {
+        let values = [
+            (0u64, 1),
+            (219, 1),
+            (220, 2),
+            (8410, 2),
+            (8411, 3),
+            (65536 + 8410, 3),
+            (65536 + 8411, 4),
+            (16777215, 4),
+            (16777216, 5),
+            (u32::MAX as u64, 5),
+            ((u32::MAX as u64) + 1, 9),
+            (u64::MAX, 9),
+        ];
+
+        for (value, size) in values {
+            let mut w: Vec<u8> = Vec::new();
+            w.write_varint(value).unwrap();
+
+            let mut r = w.as_slice();
+            assert_eq!(size, r.len(), "Size of varint {} is not {}", value, size);
         }
     }
 }

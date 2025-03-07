@@ -56,7 +56,7 @@ impl NetworkRequest {
                 Ok(NetworkRequest::ListFiles { path })
             }
             GET_FILE_DATA => {
-                let from_revision = r.read_length_u64()?;
+                let from_revision = r.read_varint()?;
                 let path = r.read_string()?;
                 Ok(NetworkRequest::GetFileData {
                     from: from_revision,
@@ -68,8 +68,8 @@ impl NetworkRequest {
                 Ok(NetworkRequest::CreateFile { path })
             }
             APPEND_FILE => {
-                let from_revision = r.read_length_u64()?;
-                let to_revision = r.read_length_u64()?;
+                let from_revision = r.read_varint()?;
+                let to_revision = r.read_varint()?;
                 let path = r.read_string()?;
                 let data = r.read_bytes()?;
                 Ok(NetworkRequest::AppendFile {
@@ -97,7 +97,7 @@ impl NetworkRequest {
                 from: from_revision,
                 path,
             } => {
-                w.write_length_u64(*from_revision)?;
+                w.write_length_vlq(*from_revision)?;
                 w.write_string(path)?;
             }
             NetworkRequest::CreateFile { path } => {
@@ -109,8 +109,8 @@ impl NetworkRequest {
                 path,
                 data,
             } => {
-                w.write_length_u64(*from_revision)?;
-                w.write_length_u64(*to_revision)?;
+                w.write_length_vlq(*from_revision)?;
+                w.write_length_vlq(*to_revision)?;
                 w.write_string(path)?;
                 w.write_bytes(data)?;
             }
@@ -137,8 +137,8 @@ impl NetworkResponse {
                 Ok(NetworkResponse::ListFiles { files })
             }
             GET_FILE_DATA => {
-                let from_revision = r.read_length_u64()?;
-                let to_revision = r.read_length_u64()?;
+                let from_revision = r.read_varint()?;
+                let to_revision = r.read_varint()?;
                 let data = r.read_bytes()?;
                 Ok(NetworkResponse::GetFileData {
                     from: from_revision,
@@ -182,8 +182,8 @@ impl NetworkResponse {
                 to: to_revision,
                 data,
             } => {
-                w.write_length_u64(*from_revision)?;
-                w.write_length_u64(*to_revision)?;
+                w.write_length_vlq(*from_revision)?;
+                w.write_length_vlq(*to_revision)?;
                 w.write_bytes(data)
             }
             NetworkResponse::CreateFile { result } => {
