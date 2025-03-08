@@ -1,6 +1,6 @@
 use binc::changes::Changes;
+use binc::journal::Journal;
 use binc::node_id::{NodeId, NodeIdGenerator};
-use binc::repository::Repository;
 use std::io;
 use std::io::Read;
 use xml::reader::XmlEvent;
@@ -13,13 +13,13 @@ pub enum Importer {
 }
 
 pub trait Import {
-    fn import<R: Read>(&self, reader: &mut R) -> io::Result<Repository>;
+    fn import<R: Read>(&self, reader: &mut R) -> io::Result<Journal>;
     fn get_name(&self) -> &str;
     fn file_extensions(&self) -> Vec<&str>;
 }
 
 impl Import for Importer {
-    fn import<R: Read>(&self, reader: &mut R) -> io::Result<Repository> {
+    fn import<R: Read>(&self, reader: &mut R) -> io::Result<Journal> {
         match self {
             Importer::XML => import_xml(reader),
         }
@@ -38,7 +38,7 @@ impl Import for Importer {
     }
 }
 
-fn import_xml<R: Read>(reader: &mut R) -> io::Result<Repository> {
+fn import_xml<R: Read>(reader: &mut R) -> io::Result<Journal> {
     let parser = EventReader::new(reader);
     let mut changes = Changes::new();
     let mut depth = 0;
@@ -103,7 +103,7 @@ fn import_xml<R: Read>(reader: &mut R) -> io::Result<Repository> {
         }
     }
 
-    Ok(Repository::from(changes))
+    Ok(Journal::from(changes))
 }
 
 #[cfg(test)]
@@ -126,6 +126,6 @@ mod tests {
         assert!(result.is_ok());
 
         let document = Document::new(result.unwrap());
-        // Add more assertions to verify the contents of the repository
+        // Add more assertions to verify the contents of the journal
     }
 }

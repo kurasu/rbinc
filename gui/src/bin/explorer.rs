@@ -1,9 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(rustdoc::missing_crate_level_docs)]
 
-use binc::change::Change;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
+use binc::operation::Operation;
 use bincgui::app::{create_toolbar, Application, GuiAction};
 use bincgui::column::Columns;
 use bincgui::history::History;
@@ -130,7 +130,7 @@ impl ExplorerApp {
                         ui.label("name");
                         if ui.text_edit_singleline(&mut name).changed() {
                             on_action(GuiAction::WrappedChange {
-                                change: Change::SetName {
+                                change: Operation::SetName {
                                     node: node.id,
                                     name: name.clone(),
                                 },
@@ -207,7 +207,7 @@ impl eframe::App for ExplorerApp {
                         .show(ui, |ui| {
                             self.history.create_history(
                                 ui,
-                                &self.application.document.repository,
+                                &self.application.document.journal,
                                 self.application.document.undo_revision,
                                 &mut on_action,
                             );

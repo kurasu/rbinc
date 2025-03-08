@@ -1,7 +1,7 @@
 use crate::attributes::AttributeValue;
-use crate::change::Change;
 use crate::document::Document;
 use crate::node_id::NodeId;
+use crate::operation::Operation;
 
 pub trait NodeBuilder {
     fn add_node(&mut self, parent: NodeId) -> NodeId;
@@ -22,7 +22,7 @@ impl NodeBuilder for Document {
             .expect("Parent must exist")
             .children
             .len();
-        self.add_and_apply_change(Change::AddNode {
+        self.add_and_apply(Operation::AddNode {
             id,
             parent,
             index_in_parent,
@@ -32,7 +32,7 @@ impl NodeBuilder for Document {
 
     fn insert_node(&mut self, parent: NodeId, index: usize) -> NodeId {
         let id = self.node_id_generator.next_id();
-        self.add_and_apply_change(Change::AddNode {
+        self.add_and_apply(Operation::AddNode {
             id,
             parent,
             index_in_parent: index,
@@ -41,7 +41,7 @@ impl NodeBuilder for Document {
     }
 
     fn set_node_name(&mut self, node_id: NodeId, name: &str) {
-        self.add_and_apply_change(Change::SetName {
+        self.add_and_apply(Operation::SetName {
             node: node_id,
             name: name.to_string(),
         });
@@ -52,7 +52,7 @@ impl NodeBuilder for Document {
 
         let t = if t.is_none() {
             let new_id = self.nodes.type_names.len();
-            self.add_and_apply_change(Change::DefineTypeName {
+            self.add_and_apply(Operation::DefineTypeName {
                 id: new_id,
                 name: type_name.to_string(),
             });
@@ -61,7 +61,7 @@ impl NodeBuilder for Document {
             t.unwrap()
         };
 
-        self.add_and_apply_change(Change::SetType {
+        self.add_and_apply(Operation::SetType {
             node: node_id,
             type_id: t,
         });
@@ -72,7 +72,7 @@ impl NodeBuilder for Document {
 
         let attr = if attr.is_none() {
             let new_id = self.nodes.attribute_names.len();
-            self.add_and_apply_change(Change::DefineAttributeName {
+            self.add_and_apply(Operation::DefineAttributeName {
                 id: new_id,
                 name: attribute.to_string(),
             });
@@ -81,7 +81,7 @@ impl NodeBuilder for Document {
             attr.unwrap()
         };
 
-        self.add_and_apply_change(Change::SetAttribute {
+        self.add_and_apply(Operation::SetAttribute {
             node: node_id,
             attribute: attr,
             value: AttributeValue::String(name.to_string()),
@@ -93,7 +93,7 @@ impl NodeBuilder for Document {
 
         let t = if t.is_none() {
             let new_id = self.nodes.tag_names.len();
-            self.add_and_apply_change(Change::DefineTagName {
+            self.add_and_apply(Operation::DefineTagName {
                 id: new_id,
                 name: tag.to_string(),
             });
@@ -102,7 +102,7 @@ impl NodeBuilder for Document {
             t.unwrap()
         };
 
-        self.add_and_apply_change(Change::SetTag {
+        self.add_and_apply(Operation::SetTag {
             node: node_id,
             tag: t,
         });

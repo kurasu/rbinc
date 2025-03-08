@@ -6,10 +6,10 @@ use std::fmt::{Debug, Display, Formatter};
 use std::io;
 use std::io::{Read, Write};
 
-pub(crate) struct ChangeType;
+pub(crate) struct OperationIds;
 
 #[allow(dead_code)]
-impl ChangeType {
+impl OperationIds {
     // v1
     pub const ADD_NODE: u64 = 0x01;
     pub const REMOVE_NODE: u64 = 0x02;
@@ -70,7 +70,7 @@ impl ChangeType {
 }
 
 #[derive(Debug, Clone)]
-pub enum Change {
+pub enum Operation {
     /// Add a new node to the document tree with a given parent and index
     AddNode {
         id: NodeId,
@@ -131,68 +131,68 @@ pub enum Change {
     },
 
     /// Unknown change type. Since the size is known, the data can be read and written without knowing the type
-    UnknownChange { change_type: u64, data: Vec<u8> },
+    UnknownOperation { operation: u64, data: Vec<u8> },
 }
 
-impl Change {
+impl Operation {
     // This is an id used to locate checksums in the file. In case of corruption this can be used to
     // locate which ranges of the file are corrupted and automatically repair them using other sources.
     pub const HASH_ID: u32 = u32::from_be_bytes(*b"h@sH");
 
     pub(crate) fn apply(&self, nodes: &mut NodeStore) {
         match self {
-            Change::AddNode {
+            Operation::AddNode {
                 id,
                 parent,
                 index_in_parent,
             } => {
                 nodes.add(*id, *parent, *index_in_parent as usize);
             }
-            Change::RemoveNode { id } => {
+            Operation::RemoveNode { id } => {
                 nodes.delete_recursive(*id);
             }
-            Change::MoveNode {
+            Operation::MoveNode {
                 id,
                 new_parent,
                 index_in_new_parent,
             } => {
                 nodes.move_node(*id, *new_parent, *index_in_new_parent as usize);
             }
-            Change::SetType { node, type_id: id } => {
+            Operation::SetType { node, type_id: id } => {
                 let x = nodes.get_mut(*node).expect("Node not found");
                 x.set_type(*id);
             }
-            Change::SetName { node, name } => {
+            Operation::SetName { node, name } => {
                 let x = nodes.get_mut(*node).expect("Node not found");
                 x.set_name(name);
             }
-            Change::DefineTypeName { id, name } => {
+            Operation::DefineTypeName { id, name } => {
                 nodes.define_type_name(*id, name);
             }
-            Change::DefineAttributeName { id, name } => {
+            Operation::DefineAttributeName { id, name } => {
                 nodes.define_attribute_name(*id, name);
             }
-            Change::DefineTagName { id, name } => {
+            Operation::DefineTagName { id, name } => {
                 nodes.define_tag_name(*id, name);
             }
-            Change::SetTag { node, tag } => {
+            Operation::SetTag { node, tag } => {
                 let x = nodes.get_mut(*node).expect("Node not found");
                 x.set_tag(*tag);
             }
-            Change::RemoveTag { node, tag } => {
+            Operation::RemoveTag { node, tag } => {
                 let x = nodes.get_mut(*node).expect("Node not found");
                 x.clear_tag(*tag);
             }
-            Change::Snapshot {
+            Operation::Snapshot {
                 author: _,
                 message: _,
             } => {
                 // no-op
             }
-            Change::Checksum { data: _ } => {
+            Operation::Checksum { data: _ } => {
                 // no-op
             }
-            Change::SetAttribute {
+            Operation::SetAttribute {
                 node,
                 attribute,
                 value,
@@ -200,7 +200,7 @@ impl Change {
                 let x = nodes.get_mut(*node).expect("Node not found");
                 x.set_attribute(*attribute, value.clone());
             }
-            Change::AddComment {
+            Operation::AddComment {
                 node,
                 comment,
                 author,
@@ -209,8 +209,8 @@ impl Change {
                 let x = nodes.get_mut(*node).expect("Node not found");
                 x.add_comment(comment, author, *response_to);
             }
-            Change::UnknownChange {
-                change_type: _,
+            Operation::UnknownOperation {
+                operation: _,
                 data: _,
             } => {
                 // Do nothing
@@ -218,214 +218,214 @@ impl Change {
         }
     }
 
-    pub(crate) fn read<T: Read>(r: &mut T) -> io::Result<Change> {
-        let change_type = r.read_length_flipped()? as u64;
-        let change_size = r.read_length()?;
-        match change_type {
-            ChangeType::ADD_NODE => {
+    pub(crate) fn read<T: Read>(r: &mut T) -> io::Result<Operation> {
+        let operation = r.read_length_flipped()? as u64;
+        let size = r.read_length()?;
+        match operation {
+            OperationIds::ADD_NODE => {
                 let id = r.read_id()?;
                 let parent = r.read_id()?;
                 let index_in_parent = r.read_length()?;
-                Ok(Change::AddNode {
+                Ok(Operation::AddNode {
                     id,
                     parent,
                     index_in_parent,
                 })
             }
-            ChangeType::REMOVE_NODE => {
+            OperationIds::REMOVE_NODE => {
                 let node = r.read_id()?;
-                Ok(Change::RemoveNode { id: node })
+                Ok(Operation::RemoveNode { id: node })
             }
-            ChangeType::MOVE_NODE => {
+            OperationIds::MOVE_NODE => {
                 let id = r.read_id()?;
                 let new_parent = r.read_id()?;
                 let index_in_new_parent = r.read_length()?;
-                Ok(Change::MoveNode {
+                Ok(Operation::MoveNode {
                     id,
                     new_parent,
                     index_in_new_parent,
                 })
             }
-            ChangeType::SNAPSHOT => {
+            OperationIds::SNAPSHOT => {
                 let author = r.read_string()?;
                 let message = r.read_string()?;
-                Ok(Change::Snapshot { author, message })
+                Ok(Operation::Snapshot { author, message })
             }
-            ChangeType::CHECKSUM => {
+            OperationIds::CHECKSUM => {
                 let hash = r.read_u32()?;
-                if hash != Change::HASH_ID {
+                if hash != Operation::HASH_ID {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
                         format!("Invalid hash id {}", hash),
                     ));
                 }
                 let data = r.read_bytes()?;
-                Ok(Change::Checksum { data })
+                Ok(Operation::Checksum { data })
             }
-            ChangeType::SET_STRING => {
+            OperationIds::SET_STRING => {
                 let node = r.read_id()?;
                 let attribute = r.read_length()?;
                 let value = r.read_string()?;
-                Ok(Change::SetAttribute {
+                Ok(Operation::SetAttribute {
                     node,
                     attribute,
                     value: AttributeValue::String(value),
                 })
             }
-            ChangeType::SET_BOOL => {
+            OperationIds::SET_BOOL => {
                 let node = r.read_id()?;
                 let attribute = r.read_length()?;
                 let value = r.read_u8()? != 0;
-                Ok(Change::SetAttribute {
+                Ok(Operation::SetAttribute {
                     node,
                     attribute,
                     value: AttributeValue::Bool(value),
                 })
             }
-            ChangeType::SET_UUID => {
+            OperationIds::SET_UUID => {
                 let node = r.read_id()?;
                 let attribute = r.read_length()?;
                 let value = r.read_uuid()?;
-                Ok(Change::SetAttribute {
+                Ok(Operation::SetAttribute {
                     node,
                     attribute,
                     value: AttributeValue::Uuid(value),
                 })
             }
-            ChangeType::SET_UINT8 => {
+            OperationIds::SET_UINT8 => {
                 let node = r.read_id()?;
                 let attribute = r.read_length()?;
                 let value = r.read_u8()?;
-                Ok(Change::SetAttribute {
+                Ok(Operation::SetAttribute {
                     node,
                     attribute,
                     value: AttributeValue::U8(value),
                 })
             }
-            ChangeType::SET_UINT16 => {
+            OperationIds::SET_UINT16 => {
                 let node = r.read_id()?;
                 let attribute = r.read_length()?;
                 let value = r.read_u16()?;
-                Ok(Change::SetAttribute {
+                Ok(Operation::SetAttribute {
                     node,
                     attribute,
                     value: AttributeValue::U16(value),
                 })
             }
-            ChangeType::SET_UINT32 => {
+            OperationIds::SET_UINT32 => {
                 let node = r.read_id()?;
                 let attribute = r.read_length()?;
                 let value = r.read_u32()?;
-                Ok(Change::SetAttribute {
+                Ok(Operation::SetAttribute {
                     node,
                     attribute,
                     value: AttributeValue::U32(value),
                 })
             }
-            ChangeType::SET_UINT64 => {
+            OperationIds::SET_UINT64 => {
                 let node = r.read_id()?;
                 let attribute = r.read_length()?;
                 let value = r.read_u64()?;
-                Ok(Change::SetAttribute {
+                Ok(Operation::SetAttribute {
                     node,
                     attribute,
                     value: AttributeValue::U64(value),
                 })
             }
-            ChangeType::SET_INT8 => {
+            OperationIds::SET_INT8 => {
                 let node = r.read_id()?;
                 let attribute = r.read_length()?;
                 let value = r.read_i8()?;
-                Ok(Change::SetAttribute {
+                Ok(Operation::SetAttribute {
                     node,
                     attribute,
                     value: AttributeValue::I8(value),
                 })
             }
-            ChangeType::SET_INT16 => {
+            OperationIds::SET_INT16 => {
                 let node = r.read_id()?;
                 let attribute = r.read_length()?;
                 let value = r.read_i16()?;
-                Ok(Change::SetAttribute {
+                Ok(Operation::SetAttribute {
                     node,
                     attribute,
                     value: AttributeValue::I16(value),
                 })
             }
-            ChangeType::SET_INT32 => {
+            OperationIds::SET_INT32 => {
                 let node = r.read_id()?;
                 let attribute = r.read_length()?;
                 let value = r.read_i32()?;
-                Ok(Change::SetAttribute {
+                Ok(Operation::SetAttribute {
                     node,
                     attribute,
                     value: AttributeValue::I32(value),
                 })
             }
-            ChangeType::SET_INT64 => {
+            OperationIds::SET_INT64 => {
                 let node = r.read_id()?;
                 let attribute = r.read_length()?;
                 let value = r.read_i64()?;
-                Ok(Change::SetAttribute {
+                Ok(Operation::SetAttribute {
                     node,
                     attribute,
                     value: AttributeValue::I64(value),
                 })
             }
-            ChangeType::SET_FLOAT32 => {
+            OperationIds::SET_FLOAT32 => {
                 let node = r.read_id()?;
                 let attribute = r.read_length()?;
                 let value = r.read_f32()?;
-                Ok(Change::SetAttribute {
+                Ok(Operation::SetAttribute {
                     node,
                     attribute,
                     value: AttributeValue::F32(value),
                 })
             }
-            ChangeType::SET_FLOAT64 => {
+            OperationIds::SET_FLOAT64 => {
                 let node = r.read_id()?;
                 let attribute = r.read_length()?;
                 let value = r.read_f64()?;
-                Ok(Change::SetAttribute {
+                Ok(Operation::SetAttribute {
                     node,
                     attribute,
                     value: AttributeValue::F64(value),
                 })
             }
-            ChangeType::SET_NAME => {
+            OperationIds::SET_NAME => {
                 let node = r.read_id()?;
                 let name = r.read_string()?;
-                Ok(Change::SetName { node, name })
+                Ok(Operation::SetName { node, name })
             }
-            ChangeType::SET_TYPE => {
+            OperationIds::SET_TYPE => {
                 let node = r.read_id()?;
                 let type_id = r.read_length()?;
-                Ok(Change::SetType {
+                Ok(Operation::SetType {
                     node,
                     type_id: type_id,
                 })
             }
-            ChangeType::DEFINE_TYPE_NAME => {
+            OperationIds::DEFINE_TYPE_NAME => {
                 let id = r.read_length()?;
                 let name = r.read_string()?;
-                Ok(Change::DefineTypeName { id, name })
+                Ok(Operation::DefineTypeName { id, name })
             }
-            ChangeType::DEFINE_ATTRIBUTE_NAME => {
+            OperationIds::DEFINE_ATTRIBUTE_NAME => {
                 let id = r.read_length()?;
                 let name = r.read_string()?;
-                Ok(Change::DefineAttributeName { id, name })
+                Ok(Operation::DefineAttributeName { id, name })
             }
-            ChangeType::DEFINE_TAG_NAME => {
+            OperationIds::DEFINE_TAG_NAME => {
                 let id = r.read_length()?;
                 let name = r.read_string()?;
-                Ok(Change::DefineTagName { id, name })
+                Ok(Operation::DefineTagName { id, name })
             }
-            ChangeType::ADD_COMMENT => {
+            OperationIds::ADD_COMMENT => {
                 let node = r.read_id()?;
                 let comment = r.read_string()?;
                 let author = r.read_string()?;
                 let response_to = r.read_length()?;
-                Ok(Change::AddComment {
+                Ok(Operation::AddComment {
                     node,
                     comment,
                     author,
@@ -433,9 +433,9 @@ impl Change {
                 })
             }
             _ => {
-                let mut data = vec![0; change_size as usize];
+                let mut data = vec![0; size as usize];
                 r.read_exact(&mut data)?;
-                Ok(Change::UnknownChange { change_type, data })
+                Ok(Operation::UnknownOperation { operation, data })
             }
         }
     }
@@ -445,7 +445,7 @@ impl Change {
         self.write_content(&mut temp)?;
 
         // header (id+size)
-        w.write_length_flipped(self.change_type() as usize)?; // Flipped for better resiliency
+        w.write_length_flipped(self.operation_id() as usize)?; // Flipped for better resiliency
         w.write_length(temp.len())?;
 
         // content
@@ -454,7 +454,7 @@ impl Change {
 
     fn write_content<T: Write>(&self, w: &mut T) -> io::Result<()> {
         match self {
-            Change::AddNode {
+            Operation::AddNode {
                 id,
                 parent,
                 index_in_parent,
@@ -463,7 +463,7 @@ impl Change {
                 w.write_id(parent)?;
                 w.write_length(*index_in_parent)
             }
-            Change::MoveNode {
+            Operation::MoveNode {
                 id,
                 new_parent,
                 index_in_new_parent,
@@ -472,44 +472,44 @@ impl Change {
                 w.write_id(new_parent)?;
                 w.write_length(*index_in_new_parent)
             }
-            Change::RemoveNode { id } => w.write_id(id),
-            Change::Snapshot { author, message } => {
+            Operation::RemoveNode { id } => w.write_id(id),
+            Operation::Snapshot { author, message } => {
                 w.write_string(author)?;
                 w.write_string(message)
             }
-            Change::Checksum { data } => {
-                w.write_u32(Change::HASH_ID)?;
+            Operation::Checksum { data } => {
+                w.write_u32(Operation::HASH_ID)?;
                 w.write_bytes(data)
             }
-            Change::SetName { node, name: label } => {
+            Operation::SetName { node, name: label } => {
                 w.write_id(node)?;
                 w.write_string(label)
             }
-            Change::SetType { node, type_id } => {
+            Operation::SetType { node, type_id } => {
                 w.write_id(node)?;
                 w.write_length(*type_id)
             }
-            Change::DefineTypeName { id, name } => {
+            Operation::DefineTypeName { id, name } => {
                 w.write_length(*id)?;
                 w.write_string(name)
             }
-            Change::DefineAttributeName { id, name } => {
+            Operation::DefineAttributeName { id, name } => {
                 w.write_length(*id)?;
                 w.write_string(name)
             }
-            Change::DefineTagName { id, name } => {
+            Operation::DefineTagName { id, name } => {
                 w.write_length(*id)?;
                 w.write_string(name)
             }
-            Change::SetTag { node, tag } => {
+            Operation::SetTag { node, tag } => {
                 w.write_id(node)?;
                 w.write_length(*tag)
             }
-            Change::RemoveTag { node, tag } => {
+            Operation::RemoveTag { node, tag } => {
                 w.write_id(node)?;
                 w.write_length(*tag)
             }
-            Change::SetAttribute {
+            Operation::SetAttribute {
                 node,
                 attribute,
                 value,
@@ -534,7 +534,7 @@ impl Change {
                     AttributeValue::F64(u) => w.write_f64(*u),
                 }
             }
-            Change::AddComment {
+            Operation::AddComment {
                 node,
                 comment,
                 author,
@@ -545,90 +545,89 @@ impl Change {
                 w.write_string(author)?;
                 w.write_length(*response_to)
             }
-            Change::UnknownChange {
-                change_type: _,
-                data,
-            } => w.write_all(data),
+            Operation::UnknownOperation { operation: _, data } => w.write_all(data),
         }
     }
 
-    pub(crate) fn change_type(&self) -> u64 {
+    pub(crate) fn operation_id(&self) -> u64 {
         match self {
-            Change::AddNode {
+            Operation::AddNode {
                 id: _,
                 parent: _,
                 index_in_parent: _,
-            } => ChangeType::ADD_NODE,
-            Change::MoveNode {
+            } => OperationIds::ADD_NODE,
+            Operation::MoveNode {
                 id: _,
                 new_parent: _,
                 index_in_new_parent: _,
-            } => ChangeType::MOVE_NODE,
-            Change::RemoveNode { id: _ } => ChangeType::REMOVE_NODE,
-            Change::Snapshot {
+            } => OperationIds::MOVE_NODE,
+            Operation::RemoveNode { id: _ } => OperationIds::REMOVE_NODE,
+            Operation::Snapshot {
                 author: _,
                 message: _,
-            } => ChangeType::SNAPSHOT,
-            Change::Checksum { data: _ } => ChangeType::CHECKSUM,
-            Change::SetName { node: _, name: _ } => ChangeType::SET_NAME,
-            Change::SetType {
+            } => OperationIds::SNAPSHOT,
+            Operation::Checksum { data: _ } => OperationIds::CHECKSUM,
+            Operation::SetName { node: _, name: _ } => OperationIds::SET_NAME,
+            Operation::SetType {
                 node: _,
                 type_id: _,
-            } => ChangeType::SET_TYPE,
-            Change::DefineTypeName { id: _, name: _ } => ChangeType::DEFINE_TYPE_NAME,
-            Change::DefineAttributeName { id: _, name: _ } => ChangeType::DEFINE_ATTRIBUTE_NAME,
-            Change::DefineTagName { id: _, name: _ } => ChangeType::DEFINE_TAG_NAME,
-            Change::SetTag { node: _, tag: _ } => ChangeType::ADD_TAG,
-            Change::RemoveTag { node: _, tag: _ } => ChangeType::REMOVE_TAG,
-            Change::SetAttribute {
+            } => OperationIds::SET_TYPE,
+            Operation::DefineTypeName { id: _, name: _ } => OperationIds::DEFINE_TYPE_NAME,
+            Operation::DefineAttributeName { id: _, name: _ } => {
+                OperationIds::DEFINE_ATTRIBUTE_NAME
+            }
+            Operation::DefineTagName { id: _, name: _ } => OperationIds::DEFINE_TAG_NAME,
+            Operation::SetTag { node: _, tag: _ } => OperationIds::ADD_TAG,
+            Operation::RemoveTag { node: _, tag: _ } => OperationIds::REMOVE_TAG,
+            Operation::SetAttribute {
                 node: _,
                 attribute: _,
                 value,
             } => match value {
-                AttributeValue::String(_) => ChangeType::SET_STRING,
-                AttributeValue::Bool(_) => ChangeType::SET_BOOL,
-                AttributeValue::Uuid(_) => ChangeType::SET_UUID,
-                AttributeValue::U8(_) => ChangeType::SET_UINT8,
-                AttributeValue::U16(_) => ChangeType::SET_UINT16,
-                AttributeValue::U24(_) => ChangeType::SET_UINT24,
-                AttributeValue::U32(_) => ChangeType::SET_UINT32,
-                AttributeValue::U64(_) => ChangeType::SET_UINT64,
-                AttributeValue::I8(_) => ChangeType::SET_INT8,
-                AttributeValue::I16(_) => ChangeType::SET_INT16,
-                AttributeValue::I24(_) => ChangeType::SET_INT24,
-                AttributeValue::I32(_) => ChangeType::SET_INT32,
-                AttributeValue::I64(_) => ChangeType::SET_INT64,
-                AttributeValue::F32(_) => ChangeType::SET_FLOAT32,
-                AttributeValue::F64(_) => ChangeType::SET_FLOAT64,
+                AttributeValue::String(_) => OperationIds::SET_STRING,
+                AttributeValue::Bool(_) => OperationIds::SET_BOOL,
+                AttributeValue::Uuid(_) => OperationIds::SET_UUID,
+                AttributeValue::U8(_) => OperationIds::SET_UINT8,
+                AttributeValue::U16(_) => OperationIds::SET_UINT16,
+                AttributeValue::U24(_) => OperationIds::SET_UINT24,
+                AttributeValue::U32(_) => OperationIds::SET_UINT32,
+                AttributeValue::U64(_) => OperationIds::SET_UINT64,
+                AttributeValue::I8(_) => OperationIds::SET_INT8,
+                AttributeValue::I16(_) => OperationIds::SET_INT16,
+                AttributeValue::I24(_) => OperationIds::SET_INT24,
+                AttributeValue::I32(_) => OperationIds::SET_INT32,
+                AttributeValue::I64(_) => OperationIds::SET_INT64,
+                AttributeValue::F32(_) => OperationIds::SET_FLOAT32,
+                AttributeValue::F64(_) => OperationIds::SET_FLOAT64,
             },
-            Change::AddComment {
+            Operation::AddComment {
                 node: _,
                 comment: _,
                 author: _,
                 response_to: _,
-            } => ChangeType::ADD_COMMENT,
-            Change::UnknownChange {
-                change_type,
+            } => OperationIds::ADD_COMMENT,
+            Operation::UnknownOperation {
+                operation: operation,
                 data: _,
-            } => *change_type,
+            } => *operation,
         }
     }
 
-    pub fn combine_change(&self, last_change: &Change) -> Option<Change> {
-        if let Change::SetAttribute {
+    pub fn combine_operations(&self, previous_operation: &Operation) -> Option<Operation> {
+        if let Operation::SetAttribute {
             node,
             attribute,
             value,
         } = self
         {
-            if let Change::SetAttribute {
+            if let Operation::SetAttribute {
                 node: node2,
                 attribute: attribute2,
                 value: _value2,
-            } = last_change
+            } = previous_operation
             {
                 if node == node2 && attribute == attribute2 {
-                    return Some(Change::SetAttribute {
+                    return Some(Operation::SetAttribute {
                         node: *node,
                         attribute: *attribute,
                         value: value.clone(),
@@ -637,14 +636,14 @@ impl Change {
             }
         }
 
-        if let Change::SetName { node, name: label } = self {
-            if let Change::SetName {
+        if let Operation::SetName { node, name: label } = self {
+            if let Operation::SetName {
                 node: node2,
                 name: _label2,
-            } = last_change
+            } = previous_operation
             {
                 if node == node2 {
-                    return Some(Change::SetName {
+                    return Some(Operation::SetName {
                         node: node.clone(),
                         name: label.clone(),
                     });
@@ -656,15 +655,15 @@ impl Change {
     }
 }
 
-impl Display for Change {
+impl Display for Operation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Change::AddNode {
+            Operation::AddNode {
                 id,
                 parent,
                 index_in_parent,
             } => write!(f, "AddNode({} in {}[{}])", id, parent, index_in_parent),
-            Change::MoveNode {
+            Operation::MoveNode {
                 id,
                 new_parent,
                 index_in_new_parent,
@@ -673,21 +672,21 @@ impl Display for Change {
                 "MoveNode({} to {}[{}])",
                 id, new_parent, index_in_new_parent
             ),
-            Change::RemoveNode { id } => write!(f, "RemoveNode({})", id),
-            Change::Snapshot { author, message } => {
+            Operation::RemoveNode { id } => write!(f, "RemoveNode({})", id),
+            Operation::Snapshot { author, message } => {
                 write!(f, "Snapshot by {} ({})", author, message)
             }
-            Change::Checksum { data } => write!(f, "Checksum({} bytes)", data.len()),
-            Change::SetType { node, type_id } => write!(f, "SetType({}, {})", node, type_id),
-            Change::SetName { node, name: label } => write!(f, "SetLabel({}, {})", node, label),
-            Change::DefineTypeName { id, name } => write!(f, "SetTypeName({}, {})", id, name),
-            Change::DefineAttributeName { id, name } => {
+            Operation::Checksum { data } => write!(f, "Checksum({} bytes)", data.len()),
+            Operation::SetType { node, type_id } => write!(f, "SetType({}, {})", node, type_id),
+            Operation::SetName { node, name: label } => write!(f, "SetLabel({}, {})", node, label),
+            Operation::DefineTypeName { id, name } => write!(f, "SetTypeName({}, {})", id, name),
+            Operation::DefineAttributeName { id, name } => {
                 write!(f, "SetAttributeName({}, {})", id, name)
             }
-            Change::DefineTagName { id, name } => write!(f, "SetTagName({}, {})", id, name),
-            Change::SetTag { node, tag } => write!(f, "SetTag({}, {})", node, tag),
-            Change::RemoveTag { node, tag } => write!(f, "RemoveTag({}, {})", node, tag),
-            Change::SetAttribute {
+            Operation::DefineTagName { id, name } => write!(f, "SetTagName({}, {})", id, name),
+            Operation::SetTag { node, tag } => write!(f, "SetTag({}, {})", node, tag),
+            Operation::RemoveTag { node, tag } => write!(f, "RemoveTag({}, {})", node, tag),
+            Operation::SetAttribute {
                 node,
                 attribute,
                 value,
@@ -712,10 +711,13 @@ impl Display for Change {
                     )
                 }
             }
-            Change::UnknownChange { change_type, data } => {
+            Operation::UnknownOperation {
+                operation: change_type,
+                data,
+            } => {
                 write!(f, "UnknownChange({}, {} bytes)", change_type, data.len())
             }
-            Change::AddComment {
+            Operation::AddComment {
                 node,
                 comment,
                 author,

@@ -1,7 +1,7 @@
 use crate::app::{Application, GuiAction};
-use binc::change::Change;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
+use binc::operation::Operation;
 use eframe::egui::StrokeKind::Inside;
 use eframe::egui::{
     CursorIcon, DragAndDrop, Id, InnerResponse, LayerId, Order, Sense, Ui, UiBuilder,
@@ -170,7 +170,7 @@ impl Columns {
                         text_edit.request_focus();
                         if text_edit.changed() {
                             on_action(GuiAction::WrappedChange {
-                                change: Change::SetName {
+                                change: Operation::SetName {
                                     node: node_id,
                                     name: node_name.clone(),
                                 },

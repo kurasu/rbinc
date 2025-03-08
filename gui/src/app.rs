@@ -1,11 +1,11 @@
 use crate::importer::{Import, Importer, IMPORTERS};
 use crate::persistent_client::PersistentClient;
-use binc::change::Change;
 use binc::changes::Changes;
 use binc::document::Document;
+use binc::journal::Journal;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
-use binc::repository::Repository;
+use binc::operation::Operation;
 use eframe::egui;
 use eframe::egui::{Id, Modal, Sense, Ui, Widget};
 use std::collections::HashSet;
@@ -35,7 +35,7 @@ pub enum GuiAction {
         node: NodeId,
     },
     WrappedChange {
-        change: Change,
+        change: Operation,
     },
     SetNodeExpanded {
         node: NodeId,
@@ -156,7 +156,7 @@ impl Application {
             } => self.move_node(&node, &new_parent, index_in_new_parent),
             GuiAction::RemoveNode { node } => self.remove_node(&node),
             GuiAction::Commit { message } => self.commit(&message),
-            GuiAction::WrappedChange { change } => self.document.add_and_apply_change(change),
+            GuiAction::WrappedChange { change } => self.document.add_and_apply(change),
             GuiAction::Undo => self.document.undo(),
             GuiAction::Redo => self.document.redo(),
             GuiAction::SelectPreviousInTree => self.select_previous_in_tree(),
@@ -219,28 +219,28 @@ impl Application {
     pub fn add_child(&mut self, parent_id: &NodeId, insertion_index: usize) {
         let child_id = self.document.next_id();
 
-        let c1 = Change::AddNode {
+        let c1 = Operation::AddNode {
             id: child_id,
             parent: parent_id.clone(),
             index_in_parent: insertion_index,
         };
-        self.document.add_and_apply_change(c1);
+        self.document.add_and_apply(c1);
     }
 
     pub fn move_node(&mut self, node_id: &NodeId, new_parent_id: &NodeId, insertion_index: usize) {
-        let c = Change::MoveNode {
+        let c = Operation::MoveNode {
             id: node_id.clone(),
             new_parent: new_parent_id.clone(),
             index_in_new_parent: insertion_index,
         };
-        self.document.add_and_apply_change(c);
+        self.document.add_and_apply(c);
     }
 
     pub fn remove_node(&mut self, node_id: &NodeId) {
-        let c = Change::RemoveNode {
+        let c = Operation::RemoveNode {
             id: node_id.clone(),
         };
-        self.document.add_and_apply_change(c);
+        self.document.add_and_apply(c);
         self.select_node(NodeId::NO_NODE);
         if !self.node_exists(self.ui.root) {
             self.ui.root = NodeId::ROOT_NODE;
@@ -257,7 +257,7 @@ impl Application {
 
     pub fn commit(&mut self, message: &str) {
         if !message.is_empty() {
-            self.document.add_and_apply_change(Change::Snapshot {
+            self.document.add_and_apply(Operation::Snapshot {
                 author: Self::get_author(),
                 message: message.to_string(),
             })
@@ -619,7 +619,7 @@ pub fn import_document_from_file(importer: &Importer) -> io::Result<Option<Docum
 }
 
 pub fn can_save(document: &Document) -> bool {
-    document.num_change() > 0
+    document.num_operations() > 0
 }
 
 pub fn save_document(
@@ -645,7 +645,7 @@ pub fn save_document(
 }
 
 pub fn new_document() -> Document {
-    let mut document = Document::new(Repository::new());
+    let mut document = Document::new(Journal::new());
     let id = document.next_id();
     let mut changes = Changes::new();
     changes

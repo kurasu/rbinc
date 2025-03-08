@@ -1,10 +1,10 @@
 use crate::attributes::AttributeValue;
-use crate::change::Change;
 use crate::node_id::NodeId;
+use crate::operation::Operation;
 
 #[derive(Debug, Clone, Default)]
 pub struct Changes {
-    pub changes: Vec<Change>,
+    pub operations: Vec<Operation>,
 }
 
 impl Changes {}
@@ -15,11 +15,11 @@ impl Changes {
     }
 }
 
-// TODO move this to repository and use that to easily create new changes
+// TODO move this to journal and use that to easily create new operations
 
 impl Changes {
     pub fn add_node(&mut self, id: NodeId, parent: NodeId, index_in_parent: usize) -> &mut Self {
-        self.changes.push(Change::AddNode {
+        self.operations.push(Operation::AddNode {
             id,
             parent,
             index_in_parent,
@@ -28,7 +28,7 @@ impl Changes {
     }
 
     pub fn remove_node(&mut self, id: NodeId) -> &mut Self {
-        self.changes.push(Change::RemoveNode { id });
+        self.operations.push(Operation::RemoveNode { id });
         self
     }
 
@@ -38,7 +38,7 @@ impl Changes {
         new_parent: NodeId,
         index_in_new_parent: usize,
     ) -> &mut Self {
-        self.changes.push(Change::MoveNode {
+        self.operations.push(Operation::MoveNode {
             id,
             new_parent,
             index_in_new_parent,
@@ -52,7 +52,7 @@ impl Changes {
     }
 
     pub fn set_type(&mut self, node: NodeId, type_id: usize) -> &mut Self {
-        self.changes.push(Change::SetType {
+        self.operations.push(Operation::SetType {
             node,
             type_id: type_id,
         });
@@ -60,7 +60,7 @@ impl Changes {
     }
 
     pub fn set_name(&mut self, node: NodeId, label: &str) -> &mut Self {
-        self.changes.push(Change::SetName {
+        self.operations.push(Operation::SetName {
             node,
             name: label.to_string(),
         });
@@ -73,7 +73,7 @@ impl Changes {
     }
 
     pub fn set_string(&mut self, node: NodeId, attribute: usize, value: &str) -> &mut Self {
-        self.changes.push(Change::SetAttribute {
+        self.operations.push(Operation::SetAttribute {
             node,
             attribute,
             value: AttributeValue::String(value.to_string()),
@@ -82,7 +82,7 @@ impl Changes {
     }
 
     pub fn set_bool(&mut self, node: NodeId, attribute: usize, value: bool) -> &mut Self {
-        self.changes.push(Change::SetAttribute {
+        self.operations.push(Operation::SetAttribute {
             node,
             attribute,
             value: AttributeValue::Bool(value),
@@ -92,9 +92,9 @@ impl Changes {
 
     fn get_or_add_attribute_id(&mut self, attribute_name: &str) -> usize {
         let mut next_id = 0;
-        for c in &self.changes {
+        for c in &self.operations {
             match c {
-                Change::DefineAttributeName { id, name } => {
+                Operation::DefineAttributeName { id, name } => {
                     if attribute_name == name {
                         return *id;
                     }
@@ -104,7 +104,7 @@ impl Changes {
             }
         }
 
-        self.changes.push(Change::DefineAttributeName {
+        self.operations.push(Operation::DefineAttributeName {
             id: next_id,
             name: attribute_name.to_string(),
         });
@@ -113,9 +113,9 @@ impl Changes {
 
     fn get_or_add_type_id(&mut self, type_name: &str) -> usize {
         let mut next_id = 0;
-        for c in &self.changes {
+        for c in &self.operations {
             match c {
-                Change::DefineTypeName { id, name } => {
+                Operation::DefineTypeName { id, name } => {
                     if type_name == name {
                         return *id;
                     }
@@ -125,7 +125,7 @@ impl Changes {
             }
         }
 
-        self.changes.push(Change::DefineTypeName {
+        self.operations.push(Operation::DefineTypeName {
             id: next_id,
             name: type_name.to_string(),
         });

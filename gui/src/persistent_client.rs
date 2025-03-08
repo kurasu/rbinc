@@ -18,13 +18,13 @@ impl PersistentClient {
                         from: 0,
                         path: path.to_string(),
                     })?
-                    .as_repository()
+                    .as_journal()
                 {
                     let document = Document::new(repo);
                     Ok((
                         PersistentClient {
                             client,
-                            current_pos: document.num_change() as u64,
+                            current_pos: document.num_operations() as u64,
                             path: path.to_string(),
                         },
                         document,
@@ -75,12 +75,12 @@ impl PersistentClient {
 
     pub fn commit_changes(&mut self, document: &Document) -> io::Result<()> {
         let from = self.current_pos;
-        let to = document.repository.changes.len() as u64;
+        let to = document.journal.operations.len() as u64;
 
         if to > from {
             let mut data = vec![];
             let mut index = 0;
-            for change in &document.repository.changes {
+            for change in &document.journal.operations {
                 if index >= from as usize {
                     change.write(&mut data)?;
                 }
