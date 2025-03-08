@@ -207,7 +207,7 @@ impl eframe::App for ExplorerApp {
                         .show(ui, |ui| {
                             self.history.create_history(
                                 ui,
-                                &self.application.document.repository,
+                                &self.application.document.journal,
                                 self.application.document.undo_revision,
                                 &mut on_action,
                             );

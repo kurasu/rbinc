@@ -1,5 +1,5 @@
+use crate::journal::Journal;
 use crate::readwrite::{ReadExt, WriteExt};
-use crate::repository::Repository;
 use std::fmt::{Display, Formatter};
 use std::io;
 
@@ -275,16 +275,16 @@ impl Display for NetworkResponse {
 }
 
 impl NetworkResponse {
-    pub fn as_repository(&self) -> io::Result<Repository> {
+    pub fn as_journal(&self) -> io::Result<Journal> {
         match self {
             NetworkResponse::GetFileData { data, .. } => {
-                let mut repo = Repository::new();
+                let mut repo = Journal::new();
                 repo.append(&mut data.as_slice())?;
                 Ok(repo)
             }
             _ => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                "Not a repository response",
+                "Not a GetFileData response",
             )),
         }
     }

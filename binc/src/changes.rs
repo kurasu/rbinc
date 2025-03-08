@@ -15,7 +15,7 @@ impl Changes {
     }
 }
 
-// TODO move this to repository and use that to easily create new changes
+// TODO move this to journal and use that to easily create new operations
 
 impl Changes {
     pub fn add_node(&mut self, id: NodeId, parent: NodeId, index_in_parent: usize) -> &mut Self {

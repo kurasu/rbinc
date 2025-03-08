@@ -1,5 +1,5 @@
 use crate::app::GuiAction;
-use binc::repository::Repository;
+use binc::journal::Journal;
 use eframe::egui::Ui;
 
 pub struct History {
@@ -18,14 +18,14 @@ impl History {
     pub fn create_history(
         &self,
         ui: &mut Ui,
-        repository: &Repository,
+        journal: &Journal,
         undo_revision: Option<usize>,
         _on_action: &mut impl FnMut(GuiAction),
     ) {
-        let to = undo_revision.unwrap_or(repository.operations.len());
+        let to = undo_revision.unwrap_or(journal.operations.len());
 
         if undo_revision.is_some() {
-            repository.operations[to..]
+            journal.operations[to..]
                 .iter()
                 .rev()
                 .take(30)
@@ -35,7 +35,7 @@ impl History {
             ui.separator();
         }
 
-        repository.operations[..to]
+        journal.operations[..to]
             .iter()
             .rev()
             .take(100)

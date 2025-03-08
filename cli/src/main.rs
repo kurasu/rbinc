@@ -4,10 +4,10 @@ mod store;
 use crate::store::Store;
 use binc::client::Client;
 use binc::document::Document;
+use binc::journal::Journal;
 use binc::network_protocol::{NetworkRequest, NetworkResponse};
 use binc::node_id::NodeId;
 use binc::node_store::Node;
-use binc::repository::Repository;
 use clap::{Parser, Subcommand};
 use std::io;
 
@@ -71,7 +71,7 @@ fn main() -> io::Result<()> {
                 println!("Printing document tree for {}", path);
                 if let Ok(repo) = client
                     .request(NetworkRequest::GetFileData { from: 0, path })?
-                    .as_repository()
+                    .as_journal()
                 {
                     let document = Document::new(repo);
                     print_tree(&document, NodeId::ROOT_NODE, 0, 0);
@@ -81,7 +81,7 @@ fn main() -> io::Result<()> {
                 println!("Listing revisions for {}", path);
                 if let Ok(repo) = client
                     .request(NetworkRequest::GetFileData { from: 0, path })?
-                    .as_repository()
+                    .as_journal()
                 {
                     repo.operations.iter().for_each(|c| {
                         println!(" * {}", c);
@@ -105,7 +105,7 @@ fn main() -> io::Result<()> {
         Commands::History { store } => {
             println!("Listing changes for store {}", store);
 
-            let repo = Repository::read(&mut std::fs::File::open(store)?)?;
+            let repo = Journal::read(&mut std::fs::File::open(store)?)?;
             let mut index = 1;
 
             for c in &repo.operations {
@@ -132,7 +132,7 @@ fn main() -> io::Result<()> {
         Commands::Tree { path: store } => {
             println!("Printing store {}", store);
 
-            let repo = Repository::read(&mut std::fs::File::open(store)?)?;
+            let repo = Journal::read(&mut std::fs::File::open(store)?)?;
             let document = Document::new(repo);
 
             print_tree(&document, NodeId::ROOT_NODE, 0, 0);

@@ -1,4 +1,4 @@
-use binc::repository::Repository;
+use binc::journal::Journal;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::{fs, io};
@@ -32,13 +32,13 @@ impl Store {
         let path = self.translate_path(&path);
 
         match OpenOptions::new().create_new(true).write(true).open(path) {
-            Ok(mut f) => Repository::new().write(&mut f),
+            Ok(mut f) => Journal::new().write(&mut f),
             Err(e) => Err(e),
         }
     }
 
     pub fn get_file_data(&self, from: u64, path: String) -> io::Result<(u64, u64, Vec<u8>)> {
-        let repo = Repository::read(&mut fs::File::open(self.translate_path(&path))?)?;
+        let repo = Journal::read(&mut fs::File::open(self.translate_path(&path))?)?;
         let to = repo.operations.len() as u64;
 
         if from > to {
@@ -76,7 +76,7 @@ impl Store {
         }
 
         let fs_path = self.translate_path(path);
-        let repo = Repository::read(&mut fs::File::open(fs_path.clone())?)?;
+        let repo = Journal::read(&mut fs::File::open(fs_path.clone())?)?;
         if repo.operations.len() as u64 != from {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,

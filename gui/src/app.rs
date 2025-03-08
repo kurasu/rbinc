@@ -2,10 +2,10 @@ use crate::importer::{Import, Importer, IMPORTERS};
 use crate::persistent_client::PersistentClient;
 use binc::changes::Changes;
 use binc::document::Document;
+use binc::journal::Journal;
 use binc::node_id::NodeId;
 use binc::node_store::Node;
 use binc::operation::Operation;
-use binc::repository::Repository;
 use eframe::egui;
 use eframe::egui::{Id, Modal, Sense, Ui, Widget};
 use std::collections::HashSet;
@@ -645,7 +645,7 @@ pub fn save_document(
 }
 
 pub fn new_document() -> Document {
-    let mut document = Document::new(Repository::new());
+    let mut document = Document::new(Journal::new());
     let id = document.next_id();
     let mut changes = Changes::new();
     changes

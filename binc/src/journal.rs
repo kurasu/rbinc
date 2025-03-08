@@ -5,24 +5,24 @@ use io::Write;
 use std::io;
 use std::io::Read;
 
-pub struct Repository {
+pub struct Journal {
     pub operations: Vec<Operation>,
 }
 
-impl From<Changes> for Repository {
-    fn from(changes: Changes) -> Repository {
+impl From<Changes> for Journal {
+    fn from(changes: Changes) -> Journal {
         let mut r = Self::new();
         r.operations = changes.operations;
         r
     }
 }
 
-impl Repository {
+impl Journal {
     pub const CONTAINER_ID: u32 = u32::from_be_bytes(*b"binc");
     pub const CONTAINER_VERSION: u32 = 1;
 
-    pub fn new() -> Repository {
-        Repository {
+    pub fn new() -> Journal {
+        Journal {
             operations: Vec::new(),
         }
     }
@@ -38,8 +38,8 @@ impl Repository {
     }
 
     pub fn write<T: Write>(&self, w: &mut T) -> io::Result<()> {
-        w.write_u32(Repository::CONTAINER_ID)?;
-        w.write_u32(Repository::CONTAINER_VERSION)?;
+        w.write_u32(Journal::CONTAINER_ID)?;
+        w.write_u32(Journal::CONTAINER_VERSION)?;
 
         for change in &self.operations {
             change.write(w)?
@@ -47,14 +47,14 @@ impl Repository {
         Ok(())
     }
 
-    pub fn read<T: Read>(r: &mut T) -> io::Result<Repository> {
-        let mut repo = Repository::new();
+    pub fn read<T: Read>(r: &mut T) -> io::Result<Journal> {
+        let mut repo = Journal::new();
         let container_id = r.read_u32()?;
         let container_version = r.read_u32()?;
 
-        if container_id != Repository::CONTAINER_ID {
+        if container_id != Journal::CONTAINER_ID {
             return Err(io::Error::from(io::ErrorKind::InvalidData));
-        } else if container_version != Repository::CONTAINER_VERSION {
+        } else if container_version != Journal::CONTAINER_VERSION {
             return Err(io::Error::from(io::ErrorKind::InvalidData));
         }
 
