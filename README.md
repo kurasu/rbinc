@@ -1,4 +1,3 @@
-=======
 # binc-rs
 
 Rust implementation of the [binc file format](https://github.com/kurasu/binc).
