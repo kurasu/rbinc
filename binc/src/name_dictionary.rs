@@ -1,6 +1,20 @@
+use std::cmp::max;
+
 #[derive(Default)]
 pub struct NameDictionary {
     names: Vec<Option<String>>,
+}
+
+impl NameDictionary {
+    pub(crate) fn get_or_create_index(&self, name: &str) -> (usize, bool) {
+        match self.get_index(name) {
+            Some(index) => (index, true),
+            None => {
+                let next_id = max(self.names.len(), 1);
+                (next_id, false)
+            }
+        }
+    }
 }
 
 impl NameDictionary {

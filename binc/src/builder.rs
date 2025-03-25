@@ -4,8 +4,8 @@ use crate::node_id::NodeId;
 use crate::operation::Operation;
 
 pub trait NodeBuilder {
-    fn add_node(&mut self, parent: NodeId) -> NodeId;
-    fn insert_node(&mut self, parent: NodeId, index: usize) -> NodeId;
+    fn add_node(&mut self, type_name: &str, parent: NodeId) -> NodeId;
+    fn insert_node(&mut self, type_name: &str, parent: NodeId, index: usize) -> NodeId;
 
     fn set_node_name(&mut self, node_id: NodeId, name: &str);
     fn set_node_type(&mut self, node_id: NodeId, type_name: &str);
@@ -14,7 +14,7 @@ pub trait NodeBuilder {
 }
 
 impl NodeBuilder for Document {
-    fn add_node(&mut self, parent: NodeId) -> NodeId {
+    fn add_node(&mut self, type_name: &str, parent: NodeId) -> NodeId {
         let id = self.node_id_generator.next_id();
         let index_in_parent = self
             .nodes
@@ -22,18 +22,34 @@ impl NodeBuilder for Document {
             .expect("Parent must exist")
             .children
             .len();
+        let (node_type, exists) = self.nodes.type_names.get_or_create_index(type_name);
+        if !exists {
+            self.add_and_apply(Operation::DefineTypeName {
+                id: node_type,
+                name: type_name.to_string(),
+            });
+        }
         self.add_and_apply(Operation::AddNode {
             id,
+            node_type,
             parent,
             index_in_parent,
         });
         id
     }
 
-    fn insert_node(&mut self, parent: NodeId, index: usize) -> NodeId {
+    fn insert_node(&mut self, type_name: &str, parent: NodeId, index: usize) -> NodeId {
         let id = self.node_id_generator.next_id();
+        let (node_type, exists) = self.nodes.type_names.get_or_create_index(type_name);
+        if !exists {
+            self.add_and_apply(Operation::DefineTypeName {
+                id: node_type,
+                name: type_name.to_string(),
+            });
+        }
         self.add_and_apply(Operation::AddNode {
             id,
+            node_type,
             parent,
             index_in_parent: index,
         });
@@ -116,10 +132,10 @@ mod tests {
     #[test]
     fn test_add_child() {
         let mut document = Document::default();
-        let a = document.add_node(NodeId::ROOT_NODE);
+        let a = document.add_node("test", NodeId::ROOT_NODE);
         document.set_node_name(a, "hey");
-        let b = document.add_node(NodeId::ROOT_NODE);
-        document.set_node_name(b, "hey");
+        let b = document.add_node("test", NodeId::ROOT_NODE);
+        document.set_node_name(b, "hey2");
         document.set_node_attribute_s(b, "speed", "high");
         assert_eq!(document.find_roots().len(), 2)
     }
