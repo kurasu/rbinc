@@ -21,6 +21,7 @@ impl Changes {
     pub fn add_node(&mut self, id: NodeId, parent: NodeId, index_in_parent: usize) -> &mut Self {
         self.operations.push(Operation::AddNode {
             id,
+            node_type: 0,
             parent,
             index_in_parent,
         });

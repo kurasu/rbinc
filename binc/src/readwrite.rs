@@ -110,7 +110,7 @@ pub trait WriteExt: Write {
     }
 
     fn write_varint(&mut self, value: u64) -> io::Result<()> {
-        const T1: u64 = 219;
+        const T1: u64 = 204;
         const T2: u64 = 32 * 256 + T1;
 
         if value <= T1 {
@@ -118,8 +118,8 @@ pub trait WriteExt: Write {
         } else if value < T2 {
             self.write_u8((((value - T1) >> 8) + T1 + 1) as u8)?;
             self.write_u8(((value - T1) & 0xFF) as u8)?
-        } else if value < (65536 + T2) {
-            self.write_u8(252)?;
+        } else if value < (16 * 65536 + T2) {
+            self.write_u8((237 + ((value - T2) >> 16)) as u8)?;
             self.write_u16((value - T2) as u16)?
         } else if value < 16777216 {
             self.write_u8(253)?;
@@ -367,23 +367,23 @@ pub trait ReadExt: Read {
     }
 
     fn read_varint(&mut self) -> io::Result<u64> {
-        const T1: u8 = 219;
+        const T1: u8 = 204;
         const T11: u8 = T1 + 1;
         const T2: u64 = 32 * 256 + T1 as u64;
 
-        assert_eq!(8411, T2);
+        assert_eq!(8396, T2);
 
         let a0 = self.read_u8()?;
 
         match a0 {
             0..=T1 => Ok(a0 as u64),
-            T11..=251 => {
+            205..=236 => {
                 let a1 = self.read_u8()?;
                 Ok((((a0 as u64 - T11 as u64) << 8) | a1 as u64) + T1 as u64)
             }
-            252 => {
+            237..253 => {
                 let a1 = self.read_u16()?;
-                Ok(a1 as u64 + T2)
+                Ok(a1 as u64 + T2 + ((a0 as u64 - 237) << 16))
             }
             253 => {
                 let a1 = self.read_u8()?;
@@ -745,12 +745,12 @@ mod tests {
     fn test_varint_size() {
         let values = [
             (0u64, 1),
-            (219, 1),
-            (220, 2),
-            (8410, 2),
-            (8411, 3),
-            (65536 + 8410, 3),
-            (65536 + 8411, 4),
+            (204, 1),
+            (205, 2),
+            (8395, 2),
+            (8396, 3),
+            (1056971, 3),
+            (1056972, 4),
             (16777215, 4),
             (16777216, 5),
             (u32::MAX as u64, 5),

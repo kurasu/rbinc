@@ -74,6 +74,7 @@ pub enum Operation {
     /// Add a new node to the document tree with a given parent and index
     AddNode {
         id: NodeId,
+        node_type: usize,
         parent: NodeId,
         index_in_parent: usize,
     },
@@ -143,10 +144,11 @@ impl Operation {
         match self {
             Operation::AddNode {
                 id,
+                node_type,
                 parent,
                 index_in_parent,
             } => {
-                nodes.add(*id, *parent, *index_in_parent as usize);
+                nodes.add(*id, *node_type, *parent, *index_in_parent as usize);
             }
             Operation::RemoveNode { id } => {
                 nodes.delete_recursive(*id);
@@ -224,10 +226,12 @@ impl Operation {
         match operation {
             OperationIds::ADD_NODE => {
                 let id = r.read_id()?;
+                let node_type = r.read_length()?;
                 let parent = r.read_id()?;
                 let index_in_parent = r.read_length()?;
                 Ok(Operation::AddNode {
                     id,
+                    node_type,
                     parent,
                     index_in_parent,
                 })
@@ -456,10 +460,12 @@ impl Operation {
         match self {
             Operation::AddNode {
                 id,
+                node_type,
                 parent,
                 index_in_parent,
             } => {
                 w.write_id(id)?;
+                w.write_length(*node_type)?;
                 w.write_id(parent)?;
                 w.write_length(*index_in_parent)
             }
@@ -553,6 +559,7 @@ impl Operation {
         match self {
             Operation::AddNode {
                 id: _,
+                node_type: _,
                 parent: _,
                 index_in_parent: _,
             } => OperationIds::ADD_NODE,
@@ -660,9 +667,14 @@ impl Display for Operation {
         match self {
             Operation::AddNode {
                 id,
+                node_type,
                 parent,
                 index_in_parent,
-            } => write!(f, "AddNode({} in {}[{}])", id, parent, index_in_parent),
+            } => write!(
+                f,
+                "AddNode({}[{}] in {}[{}])",
+                id, node_type, parent, index_in_parent
+            ),
             Operation::MoveNode {
                 id,
                 new_parent,

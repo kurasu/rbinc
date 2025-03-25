@@ -46,11 +46,9 @@ impl NotesApp {
 
     fn new() -> Self {
         let mut d = Document::default();
-        let l1 = d.add_node(NodeId::ROOT_NODE);
-        d.set_node_type(l1, "list");
+        let l1 = d.add_node("list", NodeId::ROOT_NODE);
         d.set_node_name(l1, "My List");
-        let t1 = d.add_node(l1);
-        d.set_node_type(t1, "task");
+        let t1 = d.add_node("task", l1);
         d.set_node_name(t1, "start");
 
         let mut app = Self {

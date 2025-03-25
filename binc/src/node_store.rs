@@ -39,7 +39,23 @@ impl FlatNodeStore {
         self.nodes.get(id.index()).is_some()
     }
 
-    pub(crate) fn add(&mut self, id: NodeId, parent: NodeId, index_in_parent: usize) {
+    pub(crate) fn add(
+        &mut self,
+        id: NodeId,
+        type_id: usize,
+        parent: NodeId,
+        index_in_parent: usize,
+    ) {
+        self.add_with_type(id, type_id, parent, index_in_parent);
+    }
+
+    pub(crate) fn add_with_type(
+        &mut self,
+        id: NodeId,
+        node_type: usize,
+        parent: NodeId,
+        index_in_parent: usize,
+    ) {
         let i = id.index();
         let p = parent.index();
 
@@ -47,7 +63,7 @@ impl FlatNodeStore {
             self.nodes.resize_with(i + 1, || Node::default());
         }
 
-        self.nodes[i] = Node::new_with_id(id, parent);
+        self.nodes[i] = Node::new_with_id(id, node_type, parent);
         self.nodes[p].children.insert(index_in_parent, id.clone());
     }
 
@@ -68,7 +84,11 @@ impl FlatNodeStore {
         let p1 = self.nodes[i].parent.index();
         let p2 = new_parent.index();
 
-        let old_index = self.nodes[p1].children.iter().position(|x| *x == id).unwrap();
+        let old_index = self.nodes[p1]
+            .children
+            .iter()
+            .position(|x| *x == id)
+            .unwrap();
         self.nodes[p1].children.remove(old_index);
 
         let insert_index = if p1 == p2 && index_in_new_parent > old_index {
@@ -134,12 +154,12 @@ impl Default for Node {
 }
 
 impl Node {
-    pub fn new_with_id(id: NodeId, parent: NodeId) -> Node {
+    pub fn new_with_id(id: NodeId, type_id: usize, parent: NodeId) -> Node {
         Node {
             id,
             parent,
             name: None,
-            type_id: None,
+            type_id: Some(type_id),
             children: vec![],
             attributes: AttributeStore::default(),
             comments: Comments::default(),
@@ -234,7 +254,7 @@ mod tests {
     fn test_insert_and_get_node() {
         let mut store = FlatNodeStore::new();
         let node_id = NodeId::new(1);
-        store.add(node_id, NodeId::ROOT_NODE, 0);
+        store.add(node_id, 0, NodeId::ROOT_NODE, 0);
         assert!(store.get(node_id).is_some());
         assert!(store.get(node_id).expect("Node not found").parent == NodeId::ROOT_NODE);
         assert!(store.get(node_id).expect("Node not found").id == node_id);
@@ -242,7 +262,7 @@ mod tests {
 
     #[test]
     fn test_set_and_get_attribute() {
-        let mut node = Node::new_with_id(NodeId::new(1), NodeId::ROOT_NODE);
+        let mut node = Node::new_with_id(NodeId::new(1), 0, NodeId::ROOT_NODE);
         let key = 1;
         node.set_string_attribute(key, &"value".to_string());
         assert_eq!(node.get_string_attribute(key), Some("value"));
@@ -251,12 +271,12 @@ mod tests {
     #[test]
     fn test_find_roots() {
         let mut store = FlatNodeStore::new();
-        let root_node = Node::new_with_id(NodeId::new(1), NodeId::ROOT_NODE);
+        let root_node = Node::new_with_id(NodeId::new(1), 0, NodeId::ROOT_NODE);
         store.nodes.push(root_node);
         let roots = store.find_roots();
         assert_eq!(roots.len(), 0);
         let node_id = NodeId::new(1);
-        store.add(node_id, NodeId::ROOT_NODE, 0);
+        store.add(node_id, 0, NodeId::ROOT_NODE, 0);
         let roots = store.find_roots();
         assert_eq!(roots.len(), 1);
         assert!(roots[0] == node_id);
@@ -267,8 +287,8 @@ mod tests {
         let mut store = FlatNodeStore::new();
         let id1 = NodeId::new(1);
         let id2 = NodeId::new(2);
-        store.add(id1, NodeId::ROOT_NODE, 0);
-        store.add(id2, id1, 0);
+        store.add(id1, 0, NodeId::ROOT_NODE, 0);
+        store.add(id2, 0, id1, 0);
         assert_eq!(store.get(id1).unwrap().parent, NodeId::ROOT_NODE);
         assert_eq!(store.get(id2).unwrap().parent, id1);
         store.delete_recursive(id2);
@@ -281,8 +301,8 @@ mod tests {
         let mut store = FlatNodeStore::new();
         let id1 = NodeId::new(1);
         let id2 = NodeId::new(2);
-        store.add(id1, NodeId::ROOT_NODE, 0);
-        store.add(id2, id1, 0);
+        store.add(id1, 0, NodeId::ROOT_NODE, 0);
+        store.add(id2, 0, id1, 0);
         store.delete_recursive(id1);
         assert_eq!(store.nodes.len(), 3);
         assert_eq!(store.find_roots().len(), 0)
@@ -294,9 +314,9 @@ mod tests {
         let id1 = NodeId::new(1);
         let id2 = NodeId::new(2);
         let id3 = NodeId::new(3);
-        store.add(id1, NodeId::ROOT_NODE, 0);
-        store.add(id2, NodeId::ROOT_NODE, 1);
-        store.add(id3, NodeId::ROOT_NODE, 2);
+        store.add(id1, 0, NodeId::ROOT_NODE, 0);
+        store.add(id2, 0, NodeId::ROOT_NODE, 1);
+        store.add(id3, 0, NodeId::ROOT_NODE, 2);
         store.move_node(id1, NodeId::ROOT_NODE, 3);
     }
 }

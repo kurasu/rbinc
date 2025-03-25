@@ -221,6 +221,7 @@ impl Application {
 
         let c1 = Operation::AddNode {
             id: child_id,
+            node_type: 0,
             parent: parent_id.clone(),
             index_in_parent: insertion_index,
         };
