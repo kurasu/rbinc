@@ -4,14 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-chrono = "0.4.39"
-blake3 = "1.5.5"
-varuint = "0.6"
+chrono = "0.4.42"
+blake3 = "1.8.2"
+varuint = "0.7.1"
 
-[dependencies.uuid]
-version = "1.4.1"
-features = [
-    "v4", # Lets you generate random UUIDs
-    "fast-rng", # Use a faster (but still sufficiently random) RNG
-    "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
-]
+# UUID for non-WebAssembly targets (native/server)
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+uuid = { version = "1.18.1", features = ["v4", "fast-rng", "macro-diagnostics"] }
+
+# UUID for WebAssembly targets (web client)
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+uuid = { version = "1.18.1", features = ["v4", "js"] }
