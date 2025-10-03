@@ -20,6 +20,31 @@ pub enum AttributeValue {
 type I24 = [u8; 3];
 type U24 = [u8; 3];
 
+pub trait U24Ext {
+    fn to_u32(&self) -> u32;
+}
+
+impl U24Ext for U24 {
+    fn to_u32(&self) -> u32 {
+        ((self[0] as u32) << 16) | ((self[1] as u32) << 8) | (self[2] as u32)
+    }
+}
+
+pub trait I24Ext {
+    fn to_i32(&self) -> i32;
+}
+
+impl I24Ext for I24 {
+    fn to_i32(&self) -> i32 {
+        let raw = ((self[0] as u32) << 16) | ((self[1] as u32) << 8) | (self[2] as u32);
+        if self[0] & 0x80 != 0 {
+            (raw as i32) | (!0xFFFFFF)
+        } else {
+            raw as i32
+        }
+    }
+}
+
 impl AttributeValue {
     pub(crate) fn too_long_for_display(&self) -> bool {
         match self {
@@ -37,12 +62,12 @@ impl std::fmt::Display for AttributeValue {
             AttributeValue::Uuid(u) => write!(f, "{}", u),
             AttributeValue::U8(u) => write!(f, "{}", u),
             AttributeValue::U16(u) => write!(f, "{}", u),
-            AttributeValue::U24(u) => write!(f, "U24"),
+            AttributeValue::U24(u) => write!(f, "{}", u.to_u32()),
             AttributeValue::U32(u) => write!(f, "{}", u),
             AttributeValue::U64(u) => write!(f, "{}", u),
             AttributeValue::I8(u) => write!(f, "{}", u),
             AttributeValue::I16(u) => write!(f, "{}", u),
-            AttributeValue::I24(u) => write!(f, "I24"),
+            AttributeValue::I24(u) => write!(f, "{}", u.to_i32()),
             AttributeValue::I32(u) => write!(f, "{}", u),
             AttributeValue::I64(u) => write!(f, "{}", u),
             AttributeValue::F32(u) => write!(f, "{}", u),
@@ -108,7 +133,7 @@ impl AttributeStore {
             .map(|x| &mut x.value)
     }
 
-    pub fn iter(&self) -> std::slice::Iter<AttributeEntry> {
+    pub fn iter(&self) -> std::slice::Iter<'_, AttributeEntry> {
         self.attributes.iter()
     }
 

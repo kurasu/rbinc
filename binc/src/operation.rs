@@ -613,10 +613,7 @@ impl Operation {
                 author: _,
                 response_to: _,
             } => OperationIds::ADD_COMMENT,
-            Operation::UnknownOperation {
-                operation: operation,
-                data: _,
-            } => *operation,
+            Operation::UnknownOperation { operation, data: _ } => *operation,
         }
     }
 

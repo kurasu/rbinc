@@ -399,7 +399,6 @@ pub trait ReadExt: Read {
                 let a1 = self.read_u64()?;
                 Ok(a1)
             }
-            _ => Err(Error::new(ErrorKind::InvalidData, "Invalid value")),
         }
     }
 
@@ -436,7 +435,6 @@ pub trait ReadExt: Read {
                 let a1 = self.read_u64()? ^ 0xFFFFFFFFFFFFFFFF;
                 Ok(a1)
             }
-            _ => Err(Error::new(ErrorKind::InvalidData, "Invalid value")),
         }
     }
 
