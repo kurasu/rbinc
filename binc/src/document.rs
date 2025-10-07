@@ -44,11 +44,12 @@ impl Document {
 
     pub fn new(journal: Journal) -> Document {
         let nodes = compute_nodes(&journal, None);
+        let next_id = nodes.len();
         Document {
             journal,
             nodes,
             undo_revision: None,
-            node_id_generator: NodeIdGenerator::new(),
+            node_id_generator: NodeIdGenerator::new_with_id(next_id),
         }
     }
 
