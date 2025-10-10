@@ -88,6 +88,11 @@ impl Document {
                 .truncate(self.undo_revision.unwrap() as usize);
             self.undo_revision = None;
         }
+
+        if operation.can_replace_last(self.journal.operations.last()) {
+            self.journal.operations.pop();
+        }
+
         operation.apply(&mut self.nodes);
         self.journal.add_operation(operation);
 

@@ -617,45 +617,77 @@ impl Operation {
         }
     }
 
-    pub fn combine_operations(&self, previous_operation: &Operation) -> Option<Operation> {
-        if let Operation::SetAttribute {
-            node,
-            attribute,
-            value,
-        } = self
-        {
-            if let Operation::SetAttribute {
-                node: node2,
-                attribute: attribute2,
-                value: _value2,
-            } = previous_operation
-            {
-                if node == node2 && attribute == attribute2 {
-                    return Some(Operation::SetAttribute {
-                        node: *node,
-                        attribute: *attribute,
-                        value: value.clone(),
-                    });
-                }
-            }
-        }
+    pub fn can_replace_last(&self, previous_operation: Option<&Operation>) -> bool {
+        if let Some(prev) = previous_operation {
+            match (self, prev) {
+                (
+                    Operation::SetName { node: node1, .. },
+                    Operation::SetName { node: node2, .. },
+                ) => node1 == node2,
 
-        if let Operation::SetName { node, name: label } = self {
-            if let Operation::SetName {
-                node: node2,
-                name: _label2,
-            } = previous_operation
-            {
-                if node == node2 {
-                    return Some(Operation::SetName {
-                        node: node.clone(),
-                        name: label.clone(),
-                    });
+                // MoveNode: last move wins for the same node
+                (Operation::MoveNode { id: id1, .. }, Operation::MoveNode { id: id2, .. }) => {
+                    id1 == id2
                 }
-            }
-        }
 
-        None
+                // SetType: last type wins for the same node
+                (
+                    Operation::SetType { node: node1, .. },
+                    Operation::SetType { node: node2, .. },
+                ) => node1 == node2,
+
+                // DefineTypeName: last name wins for the same type id
+                (
+                    Operation::DefineTypeName { id: id1, .. },
+                    Operation::DefineTypeName { id: id2, .. },
+                ) => id1 == id2,
+
+                // DefineAttributeName: last name wins for the same attribute id
+                (
+                    Operation::DefineAttributeName { id: id1, .. },
+                    Operation::DefineAttributeName { id: id2, .. },
+                ) => id1 == id2,
+
+                // SetBool: last value wins for the same node/attribute
+                (
+                    Operation::SetAttribute {
+                        node: node1,
+                        attribute: attr1,
+                        value: AttributeValue::Bool(_),
+                        ..
+                    },
+                    Operation::SetAttribute {
+                        node: node2,
+                        attribute: attr2,
+                        value: AttributeValue::Bool(_),
+                        ..
+                    },
+                ) => node1 == node2 && attr1 == attr2,
+
+                // SetAttribute: last value wins for the same node/attribute
+                (
+                    Operation::SetAttribute {
+                        node: node1,
+                        attribute: attr1,
+                        ..
+                    },
+                    Operation::SetAttribute {
+                        node: node2,
+                        attribute: attr2,
+                        ..
+                    },
+                ) => node1 == node2 && attr1 == attr2,
+
+                // DefineTagName: last name wins for the same tag id
+                (
+                    Operation::DefineTagName { id: id1, .. },
+                    Operation::DefineTagName { id: id2, .. },
+                ) => id1 == id2,
+                _ => false,
+            }
+        } else {
+            false
+        }
     }
 }
 
