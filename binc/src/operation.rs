@@ -669,7 +669,7 @@ impl Display for Operation {
                 index_in_parent,
             } => write!(
                 f,
-                "AddNode({}[{}] in {}[{}])",
+                "AddNode({} type {} in {}[{}])",
                 id, node_type, parent, index_in_parent
             ),
             Operation::MoveNode {
@@ -683,16 +683,18 @@ impl Display for Operation {
             ),
             Operation::RemoveNode { id } => write!(f, "RemoveNode({})", id),
             Operation::Snapshot { author, message } => {
-                write!(f, "Snapshot by {} ({})", author, message)
+                write!(f, "Snapshot by '{}': '{}'", author, message)
             }
             Operation::Checksum { data } => write!(f, "Checksum({} bytes)", data.len()),
             Operation::SetType { node, type_id } => write!(f, "SetType({}, {})", node, type_id),
-            Operation::SetName { node, name: label } => write!(f, "SetLabel({}, {})", node, label),
-            Operation::DefineTypeName { id, name } => write!(f, "SetTypeName({}, {})", id, name),
+            Operation::SetName { node, name: label } => {
+                write!(f, "SetLabel({}, '{}')", node, label)
+            }
+            Operation::DefineTypeName { id, name } => write!(f, "SetTypeName({}, '{}')", id, name),
             Operation::DefineAttributeName { id, name } => {
                 write!(f, "SetAttributeName({}, {})", id, name)
             }
-            Operation::DefineTagName { id, name } => write!(f, "SetTagName({}, {})", id, name),
+            Operation::DefineTagName { id, name } => write!(f, "SetTagName({}, '{}')", id, name),
             Operation::SetTag { node, tag } => write!(f, "SetTag({}, {})", node, tag),
             Operation::RemoveTag { node, tag } => write!(f, "RemoveTag({}, {})", node, tag),
             Operation::SetAttribute {
@@ -733,7 +735,7 @@ impl Display for Operation {
                 response_to,
             } => write!(
                 f,
-                "AddComment({}, {} by {} in response to {})",
+                "AddComment({}, '{}' by '{}' in response to {})",
                 node, comment, author, response_to
             ),
         }

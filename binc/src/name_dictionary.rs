@@ -2,7 +2,7 @@ use std::cmp::max;
 
 #[derive(Default)]
 pub struct NameDictionary {
-    names: Vec<Option<String>>,
+    pub names: Vec<Option<String>>,
 }
 
 impl NameDictionary {
