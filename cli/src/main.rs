@@ -39,6 +39,9 @@ enum Commands {
 
     /// Serve the contents of the directory over HTTP
     Serve { path: String, port: u16 },
+
+    /// Serve the contents of the directory over Websocket
+    WsServe { path: String, port: u16 },
 }
 
 fn main() -> io::Result<()> {
@@ -142,6 +145,11 @@ fn main() -> io::Result<()> {
         Commands::Serve { path: store, port } => {
             println!("Serving store {} on port {}", store, port);
             server::server(store, port);
+            Ok(())
+        }
+        Commands::WsServe { path: store, port } => {
+            println!("Serving store {} on port {} using Websocket", store, port);
+            server::ws_server(store, port);
             Ok(())
         }
     }

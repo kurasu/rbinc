@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 binc = { path = "../binc" }
 clap = { version = "4.5.28", features = ["derive"] }
+tungstenite = "0.24"
